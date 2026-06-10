@@ -1,0 +1,997 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { 
+  Settings, Play, CheckCircle2, XCircle, ArrowRight, BookOpen, 
+  Timer, RotateCcw, AlertCircle, Trophy, Keyboard, ListTodo, 
+  Pause, SlidersHorizontal, Layers, FolderHeart, ShieldAlert, Trash2, Award, Medal,
+  Heart, Swords, Skull, Flame, Home, Puzzle, Plus, Edit3
+} from 'lucide-react';
+
+// ==========================================
+// 1. 綜合字彙資料庫 
+// ==========================================
+const VERB_DB = [
+  // --- 第一類動詞 (五段) ---
+  { group: 1, type: 'verb', masu: '行[い]きます', jisho: '行[い]く', te: '行[い]って', ta: '行[い]った', nai: '行[い]かない', nakatta: '行[い]かなかった', meaning: '去', difficulty: 'n5' },
+  { group: 1, type: 'verb', masu: '買[か]います', jisho: '買[か]う', te: '買[か]って', ta: '買[か]った', nai: '買[か]わない', nakatta: '買[か]わなかった', meaning: '買', difficulty: 'n5' },
+  { group: 1, type: 'verb', masu: '待[ま]ちます', jisho: '待[ま]つ', te: '待[ま]って', ta: '待[ま]った', nai: '待[ま]たない', nakatta: '待[ま]たなかった', meaning: '等待', difficulty: 'n5' },
+  { group: 1, type: 'verb', masu: '帰[かえ]ります', jisho: '帰[かえ]る', te: '帰[かえ]って', ta: '帰[かえ]った', nai: '帰[かえ]らない', nakatta: '帰[かえ]らなかった', meaning: '回家', difficulty: 'n5' },
+  { group: 1, type: 'verb', masu: '飲[の]みます', jisho: '飲[の]む', te: '飲[の]んで', ta: '飲[の]んだ', nai: '飲[の]まない', nakatta: '飲[の]まなかった', meaning: '喝', difficulty: 'n5' },
+  { group: 1, type: 'verb', masu: '遊[あそ]びます', jisho: '遊[あそ]ぶ', te: '遊[あそ]んで', ta: '遊[あそ]んだ', nai: '遊[あそ]ばない', nakatta: '遊[あそ]ばなかった', meaning: '玩', difficulty: 'n5' },
+  { group: 1, type: 'verb', masu: '泳[およ]ぎます', jisho: '泳[およ]ぐ', te: '泳[およ]いで', ta: '泳[およ]いだ', nai: '泳[およ]がない', nakatta: '泳[およ]がなかった', meaning: '游泳', difficulty: 'n5' },
+  { group: 1, type: 'verb', masu: '話[はな]します', jisho: '話[はな]す', te: '話[はな]して', ta: '話[はな]した', nai: '話[はな]さない', nakatta: '話[はな]さなかった', meaning: '說', difficulty: 'n5' },
+  { group: 1, type: 'verb', masu: '書[か]きます', jisho: '書[か]く', te: '書[か]いて', ta: '書[か]いた', nai: '書[か]かない', nakatta: '書[か]かなかった', meaning: '寫', difficulty: 'n5' },
+  { group: 1, type: 'verb', masu: '聞[き]きます', jisho: '聞[き]く', te: '聞[き]いて', ta: '聞[き]いた', nai: '聞[き]かない', nakatta: '聞[き]かなかった', meaning: '聽/問', difficulty: 'n5' },
+  { group: 1, type: 'verb', masu: '会[あ]います', jisho: '会[あ]う', te: '会[あ]って', ta: '会[あ]った', nai: '会[あ]わない', nakatta: '会[あ]わなかった', meaning: '見面', difficulty: 'n5' },
+  { group: 1, type: 'verb', masu: '終[お]わります', jisho: '終[お]わる', te: '終[お]わって', ta: '終[お]わった', nai: '終[お]わらない', nakatta: '終[お]わらなかった', meaning: '結束', difficulty: 'n5' },
+  { group: 1, type: 'verb', masu: '洗[あら]います', jisho: '洗[あら]う', te: '洗[あら]って', ta: '洗[あら]った', nai: '洗[あら]わない', nakatta: '洗[あら]わなかった', meaning: '洗', difficulty: 'n5' },
+  { group: 1, type: 'verb', masu: '貸[か]します', jisho: '貸[か]す', te: '貸[か]して', ta: '貸[か]した', nai: '貸[か]さない', nakatta: '貸[か]さなかった', meaning: '借出', difficulty: 'n4' },
+  { group: 1, type: 'verb', masu: '脱[ぬ]ぎます', jisho: '脱[ぬ]ぐ', te: '脱[ぬ]いで', ta: '脱[ぬ]いだ', nai: '脱[ぬ]がない', nakatta: '脱[ぬ]がなかった', meaning: '脫', difficulty: 'n4' },
+  { group: 1, type: 'verb', masu: '履[は]きます', jisho: '履[は]く', te: '履[は]いて', ta: '履[は]いた', nai: '履[は]かない', nakatta: '履[は]かなかった', meaning: '穿(下半身)', difficulty: 'n4' },
+  { group: 1, type: 'verb', masu: '歌[うた]います', jisho: '歌[うた]う', te: '歌[うた]って', ta: '歌[うた]った', nai: '歌[うた]わない', nakatta: '歌[うた]わなかった', meaning: '唱歌', difficulty: 'n5' },
+  { group: 1, type: 'verb', masu: '働[はたら]きます', jisho: '働[はたら]く', te: '働[はたら]いて', ta: '働[はたら]いた', nai: '働[はたら]かない', nakatta: '働[はたら]かなかった', meaning: '工作', difficulty: 'n4' },
+  { group: 1, type: 'verb', masu: '休[やす]みます', jisho: '休[やす]む', te: '休[やす]んで', ta: '休[やす]んだ', nai: '休[やす]まない', nakatta: '休[やす]まなかった', meaning: '休息', difficulty: 'n5' },
+  { group: 1, type: 'verb', masu: '急[いそ]ぎます', jisho: '急[いそ]ぐ', te: '急[いそ]いで', ta: '急[いそ]いだ', nai: '急[いそ]がない', nakatta: '急[いそ]がなかった', meaning: '急忙', difficulty: 'n4' },
+  { group: 1, type: 'verb', masu: '読[よ]みます', jisho: '読[よ]む', te: '読[よ]んで', ta: '読[よ]んだ', nai: '読[よ]まない', nakatta: '読[よ]まなかった', meaning: '讀', difficulty: 'n5' },
+  { group: 1, type: 'verb', masu: '作[つく]ります', jisho: '作[つく]る', te: '作[つく]って', ta: '作[つく]った', nai: '作[つく]らない', nakatta: '作[つく]らなかった', meaning: '製作', difficulty: 'n5' },
+  { group: 1, type: 'verb', masu: '乗[の]ります', jisho: '乗[の]る', te: '乗[の]って', ta: '乗[の]った', nai: '乗[の]らない', nakatta: '乗[の]らなかった', meaning: '搭乘', difficulty: 'n5' },
+  { group: 1, type: 'verb', masu: '走[はし]ります', jisho: '走[はし]る', te: '走[はし]って', ta: '走[はし]った', nai: '走[はし]らない', nakatta: '走[はし]らなかった', meaning: '跑', difficulty: 'n4' },
+  { group: 1, type: 'verb', masu: '分[わ]かります', jisho: '分[わ]かる', te: '分[わ]かって', ta: '分[わ]かった', nai: '分[わ]からない', nakatta: '分[わ]からなかった', meaning: '懂/明白', difficulty: 'n5' },
+  { group: 1, type: 'verb', masu: '入[はい]ります', jisho: '入[はい]る', te: '入[はい]って', ta: '入[はい]った', nai: '入[はい]らない', nakatta: '入[はい]らなかった', meaning: '進入', difficulty: 'n5' },
+  { group: 1, type: 'verb', masu: '呼[よ]びます', jisho: '呼[よ]ぶ', te: '呼[よ]んで', ta: '呼[よ]んだ', nai: '呼[よ]ばない', nakatta: '呼[よ]ばなかった', meaning: '呼叫', difficulty: 'n5' },
+  { group: 1, type: 'verb', masu: '飛[と]びます', jisho: '飛[と]ぶ', te: '飛[と]んで', ta: '飛[と]んだ', nai: '飛[と]ばない', nakatta: '飛[と]ばなかった', meaning: '飛', difficulty: 'n5' },
+  { group: 1, type: 'verb', masu: '歩[ある]きます', jisho: '歩[ある]く', te: '歩[ある]いて', ta: '歩[ある]いた', nai: '歩[ある]かない', nakatta: '歩[ある]かなかった', meaning: '走路', difficulty: 'n5' },
+  { group: 1, type: 'verb', masu: '泣[な]きます', jisho: '泣[な]く', te: '泣[な]いて', ta: '泣[な]いた', nai: '泣[な]かない', nakatta: '泣[な]かなかった', meaning: '哭', difficulty: 'n4' },
+  { group: 1, type: 'verb', masu: '消[け]します', jisho: '消[け]す', te: '消[け]して', ta: '消[け]した', nai: '消[け]さない', nakatta: '消[け]さなかった', meaning: '關掉/消除', difficulty: 'n5' },
+  { group: 1, type: 'verb', masu: '出[だ]します', jisho: '出[だ]す', te: '出[だ]して', ta: '出[だ]した', nai: '出[だ]さない', nakatta: '出[だ]さなかった', meaning: '拿出/提交', difficulty: 'n5' },
+  { group: 1, type: 'verb', masu: '払[はら]います', jisho: '払[はら]う', te: '払[はら]って', ta: '払[はら]った', nai: '払[はら]わない', nakatta: '払[はら]わなかった', meaning: '支付', difficulty: 'n4' },
+  { group: 1, type: 'verb', masu: '使[つか]います', jisho: '使[つか]う', te: '使[つか]って', ta: '使[つか]った', nai: '使[つか]わない', nakatta: '使[つか]わなかった', meaning: '使用', difficulty: 'n5' },
+  { group: 1, type: 'verb', masu: '手伝[てつだ]います', jisho: '手伝[てつだ]う', te: '手伝[てつだ]って', ta: '手伝[てつだ]った', nai: '手伝[てつだ]わない', nakatta: '手伝[てつだ]わなかった', meaning: '幫忙', difficulty: 'n4' },
+  { group: 1, type: 'verb', masu: '持[も]ちます', jisho: '持[も]つ', te: '持[も]って', ta: '持[も]った', nai: '持[も]たない', nakatta: '持[も]たなかった', meaning: '持有/拿', difficulty: 'n5' },
+  { group: 1, type: 'verb', masu: '立[た]ちます', jisho: '立[た]つ', te: '立[た]って', ta: '立[た]った', nai: '立[た]たない', nakatta: '立[た]たなかった', meaning: '站立', difficulty: 'n5' },
+  { group: 1, type: 'verb', masu: '売[う]ります', jisho: '売[う]る', te: '売[う]って', ta: '売[う]った', nai: '売[う]らない', nakatta: '売[う]らなかった', meaning: '賣', difficulty: 'n5' },
+
+  // --- 第二類動詞 (上一段/下一段) ---
+  { group: 2, type: 'verb', masu: '食[た]べます', jisho: '食[た]べる', te: '食[た]べて', ta: '食[た]べた', nai: '食[た]べない', nakatta: '食[た]べなかった', meaning: '吃', difficulty: 'n5' },
+  { group: 2, type: 'verb', masu: '見[み]ます', jisho: '見[み]る', te: '見[み]て', ta: '見[み]た', nai: '見[み]ない', nakatta: '見[み]なかった', meaning: '看', difficulty: 'n5' },
+  { group: 2, type: 'verb', masu: '起[お]きます', jisho: '起[お]きる', te: '起[お]きて', ta: '起[お]きた', nai: '起[お]きない', nakatta: '起[お]きなかった', meaning: '起床', difficulty: 'n5' },
+  { group: 2, type: 'verb', masu: '寝[ね]ます', jisho: '寝[ね]る', te: '寝[ね]て', ta: '寝[ね]た', nai: '寝[ね]ない', nakatta: '寝[ね]なかった', meaning: '睡覺', difficulty: 'n5' },
+  { group: 2, type: 'verb', masu: '忘[わす]れます', jisho: '忘[わす]れる', te: '忘[わす]れて', ta: '忘[わす]れた', nai: '忘[わす]れない', nakatta: '忘[わす]れなかった', meaning: '忘記', difficulty: 'n5' },
+  { group: 2, type: 'verb', masu: '借[か]ります', jisho: '借[か]りる', te: '借[か]りて', ta: '借[か]りた', nai: '借[か]りない', nakatta: '借[か]りなかった', meaning: '借入', difficulty: 'n4' },
+  { group: 2, type: 'verb', masu: '疲[つか]れます', jisho: '疲[つか]れる', te: '疲[つか]れて', ta: '疲[つか]れた', nai: '疲[つか]れない', nakatta: '疲[つか]れなかった', meaning: '疲累', difficulty: 'n4' },
+  { group: 2, type: 'verb', masu: '覚[おぼ]えます', jisho: '覚[おぼ]える', te: '覚[おぼ]えて', ta: '覚[おぼ]えた', nai: '覚[おぼ]えない', nakatta: '覚[おぼ]えなかった', meaning: '記住', difficulty: 'n4' },
+  { group: 2, type: 'verb', masu: '教[おし]えます', jisho: '教[おし]える', te: '教[おし]えて', ta: '教[おし]えた', nai: '教[おし]えない', nakatta: '教[おし]えなかった', meaning: '教導', difficulty: 'n4' },
+  { group: 2, type: 'verb', masu: '出[で]ます', jisho: '出[で]る', te: '出[で]て', ta: '出[で]た', nai: '出[で]ない', nakatta: '出[で]なかった', meaning: '出去', difficulty: 'n5' },
+  { group: 2, type: 'verb', masu: '勤[つと]めます', jisho: '勤[つと]める', te: '勤[つと]めて', ta: '勤[つと]めた', nai: '勤[つと]めない', nakatta: '勤[つと]めなかった', meaning: '任職', difficulty: 'n4' },
+  { group: 2, type: 'verb', masu: '開[あ]けます', jisho: '開[あ]ける', te: '開[あ]けて', ta: '開[あ]けた', nai: '開[あ]けない', nakatta: '開[あ]けなかった', meaning: '打開', difficulty: 'n5' },
+  { group: 2, type: 'verb', masu: '閉[し]めます', jisho: '閉[し]める', te: '閉[し]めて', ta: '閉[し]めた', nai: '閉[し]めない', nakatta: '閉[し]めなかった', meaning: '關閉', difficulty: 'n5' },
+  { group: 2, type: 'verb', masu: '始[はじ]めます', jisho: '始[はじ]める', te: '始[はじ]めて', ta: '始[はじ]めた', nai: '始[はじ]めない', nakatta: '始[はじ]めなかった', meaning: '開始', difficulty: 'n5' },
+  { group: 2, type: 'verb', masu: '集[あつ]めます', jisho: '集[あつ]める', te: '集[あつ]めて', ta: '集[あつ]めた', nai: '集[あつ]めない', nakatta: '集[あつ]めなかった', meaning: '收集', difficulty: 'n4' },
+  { group: 2, type: 'verb', masu: '見[み]せます', jisho: '見[み]せる', te: '見[み]せて', ta: '見[み]せた', nai: '見[み]せない', nakatta: '見[み]せなかった', meaning: '給...看', difficulty: 'n5' },
+  { group: 2, type: 'verb', masu: '降[お]ります', jisho: '降[お]りる', te: '降[お]りて', ta: '降[お]りた', nai: '降[お]りない', nakatta: '降[お]りなかった', meaning: '下車/降落', difficulty: 'n5' },
+  { group: 2, type: 'verb', masu: '浴[あ]びます', jisho: '浴[あ]びる', te: '浴[あ]びて', ta: '浴[あ]びた', nai: '浴[あ]びない', nakatta: '浴[あ]びなかった', meaning: '淋浴', difficulty: 'n5' },
+  { group: 2, type: 'verb', masu: '着[き]ます', jisho: '着[き]る', te: '着[き]て', ta: '着[き]た', nai: '着[き]ない', nakatta: '着[き]なかった', meaning: '穿(上半身)', difficulty: 'n5' },
+  { group: 2, type: 'verb', masu: '答[こた]えます', jisho: '答[こた]える', te: '答[こた]えて', ta: '答[こた]えた', nai: '答[こた]えない', nakatta: '答[こた]えなかった', meaning: '回答', difficulty: 'n5' },
+  { group: 2, type: 'verb', masu: '調[しら]べます', jisho: '調[しら]べる', te: '調[しら]べて', ta: '調[しら]べた', nai: '調[しら]べない', nakatta: '調[しら]べなかった', meaning: '調查', difficulty: 'n4' },
+
+  // --- 第三類動詞 (不規則) ---
+  { group: 3, type: 'verb', masu: 'します', jisho: 'する', te: 'して', ta: 'した', nai: 'しない', nakatta: 'しなかった', meaning: '做', difficulty: 'n5' },
+  { group: 3, type: 'verb', masu: '来[き]ます', jisho: '来[く]る', te: '来[き]て', ta: '来[き]た', nai: '来[こ]ない', nakatta: '来[こ]なかった', meaning: '來', difficulty: 'n5' },
+  { group: 3, type: 'verb', masu: '勉強[べんきょう]します', jisho: '勉強[べんきょう]する', te: '勉強[べんきょう]して', ta: '勉強[べんきょう]した', nai: '勉強[べんきょう]しない', nakatta: '勉強[べんきょう]しなかった', meaning: '讀書', difficulty: 'n5' },
+  { group: 3, type: 'verb', masu: '運転[うんてん]します', jisho: '運転[うんてん]する', te: '運転[うんてん]して', ta: '運転[うんてん]した', nai: '運転[うんてん]しない', nakatta: '運転[うんてん]しなかった', meaning: '駕駛', difficulty: 'n4' },
+  { group: 3, type: 'verb', masu: '買[か]い物[もの]します', jisho: '買[か]い物[もの]する', te: '買[か]い物[もの]して', ta: '買[か]い物[もの]した', nai: '買[か]い物[もの]しない', nakatta: '買[か]い物[もの]しなかった', meaning: '購物', difficulty: 'n5' },
+  { group: 3, type: 'verb', masu: '心配[しんぱい]します', jisho: '心配[しんぱい]する', te: '心配[しんぱい]して', ta: '心配[しんぱい]した', nai: '心配[しんぱい]しない', nakatta: '心配[しんぱい]しなかった', meaning: '擔心', difficulty: 'n4' },
+  { group: 3, type: 'verb', masu: '残業[ざんぎょう]します', jisho: '残業[ざんぎょう]する', te: '残業[ざんぎょう]して', ta: '残業[ざんぎょう]した', nai: '残業[ざんぎょう]しない', nakatta: '残業[ざんぎょう]しなかった', meaning: '加班', difficulty: 'n4' },
+  { group: 3, type: 'verb', masu: '結婚[けっこん]します', jisho: '結婚[けっこん]する', te: '結婚[けっこん]して', ta: '結婚[けっこん]した', nai: '結婚[けっこん]しない', nakatta: '結婚[けっこん]しなかった', meaning: '結婚', difficulty: 'n4' },
+  { group: 3, type: 'verb', masu: '散歩[さんぽ]します', jisho: '散歩[さんぽ]する', te: '散歩[さんぽ]して', ta: '散歩[さんぽ]した', nai: '散歩[さんぽ]しない', nakatta: '散歩[さんぽ]しなかった', meaning: '散步', difficulty: 'n5' },
+  { group: 3, type: 'verb', masu: '掃除[そうじ]します', jisho: '掃除[そうじ]する', te: '掃除[そうじ]して', ta: '掃除[そうじ]した', nai: '掃除[そうじ]しない', nakatta: '掃除[そうじ]しなかった', meaning: '打掃', difficulty: 'n5' },
+  { group: 3, type: 'verb', masu: '洗濯[せんたく]します', jisho: '洗濯[せんたく]する', te: '洗濯[せんたく]して', ta: '洗濯[せんたく]した', nai: '洗濯[せんたく]しない', nakatta: '洗濯[せんたく]しなかった', meaning: '洗衣服', difficulty: 'n5' },
+  { group: 3, type: 'verb', masu: '料理[りょうり]します', jisho: '料理[りょうり]する', te: '料理[りょうり]して', ta: '料理[りょうり]した', nai: '料理[りょうり]しない', nakatta: '料理[りょうり]しなかった', meaning: '料理', difficulty: 'n5' },
+  { group: 3, type: 'verb', masu: '旅行[りょこう]します', jisho: '旅行[りょこう]する', te: '旅行[りょこう]して', ta: '旅行[りょこう]した', nai: '旅行[りょこう]しない', nakatta: '旅行[りょこう]しなかった', meaning: '旅行', difficulty: 'n5' },
+  { group: 3, type: 'verb', masu: '予約[よやく]します', jisho: '予約[よやく]する', te: '予約[よやく]して', ta: '予約[よやく]した', nai: '予約[よやく]しない', nakatta: '予約[よやく]しなかった', meaning: '預約', difficulty: 'n4' },
+  { group: 3, type: 'verb', masu: '説明[せつめい]します', jisho: '説明[せつめい]する', te: '説明[せつめい]して', ta: '説明[せつめい]した', nai: '説明[せつめい]しない', nakatta: '説明[せつめい]しなかった', meaning: '說明', difficulty: 'n4' },
+
+  // --- い形容詞 ---
+  { group: 'i', type: 'adj_i', masu: '大[おお]きいです', jisho: '大[おお]きい', te: '大[おお]きくて', ta: '大[おお]きかった', nai: '大[おお]きくない', nakatta: '大[おお]きくなかった', meaning: '大的', difficulty: 'n5' },
+  { group: 'i', type: 'adj_i', masu: '小[ちい]さいです', jisho: '小[ちい]さい', te: '小[ちい]さくて', ta: '小[ちい]さかった', nai: '小[ちい]さくない', nakatta: '小[ちい]さくなかった', meaning: '小的', difficulty: 'n5' },
+  { group: 'i', type: 'adj_i', masu: '高[たか]いです', jisho: '高[たか]い', te: '高[たか]くて', ta: '高[たか]かった', nai: '高[たか]くない', nakatta: '高[たか]くなかった', meaning: '高的/貴的', difficulty: 'n5' },
+  { group: 'i', type: 'adj_i', masu: '新[あたら]しいです', jisho: '新[あたら]しい', te: '新[あたら]しくて', ta: '新[あたら]しかった', nai: '新[あたら]しくない', nakatta: '新[あたら]しくなかった', meaning: '新的', difficulty: 'n5' },
+  { group: 'i', type: 'adj_i', masu: '難[むずか]しいです', jisho: '難[むずか]しい', te: '難[むずか]しくて', ta: '難[むずか]しかった', nai: '難[むずか]しくない', nakatta: '難[むずか]しくなかった', meaning: '困難的', difficulty: 'n4' },
+  { group: 'i', type: 'adj_i', masu: 'いいです', jisho: 'いい', te: 'よくて', ta: 'よかった', nai: 'よくない', nakatta: 'よくなかった', meaning: '好的', difficulty: 'n5' },
+  { group: 'i', type: 'adj_i', masu: '広[ひろ]いです', jisho: '広[ひろ]い', te: '広[ひろ]くて', ta: '広[ひろ]かった', nai: '広[ひろ]くない', nakatta: '広[ひろ]くなかった', meaning: '寬廣的', difficulty: 'n5' },
+  { group: 'i', type: 'adj_i', masu: '狭[せま]いです', jisho: '狭[せま]い', te: '狭[せま]くて', ta: '狭[せま]かった', nai: '狭[せま]くない', nakatta: '狭[せま]くなかった', meaning: '狹窄的', difficulty: 'n4' },
+  { group: 'i', type: 'adj_i', masu: '重[おも]いです', jisho: '重[おも]い', te: '重[おも]くて', ta: '重[おも]かった', nai: '重[おも]くない', nakatta: '重[おも]くなかった', meaning: '重的', difficulty: 'n5' },
+  { group: 'i', type: 'adj_i', masu: '軽[かる]いです', jisho: '軽[かる]い', te: '軽[かる]くて', ta: '軽[かる]かった', nai: '軽[かる]くない', nakatta: '軽[かる]くなかった', meaning: '輕的', difficulty: 'n5' },
+  { group: 'i', type: 'adj_i', masu: '忙[いそが]しいです', jisho: '忙[いそが]しい', te: '忙[いそが]しくて', ta: '忙[いそが]しかった', nai: '忙[いそが]しくない', nakatta: '忙[いそが]しくなかった', meaning: '忙碌的', difficulty: 'n5' },
+  { group: 'i', type: 'adj_i', masu: '楽[たの]しいです', jisho: '楽[たの]しい', te: '楽[たの]しくて', ta: '楽[たの]しかった', nai: '楽[たの]しくない', nakatta: '楽[たの]しくなかった', meaning: '快樂的', difficulty: 'n5' },
+
+  // --- な形容詞 ---
+  { group: 'na', type: 'adj_na', masu: '元気[げんき]です', jisho: '元気[げんき]だ', te: '元気[げんき]で', ta: '元気[げんき]だった', nai: '元気[げんき]じゃない', nakatta: '元気[げんき]じゃなかった', meaning: '有精神的', difficulty: 'n5' },
+  { group: 'na', type: 'adj_na', masu: '静[しず]かです', jisho: '静[しず]かだ', te: '静[しず]かで', ta: '静[しず]かだった', nai: '静[しず]かじゃない', nakatta: '静[しず]かじゃなかった', meaning: '安靜的', difficulty: 'n5' },
+  { group: 'na', type: 'adj_na', masu: '複雑[ふくざつ]です', jisho: '複雑[ふくざつ]だ', te: '複雑[ふくざつ]で', ta: '複雑[ふくざつ]だった', nai: '複雑[ふくざつ]じゃない', nakatta: '複雑[ふくざつ]じゃなかった', meaning: '複雜的', difficulty: 'n4' },
+  { group: 'na', type: 'adj_na', masu: 'きれいです', jisho: 'きれいだ', te: 'きれいで', ta: 'きれいだった', nai: 'きれいじゃない', nakatta: 'きれいじゃなかった', meaning: '美麗/乾淨的', difficulty: 'n5' },
+  { group: 'na', type: 'adj_na', masu: '暇[ひま]です', jisho: '暇[ひま]だ', te: '暇[ひま]で', ta: '暇[ひま]だった', nai: '暇[ひま]じゃない', nakatta: '暇[ひま]じゃなかった', meaning: '有空的', difficulty: 'n5' },
+  { group: 'na', type: 'adj_na', masu: '賑[にぎ]やかです', jisho: '賑[にぎ]やかだ', te: '賑[にぎ]やかで', ta: '賑[にぎ]やかだった', nai: '賑[にぎ]やかじゃない', nakatta: '賑[にぎ]やかじゃなかった', meaning: '熱鬧的', difficulty: 'n4' },
+  { group: 'na', type: 'adj_na', masu: '便利[べんり]です', jisho: '便利[べんり]だ', te: '便利[べんり]で', ta: '便利[べんり]だった', nai: '便利[べんり]じゃない', nakatta: '便利[べんり]じゃなかった', meaning: '方便的', difficulty: 'n5' },
+  { group: 'na', type: 'adj_na', masu: '親切[しんせつ]です', jisho: '親切[しんせつ]だ', te: '親切[しんせつ]で', ta: '親切[しんせつ]だった', nai: '親切[しんせつ]じゃない', nakatta: '親切[しんせつ]じゃなかった', meaning: '親切的', difficulty: 'n5' }
+];
+
+// 為每個單字加上 unique ID
+VERB_DB.forEach((item, index) => {
+  item.id = `${item.type === 'verb' ? 'v' : 'a'}${item.group}_${index}`;
+});
+
+const FORM_OPTIONS = [
+  { id: 'jisho', label: '普通形(辭書形/常體)' },
+  { id: 'te', label: 'て形' },
+  { id: 'ta', label: 'た形' },
+  { id: 'nai', label: 'ない形' },
+  { id: 'nakatta', label: 'なかった形' }
+];
+
+const WORD_TYPE_OPTIONS = [
+  { id: 'verb', label: '動詞 (V)' },
+  { id: 'adj_i', label: 'い形容詞 (いA)' },
+  { id: 'adj_na', label: 'な形容詞 (なA)' }
+];
+
+// ==========================================
+// 預設文法清單 (Custom Grammar Defaults)
+// ==========================================
+const DEFAULT_GRAMMARS = [
+  { id: 'g_tai', name: '想要 (〜たい)', baseForm: 'masu', removeStr: 'ます', appendStr: 'たい', appliesTo: ['verb'] },
+  { id: 'g_nakereba', name: '必須 (〜なければなりません)', baseForm: 'nai', removeStr: 'い', appendStr: 'ければなりません', appliesTo: ['verb'] },
+  { id: 'g_temoii', name: '許可 (〜てもいいです)', baseForm: 'te', removeStr: '', appendStr: 'もいいです', appliesTo: ['verb', 'adj_i', 'adj_na'] },
+  { id: 'g_tari', name: '列舉 (〜たり〜たりします)', baseForm: 'ta', removeStr: '', appendStr: 'りします', appliesTo: ['verb'] }
+];
+
+// ==========================================
+// 工具函數 (字串解析與規則分析)
+// ==========================================
+
+const stripRuby = (text) => {
+  if (typeof text !== 'string') return '';
+  return text.replace(/\[[^\]]+\]/g, '');
+};
+
+const renderRuby = (text) => {
+  if (typeof text !== 'string') return null;
+  const parts = text.split(/([\u4e00-\u9faf]+\[[^\]]+\])/);
+  return (
+    <span className="inline-flex items-baseline">
+      {parts.map((part, i) => {
+        const match = part.match(/([\u4e00-\u9faf]+)\[([^\]]+)\]/);
+        if (match) {
+          return (
+            <ruby key={i} className="mx-[1px]">
+              {match[1]}
+              <rt className="text-[0.6em] text-slate-500">{match[2]}</rt>
+            </ruby>
+          );
+        }
+        return <span key={i}>{part}</span>;
+      })}
+    </span>
+  );
+};
+
+// 取得基礎錯誤解說
+const getExplanation = (word, target) => {
+  if (!word) return '';
+  const jishoPlain = stripRuby(word.jisho);
+  const endChar = jishoPlain.slice(-1);
+  let rule = '';
+
+  if (word.type === 'verb') {
+    if (word.group === 1) {
+      if (target === 'te' || target === 'ta') {
+        const suffix = target === 'te' ? 'て' : 'た';
+        const suffixDe = target === 'te' ? 'で' : 'だ';
+        if (jishoPlain === '行く') return `「行く」是第一類動詞的例外，變化為促音便「行っ${suffix}」。`;
+        if (['う', 'つ', 'る'].includes(endChar)) rule = `結尾是「${endChar}」，發生【促音便】，改為「っ${suffix}」`;
+        else if (['む', 'ぶ', 'ぬ'].includes(endChar)) rule = `結尾是「${endChar}」，發生【撥音便】，改為「ん${suffixDe}」`;
+        else if (endChar === 'く') rule = `結尾是「く」，發生【イ音便】，改為「い${suffix}」`;
+        else if (endChar === 'ぐ') rule = `結尾是「ぐ」，發生【イ音便】，改為「い${suffixDe}」`;
+        else if (endChar === 'す') rule = `結尾是「す」，改為「し${suffix}」`;
+      } else if (target === 'nai' || target === 'nakatta') {
+        const suffix = target === 'nai' ? 'ない' : 'なかった';
+        if (endChar === 'う') rule = `結尾是「う」，改為「わ」加上${suffix}`;
+        else rule = `將結尾「${endChar}」改成對應的「あ」段音，再加上${suffix}`;
+      } else if (target === 'jisho') {
+        rule = `從ます形推導：去掉ます，將「い」段音改為對應的「う」段音`;
+      }
+    } else if (word.group === 2) {
+      if (target === 'jisho') rule = `去掉「ます」，直接加上「る」`;
+      else rule = `第二類動詞最單純，直接去掉結尾的「る」(或ます)，加上「${target === 'te'?'て':target==='ta'?'た':target==='nai'?'ない':'なかった'}」即可`;
+    } else if (word.group === 3) {
+      rule = `第三類動詞（する、来る）為不規則變化，需要直接記憶喔！`;
+    }
+  } else if (word.type === 'adj_i') {
+    if (jishoPlain === 'いい') rule = `「いい」是特殊い形容詞，變化時要用「よい」的字根去變。`;
+    else if (target === 'te') rule = `い形容詞：去掉字尾的「い」，加上「くて」`;
+    else if (target === 'ta') rule = `い形容詞：去掉字尾的「い」，加上「かった」`;
+    else if (target === 'nai') rule = `い形容詞：去掉字尾的「い」，加上「くない」`;
+    else if (target === 'nakatta') rule = `い形容詞：去掉字尾的「い」，加上「くなかった」`;
+    else if (target === 'jisho') rule = `い形容詞：常體就是本身（去掉です）`;
+  } else if (word.type === 'adj_na') {
+    if (target === 'te') rule = `な形容詞：去掉「だ/です」，加上「で」`;
+    else if (target === 'ta') rule = `な形容詞：常體的過去式，加上「だった」`;
+    else if (target === 'nai') rule = `な形容詞：加上「じゃない」`;
+    else if (target === 'nakatta') rule = `な形容詞：加上「じゃなかった」`;
+    else if (target === 'jisho') rule = `な形容詞：常體為加上「だ」`;
+  }
+  return rule;
+};
+
+export default function App() {
+  // --- APP 視圖狀態 ---
+  const [appState, setAppState] = useState('home'); // 'home', 'playing'
+
+  // --- 基礎設定 ---
+  const [sourceForm, setSourceForm] = useState('masu'); 
+  const [targetForms, setTargetForms] = useState(['te', 'ta', 'nai', 'jisho']); 
+  const [activeWordTypes, setActiveWordTypes] = useState(['verb', 'adj_i', 'adj_na']);
+  const [timeLimit, setTimeLimit] = useState(15); 
+  const [inputMode, setInputMode] = useState('keyboard'); // 'keyboard' or 'choice'
+  const [difficulty, setDifficulty] = useState('all'); // 'all', 'n5', 'n4'
+  const [totalQuestionsPreset, setTotalQuestionsPreset] = useState(10);
+  const [autoAdvance, setAutoAdvance] = useState(false); 
+
+  // --- 進階功能狀態 ---
+  const [showSettings, setShowSettings] = useState(false);
+  const [activeSettingsTab, setActiveSettingsTab] = useState('general'); // general, scope, custom, mistakes, ranking, rpg, grammar
+  const [testMode, setTestMode] = useState('normal'); // 'normal', 'custom', 'mistakes', 'rpg', 'grammar'
+  
+  const [mistakeBank, setMistakeBank] = useState({}); 
+  const [customWordIds, setCustomWordIds] = useState([]); 
+  const [statsBank, setStatsBank] = useState({}); 
+  
+  // --- 文法產生器狀態 ---
+  const [customGrammars, setCustomGrammars] = useState(() => {
+    try {
+      const saved = localStorage.getItem('verbApp_customGrammars');
+      return saved ? JSON.parse(saved) : DEFAULT_GRAMMARS;
+    } catch {
+      return DEFAULT_GRAMMARS;
+    }
+  });
+  const [newGrammar, setNewGrammar] = useState({ name: '', baseForm: 'te', removeStr: '', appendStr: '', appliesTo: ['verb'] });
+
+  useEffect(() => {
+    localStorage.setItem('verbApp_customGrammars', JSON.stringify(customGrammars));
+  }, [customGrammars]);
+
+  // --- RPG 模式狀態 ---
+  const [hp, setHp] = useState(3);
+  const [rpgHighScore, setRpgHighScore] = useState(0);
+  const [combo, setCombo] = useState(0);
+
+  // --- 記憶功能 ---
+  const [usedQuestionsHistory, setUsedQuestionsHistory] = useState([]); 
+
+  // --- 回合與分數狀態 ---
+  const [questionCount, setQuestionCount] = useState(1);
+  const [score, setScore] = useState(0);
+  const [isRoundComplete, setIsRoundComplete] = useState(false);
+  const [roundHistory, setRoundHistory] = useState([]); 
+
+  // --- 當前題目狀態 ---
+  const [currentVerb, setCurrentVerb] = useState(null);
+  const [currentTarget, setCurrentTarget] = useState('');
+  const [currentGrammarDef, setCurrentGrammarDef] = useState(null); // 如果是文法題，儲存文法規則
+  const [currentCorrectPlain, setCurrentCorrectPlain] = useState(''); // 正確答案純文字
+  const [currentCorrectRuby, setCurrentCorrectRuby] = useState('');   // 正確答案帶注音格式
+  
+  const [userInput, setUserInput] = useState('');
+  const [feedback, setFeedback] = useState(null); 
+  const [explanation, setExplanation] = useState('');
+  const [timeLeft, setTimeLeft] = useState(15);
+  const [choiceOptions, setChoiceOptions] = useState([]);
+  const [isPaused, setIsPaused] = useState(false);
+
+  // 產生題目邏輯
+  const generateQuestion = useCallback((overrideMode = null) => {
+    const currentMode = overrideMode || testMode;
+    let availablePool = [];
+    const validTargets = targetForms.filter(form => form !== sourceForm);
+
+    if (currentMode === 'grammar') {
+      if (customGrammars.length === 0) {
+        alert('您的自訂文法庫為空！請先至設定 > 自訂文法 中新增。');
+        setTestMode('normal');
+        return;
+      }
+      VERB_DB.forEach(word => {
+        customGrammars.forEach(grammar => {
+          if (grammar.appliesTo.includes(word.type)) {
+            availablePool.push({ word, target: grammar.id, grammarDef: grammar, idKey: `${word.id}_${grammar.id}` });
+          }
+        });
+      });
+    }
+    else if (currentMode === 'mistakes') {
+      const mistakeKeys = Object.keys(mistakeBank);
+      if (mistakeKeys.length === 0) {
+        alert('錯題庫為空，將切換回一般模式。');
+        setTestMode('normal');
+        return;
+      }
+      availablePool = mistakeKeys.map(key => ({ word: mistakeBank[key].wordObj, target: mistakeBank[key].target, grammarDef: mistakeBank[key].grammarDef, idKey: key }));
+    } 
+    else if (currentMode === 'custom') {
+      if (customWordIds.length === 0) return;
+      const customWords = VERB_DB.filter(w => customWordIds.includes(w.id));
+      customWords.forEach(word => {
+        validTargets.forEach(target => availablePool.push({ word, target, grammarDef: null, idKey: `${word.id}_${target}` }));
+      });
+    }
+    else {
+      let filteredWords = VERB_DB.filter(w => activeWordTypes.includes(w.type));
+      if (difficulty !== 'all') {
+        filteredWords = filteredWords.filter(w => w.difficulty === difficulty);
+      }
+      if (filteredWords.length === 0) return;
+      filteredWords.forEach(word => {
+        validTargets.forEach(target => availablePool.push({ word, target, grammarDef: null, idKey: `${word.id}_${target}` }));
+      });
+    }
+
+    if (availablePool.length === 0) return;
+
+    // 防重複過濾
+    const memorySize = totalQuestionsPreset * 3;
+    let freshPool = availablePool.filter(item => !usedQuestionsHistory.includes(item.idKey));
+    if (freshPool.length === 0) {
+      freshPool = availablePool; 
+      setUsedQuestionsHistory([]);
+    }
+
+    const selectedItem = freshPool[Math.floor(Math.random() * freshPool.length)];
+
+    setUsedQuestionsHistory(prev => {
+      const newHistory = [...prev, selectedItem.idKey];
+      if (newHistory.length > memorySize) return newHistory.slice(newHistory.length - memorySize);
+      return newHistory;
+    });
+
+    // 核心：設定題目與動態計算正確答案
+    setCurrentVerb(selectedItem.word);
+    setCurrentTarget(selectedItem.target);
+    setCurrentGrammarDef(selectedItem.grammarDef || null);
+
+    let finalCorrectRuby = '';
+    let finalCorrectPlain = '';
+
+    if (selectedItem.grammarDef) {
+      // 套用自訂文法公式計算答案
+      const rule = selectedItem.grammarDef;
+      const baseRubyStr = selectedItem.word[rule.baseForm] || '';
+      // 使用 Regex 去除指定的字尾 (如 'い')
+      const replaceRegex = new RegExp((rule.removeStr || '') + '$');
+      finalCorrectRuby = baseRubyStr.replace(replaceRegex, '') + rule.appendStr;
+      finalCorrectPlain = stripRuby(finalCorrectRuby);
+    } else {
+      // 一般變化
+      finalCorrectRuby = selectedItem.word[selectedItem.target];
+      finalCorrectPlain = stripRuby(finalCorrectRuby);
+    }
+
+    setCurrentCorrectRuby(finalCorrectRuby);
+    setCurrentCorrectPlain(finalCorrectPlain);
+
+    setUserInput('');
+    setFeedback(null);
+    setExplanation('');
+    setTimeLeft(timeLimit);
+    setIsPaused(false);
+
+    // 產生選擇題干擾選項
+    if (inputMode === 'choice') {
+      const optionsSet = new Set([finalCorrectPlain]);
+      
+      if (selectedItem.grammarDef) {
+        // 文法模式下的干擾項：套用同樣規則在錯誤的基礎形上
+        const wrongBases = ['masu', 'jisho', 'te', 'ta', 'nai'].filter(b => b !== selectedItem.grammarDef.baseForm);
+        wrongBases.forEach(wb => {
+          const wBaseRuby = selectedItem.word[wb];
+          if(wBaseRuby) {
+            const wAns = stripRuby(wBaseRuby).replace(new RegExp((selectedItem.grammarDef.removeStr||'') + '$'), '') + selectedItem.grammarDef.appendStr;
+            optionsSet.add(wAns);
+          }
+        });
+      } else {
+        // 一般模式下的干擾項：替換錯誤的字尾
+        const plain = stripRuby(selectedItem.word.jisho);
+        const stem = plain.slice(0, -1);
+        if (selectedItem.word.type === 'verb' && selectedItem.word.group === 1) {
+          if (selectedItem.target === 'te') { optionsSet.add(stem+'いて'); optionsSet.add(stem+'んで'); optionsSet.add(stem+'って'); }
+          if (selectedItem.target === 'ta') { optionsSet.add(stem+'いた'); optionsSet.add(stem+'んだ'); optionsSet.add(stem+'った'); }
+          if (selectedItem.target === 'nai') { optionsSet.add(stem+'らない'); optionsSet.add(stem+'わない'); }
+        } else if (selectedItem.word.type === 'adj_i') {
+          const adjStem = plain.slice(0, -1);
+          if (selectedItem.target === 'te') { optionsSet.add(adjStem+'で'); optionsSet.add(adjStem+'だ'); }
+          if (selectedItem.target === 'ta') { optionsSet.add(adjStem+'だった'); optionsSet.add(adjStem+'た'); }
+          if (selectedItem.target === 'nakatta') { optionsSet.add(adjStem+'じゃなかった'); }
+        }
+      }
+
+      const resultOpts = Array.from(optionsSet);
+      // 若不足 4 個選項，隨機抓取其他單字的相同目標答案
+      while (resultOpts.length < 4) {
+        const randWord = VERB_DB[Math.floor(Math.random() * VERB_DB.length)];
+        let randAns = '';
+        if (selectedItem.grammarDef) {
+           const randBase = stripRuby(randWord[selectedItem.grammarDef.baseForm] || '');
+           if(randBase) randAns = randBase.replace(new RegExp((selectedItem.grammarDef.removeStr||'') + '$'), '') + selectedItem.grammarDef.appendStr;
+        } else {
+           randAns = stripRuby(randWord[selectedItem.target] || '');
+        }
+        if (randAns && !resultOpts.includes(randAns)) resultOpts.push(randAns);
+      }
+      setChoiceOptions(resultOpts.slice(0, 4).sort(() => Math.random() - 0.5));
+    }
+  }, [sourceForm, targetForms, activeWordTypes, timeLimit, inputMode, difficulty, testMode, mistakeBank, customWordIds, usedQuestionsHistory, totalQuestionsPreset, customGrammars]);
+
+  const startNewRound = useCallback((forcedMode = null) => {
+    const modeToUse = forcedMode || testMode;
+    if (forcedMode) setTestMode(forcedMode);
+    
+    setQuestionCount(1);
+    setScore(0);
+    setCombo(0);
+    setRoundHistory([]); 
+    setIsRoundComplete(false);
+    setIsPaused(false);
+    if (modeToUse === 'rpg') setHp(3);
+    
+    generateQuestion(modeToUse);
+  }, [generateQuestion, testMode]);
+
+  useEffect(() => {
+    startNewRound();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (feedback !== null || isRoundComplete || timeLimit === 0 || !currentVerb || isPaused || appState === 'home') return;
+    const timer = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [feedback, isRoundComplete, timeLimit, currentVerb, isPaused, appState]); 
+
+  useEffect(() => {
+    if (timeLeft === 0 && feedback === null && currentVerb && !isPaused && appState === 'playing') {
+      handleIncorrect(currentVerb, currentTarget, '[超時]', 'timeout');
+    }
+  }, [timeLeft, feedback, currentVerb, currentTarget, isPaused, appState]);
+
+  const getTargetName = (id) => {
+    const defaultOpt = FORM_OPTIONS.find(f => f.id === id);
+    if (defaultOpt) return defaultOpt.label;
+    const customOpt = customGrammars.find(g => g.id === id);
+    if (customOpt) return customOpt.name;
+    return id;
+  };
+
+  const recordStats = (word, target, isCorrect) => {
+    const key = `${word.id}_${target}`;
+    setStatsBank(prev => {
+      const current = prev[key] || { attempts: 0, corrects: 0, wordObj: word, target: target };
+      return {
+        ...prev,
+        [key]: {
+          ...current,
+          attempts: current.attempts + 1,
+          corrects: current.corrects + (isCorrect ? 1 : 0)
+        }
+      };
+    });
+  };
+
+  const handleIncorrect = (word, target, userAns, status) => {
+    let exp = '';
+    if (currentGrammarDef) {
+       exp = `自訂文法【${currentGrammarDef.name}】變化規則：接續在【${getTargetName(currentGrammarDef.baseForm)}】後面。` +
+             (currentGrammarDef.removeStr ? `去掉結尾「${currentGrammarDef.removeStr}」，` : '') +
+             `加上「${currentGrammarDef.appendStr}」。`;
+    } else {
+       exp = getExplanation(word, target);
+    }
+    
+    setFeedback(status);
+    setExplanation(exp);
+    setUserInput(userAns);
+    recordStats(word, target, false);
+    setCombo(0);
+
+    if (testMode === 'rpg') setHp(prev => prev - 1);
+
+    setMistakeBank(prev => ({
+      ...prev,
+      [`${word.id}_${target}`]: { wordObj: word, target: target, grammarDef: currentGrammarDef }
+    }));
+
+    setRoundHistory(prev => [...prev, {
+      question: `請將「${stripRuby(word[sourceForm])}」轉換為【${getTargetName(target)}】：`,
+      userAnswer: userAns,
+      correctAnswer: currentCorrectPlain,
+      userIsCorrect: false,
+      explanation: exp
+    }]);
+  };
+
+  const handleCorrect = (word, target, userAns) => {
+    setFeedback('correct');
+    setScore(prev => prev + 1);
+    setCombo(prev => prev + 1);
+    recordStats(word, target, true);
+
+    if (testMode === 'rpg') setHp(prev => prev + 1);
+
+    if (testMode === 'mistakes') {
+      setMistakeBank(prev => {
+        const newBank = { ...prev };
+        delete newBank[`${word.id}_${target}`];
+        return newBank;
+      });
+    }
+
+    setRoundHistory(prev => [...prev, {
+      question: `請將「${stripRuby(word[sourceForm])}」轉換為【${getTargetName(target)}】：`,
+      userAnswer: userAns,
+      correctAnswer: currentCorrectPlain,
+      userIsCorrect: true
+    }]);
+  };
+
+  const checkAnswer = (answerToCheck = null) => {
+    if (feedback !== null) return;
+    const finalAnswer = answerToCheck !== null ? answerToCheck : userInput;
+    if (!finalAnswer.trim() && answerToCheck === null) return;
+
+    const isCorrect = finalAnswer.trim() === currentCorrectPlain;
+
+    if (isCorrect) handleCorrect(currentVerb, currentTarget, finalAnswer);
+    else handleIncorrect(currentVerb, currentTarget, finalAnswer, 'incorrect');
+  };
+
+  const handleFormSubmit = (e) => {
+    e.preventDefault();
+    checkAnswer();
+  };
+
+  const nextQuestion = useCallback(() => {
+    if (testMode === 'rpg') {
+      if (hp <= 0) {
+        setRpgHighScore(prev => Math.max(prev, score));
+        setIsRoundComplete(true);
+      } else {
+        setQuestionCount(prev => prev + 1);
+        generateQuestion();
+      }
+    } else {
+      if (questionCount >= totalQuestionsPreset) {
+        setIsRoundComplete(true);
+      } else {
+        setQuestionCount(prev => prev + 1);
+        generateQuestion();
+      }
+    }
+  }, [questionCount, totalQuestionsPreset, generateQuestion, testMode, hp, score]);
+
+  useEffect(() => {
+    if (autoAdvance && feedback === 'correct' && !isRoundComplete) {
+      const timer = setTimeout(() => { nextQuestion(); }, 800);
+      return () => clearTimeout(timer);
+    }
+  }, [feedback, autoAdvance, nextQuestion, isRoundComplete]);
+
+  const handleAddGrammar = () => {
+    if (!newGrammar.name || !newGrammar.appendStr) {
+      alert('請填寫文法名稱與加上字尾！');
+      return;
+    }
+    const newId = `g_custom_${Date.now()}`;
+    setCustomGrammars(prev => [...prev, { ...newGrammar, id: newId }]);
+    setNewGrammar({ name: '', baseForm: 'te', removeStr: '', appendStr: '', appliesTo: ['verb'] });
+  };
+
+  const handleDeleteGrammar = (id) => {
+    if (window.confirm('確定要刪除這個自訂文法嗎？')) {
+      setCustomGrammars(prev => prev.filter(g => g.id !== id));
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50 text-slate-800 p-4 font-sans selection:bg-blue-200 pb-20">
+      
+      {/* 暫停遮罩 */}
+      {isPaused && appState === 'playing' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm">
+          <div className="bg-white p-8 rounded-3xl shadow-xl text-center animate-in zoom-in-95">
+            <Pause className="w-16 h-16 text-slate-400 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-slate-800 mb-2">測驗暫停中</h2>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center mt-6">
+              <button onClick={() => { setIsPaused(false); setAppState('home'); }} className="px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-colors flex items-center justify-center gap-2">
+                <Home className="w-5 h-5" /> 回首頁
+              </button>
+              <button onClick={() => setIsPaused(false)} className="px-8 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-colors flex items-center justify-center gap-2">
+                <Play className="w-5 h-5 fill-current" /> 繼續測驗
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showSettings && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95">
+            
+            <div className="flex justify-between items-center p-6 border-b border-slate-100">
+              <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                <SlidersHorizontal className="w-6 h-6 text-blue-600"/> 系統設定
+              </h2>
+              <button onClick={() => setShowSettings(false)} className="text-slate-400 hover:text-slate-600 p-1">
+                <XCircle className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="flex overflow-x-auto border-b border-slate-100 bg-slate-50 text-sm">
+              <button onClick={() => setActiveSettingsTab('general')} className={`flex items-center gap-2 px-6 py-4 font-bold whitespace-nowrap transition-colors ${activeSettingsTab === 'general' ? 'bg-white text-blue-600 border-b-2 border-blue-600' : 'text-slate-500 hover:text-slate-800'}`}>基礎設定</button>
+              <button onClick={() => setActiveSettingsTab('scope')} className={`flex items-center gap-2 px-6 py-4 font-bold whitespace-nowrap transition-colors ${activeSettingsTab === 'scope' ? 'bg-white text-blue-600 border-b-2 border-blue-600' : 'text-slate-500 hover:text-slate-800'}`}><Layers className="w-4 h-4"/> 範圍設定</button>
+              <button onClick={() => setActiveSettingsTab('grammar')} className={`flex items-center gap-2 px-6 py-4 font-bold whitespace-nowrap transition-colors ${activeSettingsTab === 'grammar' ? 'bg-white text-emerald-600 border-b-2 border-emerald-600' : 'text-slate-500 hover:text-slate-800'}`}><Puzzle className="w-4 h-4"/> 自訂文法</button>
+              <button onClick={() => setActiveSettingsTab('custom')} className={`flex items-center gap-2 px-6 py-4 font-bold whitespace-nowrap transition-colors ${activeSettingsTab === 'custom' ? 'bg-white text-purple-600 border-b-2 border-purple-600' : 'text-slate-500 hover:text-slate-800'}`}><FolderHeart className="w-4 h-4"/> 自訂單字</button>
+              <button onClick={() => setActiveSettingsTab('mistakes')} className={`flex items-center gap-2 px-6 py-4 font-bold whitespace-nowrap transition-colors ${activeSettingsTab === 'mistakes' ? 'bg-white text-red-600 border-b-2 border-red-600' : 'text-slate-500 hover:text-slate-800'}`}><ShieldAlert className="w-4 h-4"/> 錯題庫</button>
+            </div>
+
+            <div className="p-6 overflow-y-auto">
+              
+              {/* Tab: General */}
+              {activeSettingsTab === 'general' && (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-700 mb-2 uppercase tracking-wider">作答模式</h3>
+                      <div className="flex gap-2">
+                        <label className={`flex-1 flex flex-col items-center gap-1 p-3 rounded-xl border-2 cursor-pointer transition-colors ${inputMode === 'keyboard' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 hover:bg-slate-50'}`}>
+                          <input type="radio" value="keyboard" checked={inputMode === 'keyboard'} onChange={(e) => setInputMode(e.target.value)} className="hidden"/>
+                          <Keyboard className="w-5 h-5" /> <span className="font-medium text-sm">自行輸入</span>
+                        </label>
+                        <label className={`flex-1 flex flex-col items-center gap-1 p-3 rounded-xl border-2 cursor-pointer transition-colors ${inputMode === 'choice' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 hover:bg-slate-50'}`}>
+                          <input type="radio" value="choice" checked={inputMode === 'choice'} onChange={(e) => setInputMode(e.target.value)} className="hidden"/>
+                          <ListTodo className="w-5 h-5" /> <span className="font-medium text-sm">選擇題</span>
+                        </label>
+                      </div>
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-700 mb-2 uppercase tracking-wider">每題限時</h3>
+                      <select value={timeLimit} onChange={(e) => setTimeLimit(Number(e.target.value))} className="w-full p-3 rounded-xl border-2 border-slate-200 focus:border-blue-500 bg-white focus:outline-none">
+                        <option value={10}>10 秒 (困難)</option><option value={15}>15 秒 (標準)</option><option value={30}>30 秒 (寬鬆)</option><option value={0}>無限制</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-700 mb-2 uppercase tracking-wider">換題方式</h3>
+                    <div className="flex gap-4">
+                      <label className={`flex items-center gap-2 px-4 py-3 rounded-xl border-2 cursor-pointer transition-colors ${autoAdvance === false ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 hover:bg-slate-50'}`}>
+                        <input type="radio" checked={autoAdvance === false} onChange={() => setAutoAdvance(false)} className="hidden"/>
+                        <span className="font-medium">✅ 手動點擊 (預設)</span>
+                      </label>
+                      <label className={`flex items-center gap-2 px-4 py-3 rounded-xl border-2 cursor-pointer transition-colors ${autoAdvance === true ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 hover:bg-slate-50'}`}>
+                        <input type="radio" checked={autoAdvance === true} onChange={() => setAutoAdvance(true)} className="hidden"/>
+                        <span className="font-medium">🚀 自動無縫換題</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Tab: Scope */}
+              {activeSettingsTab === 'scope' && (
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-700 mb-3 uppercase tracking-wider">要練習的詞性 (可複選)</h3>
+                    <div className="grid grid-cols-3 gap-3">
+                      {WORD_TYPE_OPTIONS.map(opt => (
+                        <label key={opt.id} className={`flex items-center justify-center gap-2 p-3 rounded-lg border-2 cursor-pointer transition-colors ${activeWordTypes.includes(opt.id) ? 'bg-blue-50 border-blue-400 font-bold text-blue-800' : 'hover:bg-slate-50'}`}>
+                          <input type="checkbox" checked={activeWordTypes.includes(opt.id)} onChange={() => {setActiveWordTypes(prev => prev.includes(opt.id) ? prev.filter(f => f !== opt.id) : [...prev, opt.id]);}} className="hidden"/>
+                          <span>{opt.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-700 mb-3 uppercase tracking-wider">要練習的變化形態 (可複選)</h3>
+                    <div className="grid grid-cols-2 gap-2">
+                      {FORM_OPTIONS.map(opt => (
+                        <label key={opt.id} className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-colors ${targetForms.includes(opt.id) ? 'bg-blue-50 border-blue-300 font-bold text-blue-800' : 'hover:bg-slate-50'} ${(sourceForm === opt.id) ? 'opacity-40 cursor-not-allowed bg-slate-100' : ''}`}>
+                          <input type="checkbox" checked={targetForms.includes(opt.id)} onChange={() => {setTargetForms(prev => prev.includes(opt.id) ? prev.filter(f => f !== opt.id) : [...prev, opt.id]);}} disabled={sourceForm === opt.id} className="rounded text-blue-500 w-4 h-4"/>
+                          <span>{opt.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Tab: Grammar Builder */}
+              {activeSettingsTab === 'grammar' && (
+                <div className="space-y-6">
+                  {/* List existing */}
+                  <div>
+                    <h3 className="text-sm font-bold text-emerald-700 mb-3 flex items-center gap-2"><BookOpen className="w-4 h-4"/> 已儲存的文法公式</h3>
+                    <div className="grid gap-2 max-h-48 overflow-y-auto pr-2">
+                      {customGrammars.map(g => (
+                        <div key={g.id} className="flex justify-between items-center p-3 bg-white border border-slate-200 rounded-xl shadow-sm">
+                          <div>
+                            <div className="font-bold text-slate-800">{g.name}</div>
+                            <div className="text-xs text-slate-500 mt-1">接續：{getTargetName(g.baseForm)} {g.removeStr ? `-「${g.removeStr}」` : ''} +「{g.appendStr}」</div>
+                          </div>
+                          <button onClick={() => handleDeleteGrammar(g.id)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><Trash2 className="w-5 h-5"/></button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Add New */}
+                  <div className="bg-emerald-50 p-5 rounded-2xl border border-emerald-100">
+                    <h3 className="text-sm font-bold text-emerald-800 mb-4 flex items-center gap-2"><Plus className="w-4 h-4"/> 新增自訂文法</h3>
+                    
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-xs font-bold text-emerald-700 mb-1">文法名稱 (提示語)</label>
+                        <input type="text" value={newGrammar.name} onChange={e => setNewGrammar(p => ({...p, name: e.target.value}))} placeholder="例：想要 (〜たい)" className="w-full p-2.5 rounded-lg border border-emerald-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"/>
+                      </div>
+                      
+                      <div className="grid grid-cols-3 gap-3 items-end">
+                        <div>
+                          <label className="block text-xs font-bold text-emerald-700 mb-1">接續基礎形</label>
+                          <select value={newGrammar.baseForm} onChange={e => setNewGrammar(p => ({...p, baseForm: e.target.value}))} className="w-full p-2.5 rounded-lg border border-emerald-200 focus:outline-none">
+                            {FORM_OPTIONS.map(opt => <option key={opt.id} value={opt.id}>{opt.label}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-emerald-700 mb-1">去掉字尾 (選填)</label>
+                          <input type="text" value={newGrammar.removeStr} onChange={e => setNewGrammar(p => ({...p, removeStr: e.target.value}))} placeholder="例：ます" className="w-full p-2.5 rounded-lg border border-emerald-200"/>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-emerald-700 mb-1">加上字尾</label>
+                          <input type="text" value={newGrammar.appendStr} onChange={e => setNewGrammar(p => ({...p, appendStr: e.target.value}))} placeholder="例：たい" className="w-full p-2.5 rounded-lg border border-emerald-200"/>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-4">
+                        <span className="text-xs font-bold text-emerald-700 mt-1">適用詞性：</span>
+                        {WORD_TYPE_OPTIONS.map(opt => (
+                          <label key={opt.id} className="flex items-center gap-1 text-sm cursor-pointer">
+                            <input type="checkbox" checked={newGrammar.appliesTo.includes(opt.id)} onChange={(e) => {
+                               if(e.target.checked) setNewGrammar(p => ({...p, appliesTo: [...p.appliesTo, opt.id]}));
+                               else setNewGrammar(p => ({...p, appliesTo: p.appliesTo.filter(x => x !== opt.id)}));
+                            }} className="rounded text-emerald-500 focus:ring-emerald-500"/> {opt.label}
+                          </label>
+                        ))}
+                      </div>
+
+                      {/* Live Preview */}
+                      <div className="mt-4 p-3 bg-white/60 rounded-xl border border-emerald-200 text-sm">
+                        <span className="font-bold text-emerald-800">💡 即時預覽：</span>
+                        {(() => {
+                           const pWord = VERB_DB.find(w => newGrammar.appliesTo.includes(w.type)) || VERB_DB[0];
+                           const pBase = stripRuby(pWord[newGrammar.baseForm] || '');
+                           const pRes = pBase.replace(new RegExp((newGrammar.removeStr||'') + '$'), '') + newGrammar.appendStr;
+                           return <span>{stripRuby(pWord.jisho)} ({pWord.meaning}) → <span className="font-bold text-emerald-600">{pRes}</span></span>;
+                        })()}
+                      </div>
+
+                      <button onClick={handleAddGrammar} className="w-full py-3 mt-2 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition-colors">
+                        儲存新文法
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Tab: Custom Words & Mistakes omitted for brevity, keeping existing logics intact visually */}
+              {activeSettingsTab === 'custom' && (
+                <div className="space-y-4">
+                  <p className="text-sm text-slate-500 mb-4">勾選您想專注練習的單字，點擊下方「開始自訂測驗」即可。</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-60 overflow-y-auto p-1">
+                    {VERB_DB.map(word => (
+                      <label key={word.id} className={`flex items-center gap-2 p-2 rounded border text-sm cursor-pointer ${customWordIds.includes(word.id) ? 'bg-purple-50 border-purple-300' : 'hover:bg-slate-50'}`}>
+                        <input type="checkbox" checked={customWordIds.includes(word.id)} onChange={() => {setCustomWordIds(prev => prev.includes(word.id) ? prev.filter(f => f !== word.id) : [...prev, word.id])}} className="rounded text-purple-500 hidden"/>
+                        <span className="truncate">{stripRuby(word.jisho)} ({word.meaning})</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            {/* Action Bottom Bar */}
+            <div className="p-4 border-t border-slate-100 bg-white flex gap-3">
+              {activeSettingsTab === 'grammar' && (
+                <button onClick={() => { setShowSettings(false); startNewRound('grammar'); setAppState('playing'); }} className="flex-1 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 font-bold shadow-sm flex items-center justify-center gap-2">
+                  <Puzzle className="w-4 h-4" /> 開始文法特訓
+                </button>
+              )}
+              {activeSettingsTab !== 'grammar' && (
+                <button onClick={() => { setShowSettings(false); startNewRound('normal'); setAppState('playing'); }} className="flex-1 py-3 bg-slate-800 text-white rounded-xl hover:bg-slate-700 font-bold shadow-sm flex items-center justify-center gap-2">
+                   儲存並開始一般測驗
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {appState === 'home' ? (
+        <div className="max-w-4xl mx-auto pt-4 sm:pt-10 animate-in fade-in slide-in-from-bottom-4">
+          <div className="flex justify-end mb-8">
+            <button onClick={() => setShowSettings(true)} className="px-4 py-2 rounded-xl bg-white hover:bg-slate-100 text-slate-600 transition-colors border border-slate-200 shadow-sm flex items-center gap-2 font-bold text-sm">
+              <Settings className="w-4 h-4" /> 系統設定
+            </button>
+          </div>
+
+          <div className="text-center space-y-4 mb-12">
+            <div className="inline-flex p-5 bg-gradient-to-br from-blue-100 to-indigo-100 text-blue-600 rounded-3xl mb-2"><BookOpen className="w-16 h-16"/></div>
+            <h1 className="text-4xl sm:text-5xl font-black text-slate-800 tracking-tight">日文動詞變化道場</h1>
+            <p className="text-slate-500 text-lg font-medium">選擇一個模式，開始今天的特訓吧！</p>
+          </div>
+
+          <div className="grid sm:grid-cols-2 gap-4 px-2">
+            {/* Card: Normal */}
+            <button onClick={() => { startNewRound('normal'); setAppState('playing'); }} className="text-left p-6 bg-white rounded-3xl border-2 border-slate-100 hover:border-blue-500 hover:shadow-lg transition-all group">
+              <div className="flex justify-between mb-4"><div className="p-3 bg-blue-50 text-blue-600 rounded-2xl group-hover:bg-blue-600 group-hover:text-white"><RotateCcw className="w-8 h-8"/></div></div>
+              <h2 className="text-xl font-bold text-slate-800 mb-2">一般綜合測驗</h2>
+              <p className="text-slate-500 text-sm">隨機考驗常見的動詞與形容詞基礎變化。</p>
+            </button>
+
+            {/* Card: Grammar (NEW) */}
+            <button onClick={() => { startNewRound('grammar'); setAppState('playing'); }} className="text-left p-6 bg-white rounded-3xl border-2 border-slate-100 hover:border-emerald-500 hover:shadow-lg transition-all group">
+              <div className="flex justify-between mb-4"><div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl group-hover:bg-emerald-600 group-hover:text-white"><Puzzle className="w-8 h-8"/></div></div>
+              <h2 className="text-xl font-bold text-slate-800 mb-2">自訂文法測驗</h2>
+              <p className="text-slate-500 text-sm">套用您自行設定的文法公式（如 〜たい、〜なければなりません）。</p>
+            </button>
+
+            {/* Card: RPG */}
+            <button onClick={() => { startNewRound('rpg'); setAppState('playing'); }} className="text-left p-6 bg-white rounded-3xl border-2 border-slate-100 hover:border-red-500 hover:shadow-lg transition-all group">
+              <div className="flex justify-between mb-4"><div className="p-3 bg-red-50 text-red-600 rounded-2xl group-hover:bg-red-600 group-hover:text-white"><Swords className="w-8 h-8"/></div></div>
+              <h2 className="text-xl font-bold text-slate-800 mb-2">RPG 生存戰</h2>
+              <p className="text-slate-500 text-sm">開局 3 滴血，答對回血！挑戰您的單字直覺生存極限。</p>
+            </button>
+
+            {/* Card: Custom */}
+            <button onClick={() => { startNewRound('custom'); setAppState('playing'); }} className="text-left p-6 bg-white rounded-3xl border-2 border-slate-100 hover:border-purple-500 hover:shadow-lg transition-all group">
+               <div className="flex justify-between mb-4"><div className="p-3 bg-purple-50 text-purple-600 rounded-2xl group-hover:bg-purple-600 group-hover:text-white"><FolderHeart className="w-8 h-8"/></div></div>
+               <h2 className="text-xl font-bold text-slate-800 mb-2">自訂單字清單</h2>
+               <p className="text-slate-500 text-sm">只針對您在設定中勾選的特定單字進行集中高強度特訓。</p>
+            </button>
+          </div>
+        </div>
+
+      ) : (!currentVerb ? null : (
+
+        /* Quiz Active State */
+        <div className="max-w-2xl mx-auto space-y-6">
+          <header className="flex justify-between items-center bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+            <div className="flex items-center gap-3">
+              <div className={`p-2 rounded-xl text-white ${testMode === 'grammar' ? 'bg-emerald-500' : 'bg-blue-500'}`}>
+                {testMode === 'grammar' ? <Puzzle className="w-5 h-5"/> : <BookOpen className="w-5 h-5" />}
+              </div>
+              <div>
+                <h1 className="font-bold text-slate-800">{testMode === 'grammar' ? '文法公式特訓' : '綜合變化特訓'}</h1>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setAppState('home')} className="p-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200"><Home className="w-5 h-5" /></button>
+              <button onClick={() => setShowSettings(true)} className="p-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200"><Settings className="w-5 h-5" /></button>
+            </div>
+          </header>
+
+          {isRoundComplete ? (
+            <div className="bg-white p-6 sm:p-10 rounded-3xl shadow-sm border border-slate-100 text-center animate-in zoom-in-95">
+               <Trophy className="w-20 h-20 text-yellow-400 mx-auto mb-4" />
+               <h2 className="text-3xl font-bold text-slate-800 mb-2">回合完成！</h2>
+               <div className="text-5xl font-black text-blue-600 my-8">{score} <span className="text-2xl text-slate-400 font-medium">/ {testMode === 'rpg' ? '∞' : totalQuestionsPreset}</span></div>
+               <div className="flex gap-3 justify-center">
+                  <button onClick={() => setAppState('home')} className="px-8 py-4 bg-slate-100 text-slate-700 rounded-xl font-bold flex gap-2"><Home className="w-5 h-5"/> 回首頁</button>
+                  <button onClick={() => startNewRound()} className="px-8 py-4 bg-blue-600 text-white rounded-xl font-bold flex gap-2"><Play className="w-5 h-5 fill-current"/> 再來一局</button>
+               </div>
+            </div>
+          ) : (
+            <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-100 text-center">
+              
+              <div className="flex justify-between items-center mb-6">
+                {testMode === 'rpg' ? (
+                  <div className="flex items-center gap-3 bg-red-50 px-4 py-1.5 rounded-full border border-red-100">
+                    <Heart className={`w-5 h-5 text-red-500 ${hp > 0 ? 'fill-current animate-pulse' : ''}`} />
+                    <span className="font-black text-red-600">HP: {hp}</span>
+                    <div className="ml-2 pl-3 border-l-2 border-red-200 flex gap-3 text-sm font-bold">
+                      <span className="text-slate-700">總答對: {score}</span>
+                      <span className="text-amber-600">連擊: {combo}</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-slate-100 px-4 py-1.5 rounded-full text-sm font-bold text-slate-600">題目: {questionCount} / {totalQuestionsPreset}</div>
+                )}
+                
+                {timeLimit > 0 && (
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => setIsPaused(true)} className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg"><Pause className="w-4 h-4" /></button>
+                    <div className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-bold ${timeLeft <= 3 && !feedback ? 'bg-red-100 text-red-600 animate-pulse' : 'bg-slate-100 text-slate-600'}`}>
+                      <Timer className="w-4 h-4" /> {timeLeft}s
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="text-sm text-slate-500 mb-2">請將以下單字轉換為</div>
+              <div className={`text-2xl font-bold mb-6 border-b-2 inline-block px-2 pb-1 ${testMode === 'grammar' ? 'text-emerald-700 border-emerald-500' : 'text-slate-800 border-blue-500'}`}>
+                {getTargetName(currentTarget)}
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
+                <div className="text-5xl font-black text-slate-800 tracking-wide">{renderRuby(currentVerb[sourceForm])}</div>
+                <div className="text-slate-400 hidden sm:block"><ArrowRight className="w-8 h-8" /></div>
+                <div className="text-lg text-slate-500 font-medium bg-slate-50 px-4 py-2 rounded-xl">{currentVerb.meaning}</div>
+              </div>
+
+              {inputMode === 'choice' ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-lg mx-auto">
+                  {choiceOptions.map((opt, idx) => {
+                    let btnClass = "py-4 px-6 rounded-2xl border-2 text-xl font-bold transition-all ";
+                    if (feedback === null) btnClass += "border-slate-200 hover:border-blue-500 hover:bg-blue-50 text-slate-700";
+                    else if (opt === currentCorrectPlain) btnClass += "border-green-500 bg-green-50 text-green-700";
+                    else if (opt === userInput) btnClass += "border-red-500 bg-red-50 text-red-700";
+                    else btnClass += "border-slate-100 bg-slate-50 text-slate-400 opacity-50";
+                    
+                    return (
+                      <button key={idx} disabled={feedback !== null} onClick={() => { setUserInput(opt); checkAnswer(opt); }} className={btnClass}>{opt}</button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <form onSubmit={handleFormSubmit} className="max-w-md mx-auto relative">
+                  <input
+                    type="text" value={userInput} onChange={(e) => setUserInput(e.target.value)} disabled={feedback !== null}
+                    placeholder="輸入變化結果..." autoFocus
+                    className={`w-full px-5 py-4 text-2xl text-center rounded-2xl border-2 focus:outline-none ${feedback === 'correct' ? 'border-green-500 bg-green-50 text-green-800 font-bold' : feedback ? 'border-red-500 bg-red-50 text-red-800 font-bold' : 'border-slate-200 focus:border-blue-500'}`}
+                  />
+                  {feedback === 'correct' && <div className="absolute right-4 top-1/2 -translate-y-1/2 text-green-500 animate-in zoom-in"><CheckCircle2 className="w-8 h-8" /></div>}
+                  {feedback && feedback !== 'correct' && <div className="absolute right-4 top-1/2 -translate-y-1/2 text-red-500 animate-in zoom-in"><XCircle className="w-8 h-8" /></div>}
+                </form>
+              )}
+
+              {inputMode === 'keyboard' && feedback === null && (
+                 <button onClick={() => checkAnswer()} className="mt-6 max-w-md mx-auto w-full py-4 bg-slate-800 text-white rounded-xl font-bold text-lg hover:bg-slate-700">送出答案 (Enter)</button>
+              )}
+
+              {feedback !== null && (
+                <button onClick={nextQuestion} disabled={autoAdvance && feedback === 'correct'} className={`mt-6 max-w-md mx-auto w-full py-4 rounded-xl font-bold text-lg flex justify-center gap-2 ${feedback === 'correct' ? 'bg-green-600 text-white hover:bg-green-700 disabled:opacity-90' : 'bg-red-600 text-white hover:bg-red-700'}`} autoFocus>
+                  {feedback === 'correct' && autoAdvance ? '換題中...' : '下一題'} <Play className="w-5 h-5 fill-current" />
+                </button>
+              )}
+
+              {feedback && feedback !== 'correct' && (
+                <div className="mt-8 p-5 bg-red-50 border border-red-100 rounded-2xl text-left animate-in slide-in-from-bottom-4">
+                  <div className="flex items-center gap-2 text-red-700 font-bold mb-3"><AlertCircle className="w-5 h-5" /> 答錯囉！分析如下：</div>
+                  <div className="space-y-3 text-red-900">
+                    <div className="flex gap-2 bg-white/60 p-3 rounded-xl"><span className="font-semibold text-red-700">正確答案：</span><span className="text-xl font-black">{renderRuby(currentCorrectRuby)}</span></div>
+                    <div className="flex gap-2 bg-white/60 p-3 rounded-xl"><span className="font-semibold text-red-700">變化規則：</span><span>{explanation}</span></div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
