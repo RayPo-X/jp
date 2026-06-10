@@ -1022,6 +1022,16 @@ export default function App() {
     setAppState('theme_reference');
   };
 
+  const handleFinishFlashcards = () => {
+    // 預習完成後，將 flashcardQueue 中的單字狀態轉為 learning
+    const newlyLearnedIds = flashcardQueue.map(v => v.id);
+    setVocabDB(prev => prev.map(v => 
+      newlyLearnedIds.includes(v.id) ? { ...v, status: 'learning' } : v
+    ));
+    setAppState('home');
+    alert(`太棒了！您已經解鎖並預習了 ${flashcardQueue.length} 個新單字！它們已被正式加入學習清單中。`);
+  };
+
   const [newGrammar, setNewGrammar] = useState({ name: '', baseForm: 'te', removeStr: '', appendStr: '', appliesTo: ['verb'] });
   const handleAddGrammar = () => {
     if (!newGrammar.name || !newGrammar.appendStr) { alert('請填寫文法名稱與加上字尾！'); return; }
@@ -1497,7 +1507,7 @@ export default function App() {
                 <div>
                   <label className="block text-sm font-bold text-slate-700 mb-1">抽卡數量</label>
                   <div className="flex items-center gap-4">
-                    <input type="range" min="1" max="50" value={referenceAmount} onChange={(e)=>setReferenceAmount(Number(e.target.value))} className="flex-1 accent-fuchsia-600" />
+                    <input type="range" min="1" max="20" value={referenceAmount} onChange={(e)=>setReferenceAmount(Number(e.target.value))} className="flex-1 accent-fuchsia-600" />
                     <span className="font-bold text-fuchsia-600 w-8 text-right">{referenceAmount}</span>
                   </div>
                 </div>
