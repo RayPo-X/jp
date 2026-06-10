@@ -1,0 +1,15 @@
+<script>
+const vocab = localStorage.getItem('verbApp_vocabDB');
+const verb = localStorage.getItem('verbApp_verbDB');
+const forms = localStorage.getItem('verbApp_verbForms');
+console.log("VOCAB:", vocab);
+console.log("VERB:", verb);
+console.log("FORMS:", forms);
+
+// Uncomment to actually clear:
+localStorage.removeItem('verbApp_vocabDB');
+localStorage.removeItem('verbApp_verbDB');
+localStorage.removeItem('verbApp_verbForms');
+
+document.write("cleared");
+</script>

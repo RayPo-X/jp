@@ -63,13 +63,67 @@ const THEMES = [
   { id: '身體與健康', icon: <SmilePlus className="w-8 h-8"/>, name: '身體與健康', description: '身體部位與健康狀況' }
 ];
 
-const FORM_OPTIONS = [
+const DEFAULT_FORM_OPTIONS = [
   { id: 'jisho', label: '普通形(辭書形/常體)' },
   { id: 'te', label: 'て形' },
   { id: 'ta', label: 'た形' },
   { id: 'nai', label: 'ない形' },
   { id: 'nakatta', label: 'なかった形' }
 ];
+
+const autoConjugateVerb = (masuStr, group) => {
+    if (!masuStr || typeof masuStr !== 'string' || !masuStr.endsWith('ます')) return null;
+    const match = masuStr.match(/^(.*?)(.)ます$/);
+    if (!match) return null;
+    let [ , prefix, iDan ] = match;
+    
+    // Group 2
+    if (group === '2') {
+        const stem = prefix + iDan;
+        return { jisho: stem + 'る', te: stem + 'て', ta: stem + 'た', nai: stem + 'ない', nakatta: stem + 'なかった' };
+    }
+    
+    // Group 3
+    if (group === '3') {
+        if (masuStr === 'します' || masuStr === 'し[し]ます') return { jisho: 'する', te: 'して', ta: 'した', nai: 'しない', nakatta: 'しなかった' };
+        if (masuStr === '来[き]ます' || masuStr === 'きます') return { jisho: masuStr.includes('[') ? '来[く]る' : 'くる', te: masuStr.includes('[') ? '来[き]て' : 'きて', ta: masuStr.includes('[') ? '来[き]た' : 'きた', nai: masuStr.includes('[') ? '来[こ]ない' : 'こない', nakatta: masuStr.includes('[') ? '来[こ]なかった' : 'こなかった' };
+        const nMatch = masuStr.match(/^(.*?)します$/);
+        if (nMatch) {
+            const n = nMatch[1];
+            return { jisho: n + 'する', te: n + 'して', ta: n + 'した', nai: n + 'しない', nakatta: n + 'しなかった' };
+        }
+    }
+    
+    // Group 1
+    if (group === '1') {
+        const iToU = { 'い': 'う', 'き': 'く', 'ぎ': 'ぐ', 'し': 'す', 'ち': 'つ', 'に': 'ぬ', 'ひ': 'ふ', 'び': 'ぶ', 'み': 'む', 'り': 'る' };
+        const iToA = { 'い': 'わ', 'き': 'か', 'ぎ': 'が', 'し': 'さ', 'ち': 'た', 'に': 'な', 'ひ': 'は', 'び': 'ば', 'み': 'ま', 'り': 'ら' };
+        const iToTe = { 'い': 'って', 'ち': 'って', 'り': 'って', 'み': 'んで', 'に': 'んで', 'び': 'んで', 'き': 'いて', 'ぎ': 'いで', 'し': 'して' };
+        const iToTa = { 'い': 'った', 'ち': 'った', 'り': 'った', 'み': 'んだ', 'に': 'んだ', 'び': 'んだ', 'き': 'いた', 'ぎ': 'いだ', 'し': 'した' };
+        
+        if (masuStr === '行[い]きます' || masuStr === 'いきます') {
+             const rt = masuStr.includes('[') ? '行[い]' : 'い';
+             return { jisho: rt + 'く', te: rt + 'って', ta: rt + 'った', nai: rt + 'かない', nakatta: rt + 'かなかった' };
+        }
+        
+        const uDan = iToU[iDan] || '';
+        const aDan = iToA[iDan] || '';
+        const teForm = iToTe[iDan] || '';
+        const taForm = iToTa[iDan] || '';
+        
+        if (!uDan) return null;
+        
+        return {
+            jisho: prefix + uDan,
+            te: prefix + teForm,
+            ta: prefix + taForm,
+            nai: prefix + aDan + 'ない',
+            nakatta: prefix + aDan + 'なかった'
+        };
+    }
+    
+    return null;
+};
 
 const DEFAULT_GRAMMARS = [
   { id: 'g_tai', name: '想要 (〜たい)', baseForm: 'masu', removeStr: 'ます', appendStr: 'たい', appliesTo: ['verb'] },
@@ -313,26 +367,64 @@ export default function App() {
   const [vocabDB, setVocabDB] = useState(() => {
     try {
       const saved = localStorage.getItem('verbApp_vocabDB');
-      return saved ? JSON.parse(saved) : INITIAL_VOCAB_DB;
-    } catch { return INITIAL_VOCAB_DB; }
+      if (saved) {
+         let parsed = JSON.parse(saved);
+         if (!Array.isArray(parsed)) throw new Error('Invalid DB');
+         parsed = parsed.filter(v => v !== null && v !== undefined).map(v => {
+           if (v.status === 'learning' && v.repetitions === 0 && v.interval === 0) {
+               return { ...v, status: 'new' };
+           }
+           if (!v.status) return { ...v, status: v.repetitions >= 5 ? 'mastered' : 'new' };
+           return v;
+         });
+         return parsed;
+      }
+      return INITIAL_VOCAB_DB.map(v => ({ ...v, status: 'new' }));
+    } catch { return INITIAL_VOCAB_DB.map(v => ({ ...v, status: 'new' })); }
   });
   const [vocabMistakes, setVocabMistakes] = useState({});
   const [vocabTestMode, setVocabTestMode] = useState('srs'); 
   const [currentThemeLabel, setCurrentThemeLabel] = useState('');
   const [activeVocabQueue, setActiveVocabQueue] = useState([]);
   const [currentVocab, setCurrentVocab] = useState(null);
+
+  // ==== 每日解鎖與主題抽卡 State ====
+  const [unlockAmount, setUnlockAmount] = useState(5);
+  const [unlockTheme, setUnlockTheme] = useState('random');
+  const [flashcardQueue, setFlashcardQueue] = useState([]);
+  const [currentFlashcardIndex, setCurrentFlashcardIndex] = useState(0);
+  
+  const [referenceAmount, setReferenceAmount] = useState(5);
+  const [referenceTheme, setReferenceTheme] = useState('random');
+  const [referenceQueue, setReferenceQueue] = useState([]);
   
   useEffect(() => { localStorage.setItem('verbApp_vocabDB', JSON.stringify(vocabDB)); }, [vocabDB]);
-  const todayQueue = vocabDB.filter(v => v.nextReview <= Date.now());
+  const todayQueue = vocabDB.filter(v => v.status !== 'new' && v.nextReview <= Date.now());
 
   // ==== 動詞系統 State ====
   const [verbDB, setVerbDB] = useState(() => {
     try {
       const saved = localStorage.getItem('verbApp_verbDB');
-      return saved ? JSON.parse(saved) : INITIAL_VERB_DB;
+      if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) return parsed;
+      }
+      return INITIAL_VERB_DB;
     } catch { return INITIAL_VERB_DB; }
   });
   useEffect(() => { localStorage.setItem('verbApp_verbDB', JSON.stringify(verbDB)); }, [verbDB]);
+
+  const [verbForms, setVerbForms] = useState(() => {
+    try {
+      const saved = localStorage.getItem('verbApp_verbForms');
+      if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) return parsed;
+      }
+      return DEFAULT_FORM_OPTIONS;
+    } catch { return DEFAULT_FORM_OPTIONS; }
+  });
+  useEffect(() => { localStorage.setItem('verbApp_verbForms', JSON.stringify(verbForms)); }, [verbForms]);
 
   const [sourceForm, setSourceForm] = useState('masu'); 
   const [targetForms, setTargetForms] = useState(['te', 'ta', 'nai', 'jisho']); 
@@ -371,7 +463,7 @@ export default function App() {
     const now = Date.now();
     const queue = [];
     // 遍歷所有可能的動詞+目標形組合
-    const allTargets = ['te', 'ta', 'nai', 'nakatta', 'jisho'];
+    const allTargets = verbForms.map(f => f.id);
     verbDB.forEach(word => {
       allTargets.forEach(target => {
         if (target === sourceForm) return; // 跳過來源形
@@ -458,7 +550,7 @@ export default function App() {
     }
     
     if (queue.length === 0) { alert('這個模式目前沒有題目喔！'); return; }
-    queue = queue.sort(() => Math.random() - 0.5);
+    queue = queue.sort(() => Math.random() * 0.5);
     
     setVocabTestMode(mode);
     setActiveVocabQueue(queue);
@@ -545,11 +637,10 @@ export default function App() {
        }
        setVocabDB(prevDB => prevDB.map(v => {
            if (v.id === currentVocab.id) {
-               let ef = v.ef || 2.5; let interval = v.interval || 0; let reps = v.repetitions || 0;
+               let ef = v.ef || 2.5; let interval = v.interval || 0; let reps = v.repetitions || 0; let status = v.status || 'learning';
                if (quality >= 3) {
                    ef = ef + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
                    if (ef < 1.3) ef = 1.3;
-                   // 艾賓浩斯前期密集間隔：0→1→2→4→7→EF遞增
                    if (reps === 0) interval = 0;
                    else if (reps === 1) interval = 1;
                    else if (reps === 2) interval = 2;
@@ -557,14 +648,14 @@ export default function App() {
                    else if (reps === 4) interval = 7;
                    else interval = Math.round(interval * ef);
                    reps++;
-               } else { reps = 0; interval = 0; }
-               return { ...v, ef, interval, repetitions: reps, nextReview: Date.now() + interval * 86400000 };
+                   if (reps >= 5) status = 'mastered';
+               } else { reps = 0; interval = 0; status = 'learning'; }
+               return { ...v, ef, interval, repetitions: reps, nextReview: Date.now() + interval * 86400000, status };
            }
            return v;
        }));
     }
 
-    // 答錯的題目加回佇列尾部（同輪再考一次）
     if (!isCorrect && vocabTestMode === 'srs') {
       setActiveVocabQueue(prev => [...prev.slice(1), prev[0]]);
     }
@@ -673,7 +764,6 @@ export default function App() {
 
     setRoundHistory(prev => [...prev, { question: qTitle, userAnswer: finalAnswer, correctAnswer: currentCorrectPlain, userIsCorrect: isCorrect, explanation: exp }]);
 
-    // ==== 文法 SRS 更新（艾賓浩斯前期密集間隔） ====
     if (!currentGrammarDef) {
       const srsKey = `${currentVerb.id}_${currentTarget}`;
       const timeSpent = actualTimeLimit - timeLeft;
@@ -769,7 +859,7 @@ export default function App() {
   }, [timeLeft]);
 
   const getTargetName = (id) => {
-    const defaultOpt = FORM_OPTIONS.find(f => f.id === id);
+    const defaultOpt = verbForms.find(f => f.id === id);
     if (defaultOpt) return defaultOpt.label;
     const customOpt = customGrammars.find(g => g.id === id);
     if (customOpt) return customOpt.name;
@@ -805,7 +895,7 @@ export default function App() {
         meaning: v.meaning.trim(), 
         tag: v.tag || '自訂', 
         example: v.example.trim(),
-        ef: 2.5, interval: 0, repetitions: 0, nextReview: 0
+        ef: 2.5, interval: 0, repetitions: 0, nextReview: 0, status: 'new'
     }));
     if (newVocabs.length > 0) {
         setVocabDB(prev => [...prev, ...newVocabs]);
@@ -897,6 +987,41 @@ export default function App() {
     }
   };
 
+  const handleUnlockNewWords = () => {
+    let pool = vocabDB.filter(v => v.status === 'new');
+    if (unlockTheme !== 'random') {
+      pool = pool.filter(v => v.tag === unlockTheme);
+    }
+    if (pool.length === 0) return alert('沒有符合條件的新單字可供解鎖！');
+    
+    // Shuffle pool
+    const shuffled = [...pool].sort(() => 0.5 - Math.random());
+    const selected = shuffled.slice(0, unlockAmount);
+    
+    setFlashcardQueue(selected);
+    setCurrentFlashcardIndex(0);
+    setAppState('flashcard_learning');
+  };
+
+  const handleReferenceDraw = () => {
+    let pool;
+    if (referenceTheme === 'verb_all') {
+      pool = verbDB;
+    } else {
+      pool = vocabDB.filter(v => v.status !== 'new');
+      if (referenceTheme !== 'random') {
+        pool = pool.filter(v => v.tag === referenceTheme);
+      }
+    }
+    if (pool.length === 0) return alert('沒有符合條件的單字/動詞可供抽卡！');
+    
+    const shuffled = [...pool].sort(() => 0.5 - Math.random());
+    const selected = shuffled.slice(0, referenceAmount);
+    
+    setReferenceQueue(selected);
+    setAppState('theme_reference');
+  };
+
   const [newGrammar, setNewGrammar] = useState({ name: '', baseForm: 'te', removeStr: '', appendStr: '', appliesTo: ['verb'] });
   const handleAddGrammar = () => {
     if (!newGrammar.name || !newGrammar.appendStr) { alert('請填寫文法名稱與加上字尾！'); return; }
@@ -904,11 +1029,30 @@ export default function App() {
     setNewGrammar({ name: '', baseForm: 'te', removeStr: '', appendStr: '', appliesTo: ['verb'] });
   };
 
-  const [verbInputs, setVerbInputs] = useState({ type: 'verb', group: '1', difficulty: 'n5', masu: '', jisho: '', te: '', ta: '', nai: '', nakatta: '', meaning: '' });
+  const getInitialVerbInputs = () => {
+      const base = { type: 'verb', group: '1', difficulty: 'n5', masu: '', meaning: '' };
+      verbForms.forEach(f => { base[f.id] = ''; });
+      return base;
+  };
+  const [verbInputs, setVerbInputs] = useState(getInitialVerbInputs);
+
+  const handleVerbInputChange = (key, value) => {
+      setVerbInputs(prev => {
+          const next = { ...prev, [key]: value };
+          if ((key === 'masu' || key === 'group' || key === 'type') && next.type === 'verb' && next.masu) {
+              const autoGen = autoConjugateVerb(next.masu, next.group);
+              if (autoGen) {
+                  return { ...next, ...autoGen };
+              }
+          }
+          return next;
+      });
+  };
+
   const handleAddVerb = () => {
-    if (!verbInputs.masu || !verbInputs.jisho || !verbInputs.meaning) return alert('請填寫至少 masu, jisho, meaning');
+    if (!verbInputs.masu || !verbInputs.meaning) return alert('請填寫至少 masu, meaning');
     setVerbDB(prev => [...prev, { ...verbInputs, id: `${verbInputs.type}_custom_${Date.now()}` }]);
-    setVerbInputs({ type: 'verb', group: '1', difficulty: 'n5', masu: '', jisho: '', te: '', ta: '', nai: '', nakatta: '', meaning: '' });
+    setVerbInputs(getInitialVerbInputs());
   };
 
   // 在 Theme Select 中取得有效主題清單
@@ -1296,8 +1440,176 @@ export default function App() {
                 </button>
               </div>
             </div>
+
+          {/* ===== NEW: 每日新詞解鎖與主題抽卡區 ===== */}
+          <div className="mt-8 grid md:grid-cols-2 gap-6">
+            
+            {/* 每日新詞解鎖 */}
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-indigo-100 text-indigo-600 rounded-xl"><Sparkles className="w-5 h-5"/></div>
+                <div>
+                  <h2 className="text-xl font-bold text-slate-800">每日新詞解鎖</h2>
+                  <p className="text-xs text-slate-500">學習新單字，解鎖後進入閃卡預習</p>
+                </div>
+              </div>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-1">選擇主題</label>
+                  <select value={unlockTheme} onChange={(e)=>setUnlockTheme(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-indigo-400">
+                    <option value="random">🎲 隨機為我挑選</option>
+                    {availableThemes.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-1">解鎖數量</label>
+                  <div className="flex items-center gap-4">
+                    <input type="range" min="1" max="10" value={unlockAmount} onChange={(e)=>setUnlockAmount(Number(e.target.value))} className="flex-1 accent-indigo-600" />
+                    <span className="font-bold text-indigo-600 w-8 text-right">{unlockAmount}</span>
+                  </div>
+                </div>
+                <button onClick={handleUnlockNewWords} className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-colors shadow-sm">
+                  解鎖並開始預習
+                </button>
+              </div>
+            </div>
+
+            {/* 主題抽卡總覽 */}
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-fuchsia-100 text-fuchsia-600 rounded-xl"><Layers className="w-5 h-5"/></div>
+                <div>
+                  <h2 className="text-xl font-bold text-slate-800">主題總覽抽卡</h2>
+                  <p className="text-xs text-slate-500">從學習中/已掌握的詞庫抽出單字複習</p>
+                </div>
+              </div>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-1">選擇主題</label>
+                  <select value={referenceTheme} onChange={(e)=>setReferenceTheme(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-fuchsia-400">
+                    <option value="random">🎲 隨機大亂鬥</option>
+                    <option value="動詞">🏃 動詞全變化特輯</option>
+                    {availableThemes.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-1">抽卡數量</label>
+                  <div className="flex items-center gap-4">
+                    <input type="range" min="1" max="50" value={referenceAmount} onChange={(e)=>setReferenceAmount(Number(e.target.value))} className="flex-1 accent-fuchsia-600" />
+                    <span className="font-bold text-fuchsia-600 w-8 text-right">{referenceAmount}</span>
+                  </div>
+                </div>
+                <button onClick={handleReferenceDraw} className="w-full py-3 bg-fuchsia-600 text-white font-bold rounded-xl hover:bg-fuchsia-700 transition-colors shadow-sm">
+                  開始抽卡展示
+                </button>
+              </div>
+            </div>
+          </div>
           </div>
         </div>
+      )}
+
+      {/* ==== NEW: 閃卡預習畫面 (Flashcard Learning) ==== */}
+      {appState === 'flashcard_learning' && flashcardQueue.length > 0 && (
+          <div className="max-w-2xl mx-auto bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-100 text-center relative overflow-hidden animate-in fade-in slide-in-from-bottom-4">
+              <div className="mb-6 flex justify-between items-center">
+                  <h2 className="text-xl font-bold text-slate-800">新詞預習</h2>
+                  <div className="bg-indigo-100 text-indigo-700 px-4 py-1.5 rounded-full text-sm font-bold">
+                      {currentFlashcardIndex + 1} / {flashcardQueue.length}
+                  </div>
+              </div>
+              
+              <div className="bg-slate-50 border-2 border-slate-100 rounded-3xl p-10 mb-8 min-h-[300px] flex flex-col items-center justify-center relative">
+                  <div className="absolute top-4 right-4"><span className={`px-3 py-1 rounded-full text-xs font-bold ${getTagStyle(flashcardQueue[currentFlashcardIndex].tag)}`}>{flashcardQueue[currentFlashcardIndex].tag}</span></div>
+                  <div className="text-6xl font-black text-slate-800 mb-6 tracking-wide">{flashcardQueue[currentFlashcardIndex].word}</div>
+                  <div className="text-2xl text-slate-500 font-bold mb-4">{flashcardQueue[currentFlashcardIndex].reading}</div>
+                  <div className="text-xl text-blue-600 font-bold bg-blue-50 px-6 py-2 rounded-2xl">{flashcardQueue[currentFlashcardIndex].meaning}</div>
+                  {flashcardQueue[currentFlashcardIndex].example && (
+                      <div className="mt-6 text-sm text-slate-600 bg-white border border-slate-200 p-4 rounded-xl max-w-sm text-left">
+                          <MessageSquareQuote className="w-4 h-4 mb-2 text-slate-400" />
+                          {renderRuby(flashcardQueue[currentFlashcardIndex].example)}
+                      </div>
+                  )}
+              </div>
+
+              <div className="flex gap-4">
+                  {currentFlashcardIndex > 0 && (
+                      <button onClick={() => setCurrentFlashcardIndex(prev => prev - 1)} className="flex-1 py-4 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition-colors">
+                          上一個
+                      </button>
+                  )}
+                  {currentFlashcardIndex < flashcardQueue.length - 1 ? (
+                      <button onClick={() => setCurrentFlashcardIndex(prev => prev + 1)} className="flex-1 py-4 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-colors">
+                          下一個
+                      </button>
+                  ) : (
+                      <button onClick={handleFinishFlashcards} className="flex-1 py-4 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 transition-colors">
+                          完成預習
+                      </button>
+                  )}
+              </div>
+          </div>
+      )}
+
+      {/* ==== NEW: 主題抽卡總覽畫面 (Theme Reference) ==== */}
+      {appState === 'theme_reference' && referenceQueue.length > 0 && (
+          <div className="max-w-4xl mx-auto mt-4 animate-in fade-in">
+             <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2"><Layers className="w-6 h-6 text-fuchsia-600"/> 主題抽卡總覽</h2>
+                <div className="flex items-center gap-3">
+                  <span className="bg-slate-100 px-3 py-1 rounded-full text-slate-600 text-sm font-bold border border-slate-200">共 {referenceQueue.length} 詞</span>
+                  <button onClick={goHome} className="p-2 rounded-xl bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 transition-colors"><Home className="w-5 h-5" /></button>
+                </div>
+             </div>
+             
+             <div className="grid sm:grid-cols-2 gap-4">
+                 {referenceQueue.map((item, idx) => (
+                     <div key={idx} className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 hover:border-fuchsia-200 transition-all hover:shadow-md group">
+                         {item.isVerbDef ? (
+                             <>
+                               <div className="flex justify-between items-start mb-4">
+                                   <div>
+                                       <span className="bg-indigo-50 text-indigo-700 px-2 py-1 rounded text-xs font-bold whitespace-nowrap mb-2 inline-block">{item.type} ({item.group})</span>
+                                       <div className="text-3xl font-black text-slate-800">{renderRuby(item.masu)}</div>
+                                   </div>
+                                   <div className="text-right">
+                                       <div className="text-lg font-bold text-blue-600 bg-blue-50 px-3 py-1 rounded-xl inline-block">{item.meaning}</div>
+                                   </div>
+                               </div>
+                               <div className="grid grid-cols-2 gap-2 text-sm mt-4 border-t border-slate-100 pt-4">
+                                   {verbForms.map(f => (
+                                       item[f.id] && <div key={f.id} className="flex flex-col bg-slate-50 p-2 rounded-lg"><span className="text-xs text-slate-400 font-bold mb-1">{f.label}</span><span className="font-medium text-slate-700">{renderRuby(item[f.id])}</span></div>
+                                   ))}
+                               </div>
+                             </>
+                         ) : (
+                             <>
+                               <div className="flex justify-between items-start mb-2">
+                                   <div className="text-3xl font-black text-slate-800 tracking-wide">{item.word}</div>
+                                   <span className={`px-2 py-1 rounded-lg text-xs font-bold ${getTagStyle(item.tag)}`}>{item.tag}</span>
+                               </div>
+                               <div className="text-lg text-slate-500 font-bold mb-3">{item.reading}</div>
+                               <div className="text-lg font-bold text-blue-600 mb-4">{item.meaning}</div>
+                               {item.example && (
+                                  <div className="text-sm text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                                      {renderRuby(item.example)}
+                                  </div>
+                               )}
+                               <div className="mt-3 flex justify-end">
+                                   {item.status === 'mastered' ? (
+                                       <span className="bg-green-100 text-green-700 text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1"><Medal className="w-3 h-3"/> 已掌握</span>
+                                   ) : (
+                                       <span className="bg-blue-100 text-blue-700 text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1"><BookOpen className="w-3 h-3"/> 學習中</span>
+                                   )}
+                               </div>
+                             </>
+                         )}
+                     </div>
+                 ))}
+             </div>
+          </div>
       )}
 
       {appState === 'theme_select' && (
@@ -1478,18 +1790,33 @@ export default function App() {
               <div className="bg-indigo-50 p-6 rounded-3xl border border-indigo-100 mb-8">
                  <h3 className="font-bold text-indigo-800 mb-6 flex items-center gap-2 text-lg"><Plus className="w-6 h-6"/> 新增詞彙</h3>
                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
-                   <div><label className="block text-sm font-bold text-indigo-700 mb-1">類型</label><select value={verbInputs.type} onChange={e=>setVerbInputs({...verbInputs, type: e.target.value})} className="w-full p-3 rounded-xl border border-indigo-200"><option value="verb">動詞 (verb)</option><option value="adj_i">い形容詞 (adj_i)</option><option value="adj_na">な形容詞 (adj_na)</option></select></div>
-                   <div><label className="block text-sm font-bold text-indigo-700 mb-1">群組/分類</label><select value={verbInputs.group} onChange={e=>setVerbInputs({...verbInputs, group: e.target.value})} className="w-full p-3 rounded-xl border border-indigo-200"><option value="1">第一類動詞 (1)</option><option value="2">第二類動詞 (2)</option><option value="3">第三類動詞 (3)</option><option value="i">い形容詞 (i)</option><option value="na">な形容詞 (na)</option></select></div>
-                   <div><label className="block text-sm font-bold text-indigo-700 mb-1">難易度</label><select value={verbInputs.difficulty} onChange={e=>setVerbInputs({...verbInputs, difficulty: e.target.value})} className="w-full p-3 rounded-xl border border-indigo-200"><option value="n5">N5</option><option value="n4">N4</option><option value="n3">N3</option><option value="n2">N2</option><option value="n1">N1</option></select></div>
-                   <div><label className="block text-sm font-bold text-indigo-700 mb-1">中文意思</label><input type="text" value={verbInputs.meaning} onChange={e=>setVerbInputs({...verbInputs, meaning: e.target.value})} placeholder="例：去" className="w-full p-3 rounded-xl border border-indigo-200"/></div>
+                   <div><label className="block text-sm font-bold text-indigo-700 mb-1">類型</label><select value={verbInputs.type} onChange={e=>handleVerbInputChange('type', e.target.value)} className="w-full p-3 rounded-xl border border-indigo-200"><option value="verb">動詞 (verb)</option><option value="adj_i">い形容詞 (adj_i)</option><option value="adj_na">な形容詞 (adj_na)</option></select></div>
+                   <div><label className="block text-sm font-bold text-indigo-700 mb-1">群組/分類</label><select value={verbInputs.group} onChange={e=>handleVerbInputChange('group', e.target.value)} className="w-full p-3 rounded-xl border border-indigo-200"><option value="1">第一類動詞 (1)</option><option value="2">第二類動詞 (2)</option><option value="3">第三類動詞 (3)</option><option value="i">い形容詞 (i)</option><option value="na">な形容詞 (na)</option></select></div>
+                   <div><label className="block text-sm font-bold text-indigo-700 mb-1">難易度</label><select value={verbInputs.difficulty} onChange={e=>handleVerbInputChange('difficulty', e.target.value)} className="w-full p-3 rounded-xl border border-indigo-200"><option value="n5">N5</option><option value="n4">N4</option><option value="n3">N3</option><option value="n2">N2</option><option value="n1">N1</option></select></div>
+                   <div><label className="block text-sm font-bold text-indigo-700 mb-1">中文意思</label><input type="text" value={verbInputs.meaning} onChange={e=>handleVerbInputChange('meaning', e.target.value)} placeholder="例：去" className="w-full p-3 rounded-xl border border-indigo-200"/></div>
                  </div>
                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-4">
-                   <div><label className="block text-sm font-bold text-indigo-700 mb-1">ます形 (支援漢字[假名])</label><input type="text" value={verbInputs.masu} onChange={e=>setVerbInputs({...verbInputs, masu: e.target.value})} placeholder="例：行[い]きます" className="w-full p-3 rounded-xl border border-indigo-200"/></div>
-                   <div><label className="block text-sm font-bold text-indigo-700 mb-1">辭書形 (jisho)</label><input type="text" value={verbInputs.jisho} onChange={e=>setVerbInputs({...verbInputs, jisho: e.target.value})} placeholder="例：行[い]く" className="w-full p-3 rounded-xl border border-indigo-200"/></div>
-                   <div><label className="block text-sm font-bold text-indigo-700 mb-1">て形 (te)</label><input type="text" value={verbInputs.te} onChange={e=>setVerbInputs({...verbInputs, te: e.target.value})} placeholder="例：行[い]って" className="w-full p-3 rounded-xl border border-indigo-200"/></div>
-                   <div><label className="block text-sm font-bold text-indigo-700 mb-1">た形 (ta)</label><input type="text" value={verbInputs.ta} onChange={e=>setVerbInputs({...verbInputs, ta: e.target.value})} placeholder="例：行[い]った" className="w-full p-3 rounded-xl border border-indigo-200"/></div>
-                   <div><label className="block text-sm font-bold text-indigo-700 mb-1">ない形 (nai)</label><input type="text" value={verbInputs.nai} onChange={e=>setVerbInputs({...verbInputs, nai: e.target.value})} placeholder="例：行[い]かない" className="w-full p-3 rounded-xl border border-indigo-200"/></div>
-                   <div><label className="block text-sm font-bold text-indigo-700 mb-1">なかった形</label><input type="text" value={verbInputs.nakatta} onChange={e=>setVerbInputs({...verbInputs, nakatta: e.target.value})} placeholder="例：行[い]かなかった" className="w-full p-3 rounded-xl border border-indigo-200"/></div>
+                   <div><label className="block text-sm font-bold text-indigo-700 mb-1">ます形 (支援漢字[假名])</label><input type="text" value={verbInputs.masu || ''} onChange={e=>handleVerbInputChange('masu', e.target.value)} placeholder="例：行[い]きます" className="w-full p-3 rounded-xl border border-indigo-200"/></div>
+                   {verbForms.map(f => (
+                       <div key={f.id}><label className="block text-sm font-bold text-indigo-700 mb-1">{f.label}</label><input type="text" value={verbInputs[f.id] || ''} onChange={e=>handleVerbInputChange(f.id, e.target.value)} className="w-full p-3 rounded-xl border border-indigo-200"/></div>
+                   ))}
+                 </div>
+
+                 <div className="mt-6 border-t border-indigo-100 pt-6 pb-6">
+                    <h4 className="font-bold text-indigo-800 mb-4 flex items-center gap-2 text-sm"><Settings className="w-4 h-4"/> 自訂動詞變化欄位</h4>
+                    <div className="flex flex-col sm:flex-row gap-3">
+                       <input type="text" id="newFormId" placeholder="代號 (例: ba)" className="p-3 rounded-xl border border-indigo-200 flex-1 outline-none focus:border-indigo-500" />
+                       <input type="text" id="newFormLabel" placeholder="名稱 (例: 條件形)" className="p-3 rounded-xl border border-indigo-200 flex-1 outline-none focus:border-indigo-500" />
+                       <button onClick={() => {
+                           const id = document.getElementById('newFormId').value.trim();
+                           const label = document.getElementById('newFormLabel').value.trim();
+                           if (!id || !label) return alert('請填寫代號與名稱！');
+                           if (verbForms.some(f => f.id === id)) return alert('代號已存在！');
+                           setVerbForms(prev => [...prev, { id, label }]);
+                           document.getElementById('newFormId').value = '';
+                           document.getElementById('newFormLabel').value = '';
+                       }} className="py-3 px-6 bg-indigo-100 text-indigo-700 font-bold rounded-xl hover:bg-indigo-200 transition-colors">新增欄位</button>
+                    </div>
                  </div>
                  <button onClick={handleAddVerb} className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold text-lg hover:bg-indigo-700 transition-colors shadow-sm">新增至記憶庫</button>
               </div>
