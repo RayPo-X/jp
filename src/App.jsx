@@ -1,4 +1,5 @@
 ﻿import React, { useState, useEffect, useCallback } from 'react';
+import { autoConjugate } from './conjugator';
 import { BUILT_IN_DICTIONARY, getAvailableThemes, getWordsByTheme } from './dictionary';
 import { 
   Settings, Play, CheckCircle2, XCircle, ArrowRight, BookOpen, 
@@ -10,32 +11,32 @@ import {
 } from 'lucide-react';
 
 const INITIAL_VERB_DB = [
-  { group: 1, type: 'verb', masu: '行[い]きます', jisho: '行[い]く', te: '行[い]って', ta: '行[い]った', nai: '行[い]かない', nakatta: '行[い]かなかった', meaning: '去', difficulty: 'n5' },
-  { group: 1, type: 'verb', masu: '買[か]います', jisho: '買[か]う', te: '買[か]って', ta: '買[か]った', nai: '買[か]わない', nakatta: '買[か]わなかった', meaning: '買', difficulty: 'n5' },
-  { group: 1, type: 'verb', masu: '待[ま]ちます', jisho: '待[ま]つ', te: '待[ま]って', ta: '待[ま]った', nai: '待[ま]たない', nakatta: '待[ま]たなかった', meaning: '等待', difficulty: 'n5' },
-  { group: 1, type: 'verb', masu: '帰[かえ]ります', jisho: '帰[かえ]る', te: '帰[かえ]って', ta: '帰[かえ]った', nai: '帰[かえ]らない', nakatta: '帰[かえ]らなかった', meaning: '回家', difficulty: 'n5' },
-  { group: 1, type: 'verb', masu: '飲[の]みます', jisho: '飲[の]む', te: '飲[の]んで', ta: '飲[の]んだ', nai: '飲[の]まない', nakatta: '飲[の]まなかった', meaning: '喝', difficulty: 'n5' },
-  { group: 1, type: 'verb', masu: '遊[あそ]びます', jisho: '遊[あそ]ぶ', te: '遊[あそ]んで', ta: '遊[あそ]んだ', nai: '遊[あそ]ばない', nakatta: '遊[あそ]ばなかった', meaning: '玩', difficulty: 'n5' },
-  { group: 1, type: 'verb', masu: '泳[およ]ぎます', jisho: '泳[およ]ぐ', te: '泳[およ]いで', ta: '泳[およ]いだ', nai: '泳[およ]がない', nakatta: '泳[およ]がなかった', meaning: '游泳', difficulty: 'n5' },
-  { group: 1, type: 'verb', masu: '話[はな]します', jisho: '話[はな]す', te: '話[はな]して', ta: '話[はな]した', nai: '話[はな]さない', nakatta: '話[はな]さなかった', meaning: '說', difficulty: 'n5' },
-  { group: 1, type: 'verb', masu: '書[か]きます', jisho: '書[か]く', te: '書[か]いて', ta: '書[か]いた', nai: '書[か]かない', nakatta: '書[か]かなかった', meaning: '寫', difficulty: 'n5' },
-  { group: 1, type: 'verb', masu: '聞[き]きます', jisho: '聞[き]く', te: '聞[き]いて', ta: '聞[き]いた', nai: '聞[き]かない', nakatta: '聞[き]かなかった', meaning: '聽/問', difficulty: 'n5' },
-  { group: 1, type: 'verb', masu: '会[あ]います', jisho: '会[あ]う', te: '会[あ]って', ta: '会[あ]った', nai: '会[あ]わない', nakatta: '会[あ]わなかった', meaning: '見面', difficulty: 'n5' },
-  { group: 1, type: 'verb', masu: '貸[か]します', jisho: '貸[か]す', te: '貸[か]して', ta: '貸[か]した', nai: '貸[か]さない', nakatta: '貸[か]さなかった', meaning: '借出', difficulty: 'n4' },
-  { group: 1, type: 'verb', masu: '急[いそ]ぎます', jisho: '急[いそ]ぐ', te: '急[いそ]いで', ta: '急[いそ]いだ', nai: '急[いそ]がない', nakatta: '急[いそ]がなかった', meaning: '急忙', difficulty: 'n4' },
+  { group: 1, type: 'verb', masu: '行[い]きます', jisho: '行[い]く', te: '行[い]って', ta: '行[い]った', nai: '行[い]かない', nakatta: '行[い]かなかった', ba: '行[い]けば', volitional: '行[い]こう', potential: '行[い]ける', passive: '行[い]かれる', causative: '行[い]かせる', causative_passive: '行[い]かされる', meaning: '去', difficulty: 'n5' },
+  { group: 1, type: 'verb', masu: '買[か]います', jisho: '買[か]う', te: '買[か]って', ta: '買[か]った', nai: '買[か]わない', nakatta: '買[か]わなかった', ba: '買[か]えば', volitional: '買[か]おう', potential: '買[か]える', passive: '買[か]われる', causative: '買[か]わせる', causative_passive: '買[か]わされる', meaning: '買', difficulty: 'n5' },
+  { group: 1, type: 'verb', masu: '待[ま]ちます', jisho: '待[ま]つ', te: '待[ま]って', ta: '待[ま]った', nai: '待[ま]たない', nakatta: '待[ま]たなかった', ba: '待[ま]てば', volitional: '待[ま]とう', potential: '待[ま]てる', passive: '待[ま]たれる', causative: '待[ま]たせる', causative_passive: '待[ま]たされる', meaning: '等待', difficulty: 'n5' },
+  { group: 1, type: 'verb', masu: '帰[かえ]ります', jisho: '帰[かえ]る', te: '帰[かえ]って', ta: '帰[かえ]った', nai: '帰[かえ]らない', nakatta: '帰[かえ]らなかった', ba: '帰[かえ]れば', volitional: '帰[かえ]ろう', potential: '帰[かえ]れる', passive: '帰[かえ]られる', causative: '帰[かえ]らせる', causative_passive: '帰[かえ]らされる', meaning: '回家', difficulty: 'n5' },
+  { group: 1, type: 'verb', masu: '飲[の]みます', jisho: '飲[の]む', te: '飲[の]んで', ta: '飲[の]んだ', nai: '飲[の]まない', nakatta: '飲[の]まなかった', ba: '飲[の]めば', volitional: '飲[の]もう', potential: '飲[の]める', passive: '飲[の]まれる', causative: '飲[の]ませる', causative_passive: '飲[の]まされる', meaning: '喝', difficulty: 'n5' },
+  { group: 1, type: 'verb', masu: '遊[あそ]びます', jisho: '遊[あそ]ぶ', te: '遊[あそ]んで', ta: '遊[あそ]んだ', nai: '遊[あそ]ばない', nakatta: '遊[あそ]ばなかった', ba: '遊[あそ]べば', volitional: '遊[あそ]ぼう', potential: '遊[あそ]べる', passive: '遊[あそ]ばれる', causative: '遊[あそ]ばせる', causative_passive: '遊[あそ]ばされる', meaning: '玩', difficulty: 'n5' },
+  { group: 1, type: 'verb', masu: '泳[およ]ぎます', jisho: '泳[およ]ぐ', te: '泳[およ]いで', ta: '泳[およ]いだ', nai: '泳[およ]がない', nakatta: '泳[およ]がなかった', ba: '泳[およ]げば', volitional: '泳[およ]ごう', potential: '泳[およ]げる', passive: '泳[およ]がれる', causative: '泳[およ]がせる', causative_passive: '泳[およ]がされる', meaning: '游泳', difficulty: 'n5' },
+  { group: 1, type: 'verb', masu: '話[はな]します', jisho: '話[はな]す', te: '話[はな]して', ta: '話[はな]した', nai: '話[はな]さない', nakatta: '話[はな]さなかった', ba: '話[はな]せば', volitional: '話[はな]そう', potential: '話[はな]せる', passive: '話[はな]される', causative: '話[はな]させる', causative_passive: '話[はな]させられる', meaning: '說', difficulty: 'n5' },
+  { group: 1, type: 'verb', masu: '書[か]きます', jisho: '書[か]く', te: '書[か]いて', ta: '書[か]いた', nai: '書[か]かない', nakatta: '書[か]かなかった', ba: '書[か]けば', volitional: '書[か]こう', potential: '書[か]ける', passive: '書[か]かれる', causative: '書[か]かせる', causative_passive: '書[か]かされる', meaning: '寫', difficulty: 'n5' },
+  { group: 1, type: 'verb', masu: '聞[き]きます', jisho: '聞[き]く', te: '聞[き]いて', ta: '聞[き]いた', nai: '聞[き]かない', nakatta: '聞[き]かなかった', ba: '聞[き]けば', volitional: '聞[き]こう', potential: '聞[き]ける', passive: '聞[き]かれる', causative: '聞[き]かせる', causative_passive: '聞[き]かされる', meaning: '聽/問', difficulty: 'n5' },
+  { group: 1, type: 'verb', masu: '会[あ]います', jisho: '会[あ]う', te: '会[あ]って', ta: '会[あ]った', nai: '会[あ]わない', nakatta: '会[あ]わなかった', ba: '会[あ]えば', volitional: '会[あ]おう', potential: '会[あ]える', passive: '会[あ]われる', causative: '会[あ]わせる', causative_passive: '会[あ]わされる', meaning: '見面', difficulty: 'n5' },
+  { group: 1, type: 'verb', masu: '貸[か]します', jisho: '貸[か]す', te: '貸[か]して', ta: '貸[か]した', nai: '貸[か]さない', nakatta: '貸[か]さなかった', ba: '貸[か]せば', volitional: '貸[か]そう', potential: '貸[か]せる', passive: '貸[か]される', causative: '貸[か]させる', causative_passive: '貸[か]させられる', meaning: '借出', difficulty: 'n4' },
+  { group: 1, type: 'verb', masu: '急[いそ]ぎます', jisho: '急[いそ]ぐ', te: '急[いそ]いで', ta: '急[いそ]いだ', nai: '急[いそ]がない', nakatta: '急[いそ]がなかった', ba: '急[いそ]げば', volitional: '急[いそ]ごう', potential: '急[いそ]げる', passive: '急[いそ]がれる', causative: '急[いそ]がせる', causative_passive: '急[いそ]がされる', meaning: '急忙', difficulty: 'n4' },
   
-  { group: 2, type: 'verb', masu: '食[た]べます', jisho: '食[た]べる', te: '食[た]べて', ta: '食[た]べた', nai: '食[た]べない', nakatta: '食[た]べなかった', meaning: '吃', difficulty: 'n5' },
-  { group: 2, type: 'verb', masu: '見[み]ます', jisho: '見[み]る', te: '見[み]て', ta: '見[み]た', nai: '見[み]ない', nakatta: '見[み]なかった', meaning: '看', difficulty: 'n5' },
-  { group: 2, type: 'verb', masu: '起[お]きます', jisho: '起[お]きる', te: '起[お]きて', ta: '起[お]きた', nai: '起[お]きない', nakatta: '起[お]きなかった', meaning: '起床', difficulty: 'n5' },
-  { group: 2, type: 'verb', masu: '寝[ね]ます', jisho: '寝[ね]る', te: '寝[ね]て', ta: '寝[ね]た', nai: '寝[ね]ない', nakatta: '寝[ね]なかった', meaning: '睡覺', difficulty: 'n5' },
-  { group: 2, type: 'verb', masu: '忘[わす]れます', jisho: '忘[わす]れる', te: '忘[わす]れて', ta: '忘[わす]れた', nai: '忘[わす]れない', nakatta: '忘[わす]れなかった', meaning: '忘記', difficulty: 'n5' },
-  { group: 2, type: 'verb', masu: '開[あ]けます', jisho: '開[あ]ける', te: '開[あ]けて', ta: '開[あ]けた', nai: '開[あ]けない', nakatta: '開[あ]けなかった', meaning: '打開', difficulty: 'n5' },
-  { group: 2, type: 'verb', masu: '閉[し]めます', jisho: '閉[し]める', te: '閉[し]めて', ta: '閉[し]めた', nai: '閉[し]めない', nakatta: '閉[し]めなかった', meaning: '關閉', difficulty: 'n5' },
+  { group: 2, type: 'verb', masu: '食[た]べます', jisho: '食[た]べる', te: '食[た]べて', ta: '食[た]べた', nai: '食[た]べない', nakatta: '食[た]べなかった', ba: '食[た]べれば', volitional: '食[た]べよう', potential: '食[た]べられる', passive: '食[た]べられる', causative: '食[た]べさせる', causative_passive: '食[た]べさせられる', meaning: '吃', difficulty: 'n5' },
+  { group: 2, type: 'verb', masu: '見[み]ます', jisho: '見[み]る', te: '見[み]て', ta: '見[み]た', nai: '見[み]ない', nakatta: '見[み]なかった', ba: '見[み]れば', volitional: '見[み]よう', potential: '見[み]られる', passive: '見[み]られる', causative: '見[み]させる', causative_passive: '見[み]させられる', meaning: '看', difficulty: 'n5' },
+  { group: 2, type: 'verb', masu: '起[お]きます', jisho: '起[お]きる', te: '起[お]きて', ta: '起[お]きた', nai: '起[お]きない', nakatta: '起[お]きなかった', ba: '起[お]きれば', volitional: '起[お]きよう', potential: '起[お]きられる', passive: '起[お]きられる', causative: '起[お]きさせる', causative_passive: '起[お]きさせられる', meaning: '起床', difficulty: 'n5' },
+  { group: 2, type: 'verb', masu: '寝[ね]ます', jisho: '寝[ね]る', te: '寝[ね]て', ta: '寝[ね]た', nai: '寝[ね]ない', nakatta: '寝[ね]なかった', ba: '寝[ね]れば', volitional: '寝[ね]よう', potential: '寝[ね]られる', passive: '寝[ね]られる', causative: '寝[ね]させる', causative_passive: '寝[ね]させられる', meaning: '睡覺', difficulty: 'n5' },
+  { group: 2, type: 'verb', masu: '忘[わす]れます', jisho: '忘[わす]れる', te: '忘[わす]れて', ta: '忘[わす]れた', nai: '忘[わす]れない', nakatta: '忘[わす]れなかった', ba: '忘[わす]れれば', volitional: '忘[わす]れよう', potential: '忘[わす]れられる', passive: '忘[わす]れられる', causative: '忘[わす]れさせる', causative_passive: '忘[わす]れさせられる', meaning: '忘記', difficulty: 'n5' },
+  { group: 2, type: 'verb', masu: '開[あ]けます', jisho: '開[あ]ける', te: '開[あ]けて', ta: '開[あ]けた', nai: '開[あ]けない', nakatta: '開[あ]けなかった', ba: '開[あ]ければ', volitional: '開[あ]けよう', potential: '開[あ]けられる', passive: '開[あ]けられる', causative: '開[あ]けさせる', causative_passive: '開[あ]けさせられる', meaning: '打開', difficulty: 'n5' },
+  { group: 2, type: 'verb', masu: '閉[し]めます', jisho: '閉[し]める', te: '閉[し]めて', ta: '閉[し]めた', nai: '閉[し]めない', nakatta: '閉[し]めなかった', ba: '閉[し]めれば', volitional: '閉[し]めよう', potential: '閉[し]められる', passive: '閉[し]められる', causative: '閉[し]めさせる', causative_passive: '閉[し]めさせられる', meaning: '關閉', difficulty: 'n5' },
   
-  { group: 3, type: 'verb', masu: 'します', jisho: 'する', te: 'して', ta: 'した', nai: 'しない', nakatta: 'しなかった', meaning: '做', difficulty: 'n5' },
-  { group: 3, type: 'verb', masu: '来[き]ます', jisho: '来[く]る', te: '来[き]て', ta: '来[き]た', nai: '来[こ]ない', nakatta: '来[こ]なかった', meaning: '來', difficulty: 'n5' },
-  { group: 3, type: 'verb', masu: '勉強[べんきょう]します', jisho: '勉強[べんきょう]する', te: '勉強[べんきょう]して', ta: '勉強[べんきょう]した', nai: '勉強[べんきょう]しない', nakatta: '勉強[べんきょう]しなかった', meaning: '讀書', difficulty: 'n5' },
-  { group: 3, type: 'verb', masu: '運転[うんてん]します', jisho: '運転[うんてん]する', te: '運転[うんてん]して', ta: '運転[うんてん]した', nai: '運転[うんてん]しない', nakatta: '運転[うんてん]しなかった', meaning: '駕駛', difficulty: 'n4' },
+  { group: 3, type: 'verb', masu: 'します', jisho: 'する', te: 'して', ta: 'した', nai: 'しない', nakatta: 'しなかった', ba: 'すれば', volitional: 'しよう', potential: 'できる', passive: 'される', causative: 'させる', causative_passive: 'させられる', meaning: '做', difficulty: 'n5' },
+  { group: 3, type: 'verb', masu: '来[き]ます', jisho: '来[く]る', te: '来[き]て', ta: '来[き]た', nai: '来[こ]ない', nakatta: '来[こ]なかった', ba: '来[く]れば', volitional: '来[こ]よう', potential: '来[こ]られる', passive: '来[こ]られる', causative: '来[こ]させる', causative_passive: '来[こ]させられる', meaning: '來', difficulty: 'n5' },
+  { group: 3, type: 'verb', masu: '勉強[べんきょう]します', jisho: '勉強[べんきょう]する', te: '勉強[べんきょう]して', ta: '勉強[べんきょう]した', nai: '勉強[べんきょう]しない', nakatta: '勉強[べんきょう]しなかった', ba: '勉強[べんきょう]すれば', volitional: '勉強[べんきょう]しよう', potential: '勉強[べんきょう]できる', passive: '勉強[べんきょう]される', causative: '勉強[べんきょう]させる', causative_passive: '勉強[べんきょう]させられる', meaning: '讀書', difficulty: 'n5' },
+  { group: 3, type: 'verb', masu: '運転[うんてん]します', jisho: '運転[うんてん]する', te: '運転[うんてん]して', ta: '運転[うんてん]した', nai: '運転[うんてん]しない', nakatta: '運転[うんてん]しなかった', ba: '運転[うんてん]すれば', volitional: '運転[うんてん]しよう', potential: '運転[うんてん]できる', passive: '運転[うんてん]される', causative: '運転[うんてん]させる', causative_passive: '運転[うんてん]させられる', meaning: '駕駛', difficulty: 'n4' },
 
   { group: 'i', type: 'adj_i', masu: '大[おお]きいです', jisho: '大[おお]きい', te: '大[おお]きくて', ta: '大[おお]きかった', nai: '大[おお]きくない', nakatta: '大[おお]きくなかった', meaning: '大的', difficulty: 'n5' },
   { group: 'i', type: 'adj_i', masu: '高[たか]いです', jisho: '高[たか]い', te: '高[たか]くて', ta: '高[たか]かった', nai: '高[たか]くない', nakatta: '高[たか]くなかった', meaning: '高的/貴的', difficulty: 'n5' },
@@ -69,7 +70,13 @@ const DEFAULT_FORM_OPTIONS = [
   { id: 'te', label: 'て形' },
   { id: 'ta', label: 'た形' },
   { id: 'nai', label: 'ない形' },
-  { id: 'nakatta', label: 'なかった形' }
+  { id: 'nakatta', label: 'なかった形' },
+  { id: 'ba', label: 'ば形 (條件形)' },
+  { id: 'volitional', label: '意向形 (～よう)' },
+  { id: 'potential', label: '可能形 (能～)' },
+  { id: 'passive', label: '受身形 (被～)' },
+  { id: 'causative', label: '使役形 (讓～)' },
+  { id: 'causative_passive', label: '使役受身形 (被迫～)' }
 ];
 
 const autoConjugateVerb = (masuStr, group) => {
@@ -712,18 +719,18 @@ return parsed;
     if (mode === 'grammar') {
       if (customGrammars.length === 0) { alert('您的自訂文法庫為空！請先新增。'); goHome(); return; }
       verbDB.forEach(word => {
-        customGrammars.forEach(grammar => { if (grammar.appliesTo.includes(word.type)) availablePool.push({ word, target: grammar.id, grammarDef: grammar }); });
+        customGrammars.forEach(grammar => { if (grammar.appliesTo.includes(word.type) && word[grammar.baseForm]) { availablePool.push({ word, target: grammar.id, grammarDef: grammar }); } });
       });
     }
     else if (mode === 'custom') {
       if (customWordIds.length === 0) { alert('請先到設定勾選自訂單字！'); goHome(); return; }
       const customWords = verbDB.filter(w => customWordIds.includes(w.id));
-      customWords.forEach(word => validTargets.forEach(target => availablePool.push({ word, target, grammarDef: null })));
+      customWords.forEach(word => validTargets.forEach(target => { if (word[target]) availablePool.push({ word, target, grammarDef: null }); }));
     }
     else {
       let filteredWords = verbDB.filter(w => activeWordTypes.includes(w.type));
       if (filteredWords.length === 0) return;
-      filteredWords.forEach(word => validTargets.forEach(target => availablePool.push({ word, target, grammarDef: null })));
+      filteredWords.forEach(word => validTargets.forEach(target => { if (word[target]) availablePool.push({ word, target, grammarDef: null }); }));
     }
 
     if (availablePool.length === 0) return;
@@ -885,8 +892,9 @@ return parsed;
     return id;
   };
 
-  const [batchInputs, setBatchInputs] = useState(Array(5).fill({ word: '', reading: '', meaning: '', tag: '自訂', example: '' }));
-  const [importText, setImportText] = useState(''); 
+  const [batchInputs, setBatchInputs] = useState(Array.from({ length: 5 }, () => ({ word: '', reading: '', meaning: '', tag: '自訂', example: '' })));
+  const [importText, setImportText] = useState('');
+  const [verbImportText, setVerbImportText] = useState(''); 
   const [addToReviewNow, setAddToReviewNow] = useState(true);
 
   const handleRematchBatchTheme = (idx) => {
@@ -1100,6 +1108,62 @@ return parsed;
           }
           return next;
       });
+  };
+
+    const handleVerbSmartImport = () => {
+    if (!verbImportText.trim()) return;
+    const lines = verbImportText.split('\n');
+    const newVerbs = [];
+    let currentGroup = '1';
+    let currentType = 'verb';
+
+    const removeEmojis = (str) => str.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, (m) => ['💬', '💡'].includes(m) ? m : '');
+
+    lines.forEach(line => {
+        let trimmed = removeEmojis(line).trim();
+        if(!trimmed) return;
+        trimmed = trimmed.replace(/^[\-\*\•\+]\s+/, '');
+
+        const headerMatch = trimmed.match(/^[【\[\(#](.+?)[】\]\)]?$/);
+        if (headerMatch && !trimmed.includes('➜') && !trimmed.includes('->')) {
+            const h = headerMatch[1].trim();
+            if (h.includes('第一') || h.includes('1')) currentGroup = '1';
+            else if (h.includes('第二') || h.includes('2')) currentGroup = '2';
+            else if (h.includes('第三') || h.includes('3') || h.includes('不規則')) currentGroup = '3';
+            else if (h.includes('い形') || h.includes('i')) { currentGroup = 'i'; currentType = 'adj_i'; }
+            else if (h.includes('な形') || h.includes('na')) { currentGroup = 'na'; currentType = 'adj_na'; }
+            return;
+        }
+
+        const exampleMatch = trimmed.match(/^(?:💬|例：|例:|💡)\s*(.*)$/);
+        if (exampleMatch) {
+            if (newVerbs.length > 0) newVerbs[newVerbs.length - 1].example = exampleMatch[1].trim();
+            return;
+        }
+
+        if (newVerbs.length === 0 || (newVerbs[newVerbs.length - 1].meaning !== '' && !exampleMatch)) {
+             const verbObj = getInitialVerbInputs();
+             verbObj.type = currentType;
+             verbObj.group = currentGroup;
+             verbObj.jisho = trimmed;
+             if (currentType === 'verb') {
+                 const forms = autoConjugate(trimmed, currentGroup);
+                 if (forms && Object.keys(forms).length > 0) Object.assign(verbObj, forms);
+             }
+             newVerbs.push(verbObj);
+        } else {
+             newVerbs[newVerbs.length - 1].meaning = trimmed;
+        }
+    });
+
+    const validVerbs = newVerbs.filter(v => v.jisho && v.meaning);
+    if (validVerbs.length > 0) {
+        setVerbDB(prev => [...prev, ...validVerbs.map((v, i) => ({ ...v, id: v.type + '_custom_' + Date.now() + '_' + i }))]);
+        setVerbImportText('');
+        alert('成功匯入 ' + validVerbs.length + ' 個詞彙！');
+    } else {
+        alert('解析失敗，請確認格式是否為「辭書形」換行「中文意思」。');
+    }
   };
 
   const handleAddVerb = () => {
@@ -1953,7 +2017,14 @@ return parsed;
                 <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2"><Library className="w-6 h-6 text-indigo-600"/> 管理動詞與形容詞庫</h2>
               </div>
               <div className="bg-indigo-50 p-6 rounded-3xl border border-indigo-100 mb-8">
-                 <h3 className="font-bold text-indigo-800 mb-6 flex items-center gap-2 text-lg"><Plus className="w-6 h-6"/> 新增詞彙</h3>
+                                  <div className="flex justify-between items-center mb-4"><h3 className="font-bold text-indigo-800 text-lg">批次與單筆新增動詞/形容詞</h3></div>
+                 <div className="mb-6 bg-white p-5 rounded-2xl border border-indigo-200 shadow-sm">
+                   <div className="flex items-center gap-2 mb-3 text-sm font-bold text-indigo-700"><Sparkles className="w-5 h-5"/> 快速貼上區 (智慧解析與自動變化)</div>
+                   <textarea value={verbImportText} onChange={e => setVerbImportText(e.target.value)} placeholder="支援群組標籤與例句！例如：&#10;【第一類動詞】&#10;飲[の]む&#10;喝&#10;💬 水を飲む。&#10;&#10;【第二類動詞】&#10;食[た]べる&#10;吃" className="w-full p-4 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 text-sm h-32 resize-y placeholder:text-slate-400 leading-relaxed"/>
+                   <button onClick={handleVerbSmartImport} className="mt-3 w-full py-3 bg-indigo-100 text-indigo-800 rounded-xl font-bold hover:bg-indigo-200 transition-colors flex items-center justify-center gap-2">解析文字並自動產生所有變化後存檔</button>
+                 </div>
+                 <div className="border-t border-indigo-200 pt-6 mt-6 mb-4">
+                   <h4 className="font-bold text-indigo-800 mb-4">手動單筆新增</h4>
                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
                    <div><label className="block text-sm font-bold text-indigo-700 mb-1">類型</label><select value={verbInputs.type} onChange={e=>handleVerbInputChange('type', e.target.value)} className="w-full p-3 rounded-xl border border-indigo-200"><option value="verb">動詞 (verb)</option><option value="adj_i">い形容詞 (adj_i)</option><option value="adj_na">な形容詞 (adj_na)</option></select></div>
                    <div><label className="block text-sm font-bold text-indigo-700 mb-1">群組/分類</label><select value={verbInputs.group} onChange={e=>handleVerbInputChange('group', e.target.value)} className="w-full p-3 rounded-xl border border-indigo-200"><option value="1">第一類動詞 (1)</option><option value="2">第二類動詞 (2)</option><option value="3">第三類動詞 (3)</option><option value="i">い形容詞 (i)</option><option value="na">な形容詞 (na)</option></select></div>
@@ -1964,7 +2035,7 @@ return parsed;
                    <label className="block text-sm font-bold text-indigo-700 mb-1">例句 (選填，支援漢字[假名]自動標音)</label>
                    <input type="text" value={verbInputs.example || ''} onChange={e=>handleVerbInputChange('example', e.target.value)} placeholder="例：雨[あめ]が降[ふ]るので、行[い]きません。" className="w-full p-3 rounded-xl border border-indigo-200"/>
                  </div>
-                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-4">
+                 <div className="flex justify-between items-center mb-4 mt-6"><h4 className="font-bold text-indigo-800">各變化型設定</h4><button onClick={() => {if (!verbInputs.jisho) return alert('請先填寫普通形(辭書形/常體)！'); const forms = autoConjugate(verbInputs.jisho, verbInputs.group); if (Object.keys(forms).length > 0) { setVerbInputs(prev => ({ ...prev, ...forms })); } else { alert('無法自動產生，請確認格式是否正確！'); } }} className="text-sm text-indigo-700 bg-indigo-100 px-4 py-2 rounded-xl font-bold hover:bg-indigo-200 flex items-center gap-1 transition-colors"><Sparkles className="w-4 h-4"/> 自動產生變化型</button></div><div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-4">
                    <div><label className="block text-sm font-bold text-indigo-700 mb-1">ます形 (支援漢字[假名])</label><input type="text" value={verbInputs.masu || ''} onChange={e=>handleVerbInputChange('masu', e.target.value)} placeholder="例：行[い]きます" className="w-full p-3 rounded-xl border border-indigo-200"/></div>
                    {verbForms.map(f => (
                        <div key={f.id}><label className="block text-sm font-bold text-indigo-700 mb-1">{f.label}</label><input type="text" value={verbInputs[f.id] || ''} onChange={e=>handleVerbInputChange(f.id, e.target.value)} className="w-full p-3 rounded-xl border border-indigo-200"/></div>
@@ -1987,7 +2058,7 @@ return parsed;
                        }} className="py-3 px-6 bg-indigo-100 text-indigo-700 font-bold rounded-xl hover:bg-indigo-200 transition-colors">新增欄位</button>
                     </div>
                  </div>
-                 <button onClick={handleAddVerb} className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold text-lg hover:bg-indigo-700 transition-colors shadow-sm">新增至記憶庫</button>
+                 </div><button onClick={handleAddVerb} className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold text-lg hover:bg-indigo-700 transition-colors shadow-sm">新增至記憶庫</button>
               </div>
 
               <div className="overflow-x-auto">
