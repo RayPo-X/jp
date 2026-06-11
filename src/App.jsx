@@ -741,7 +741,7 @@ export default function App() {
     const isCorrect = finalAnswer.trim() === currentCorrectPlain;
     let exp = '';
     if (currentGrammarDef) {
-       const baseName = FORM_OPTIONS.find(f => f.id === currentGrammarDef.baseForm)?.label || currentGrammarDef.baseForm;
+       const baseName = verbForms.find(f => f.id === currentGrammarDef.baseForm)?.label || currentGrammarDef.baseForm;
        exp = `自訂文法【${currentGrammarDef.name}】變化規則：接在【${baseName}】後` +
              (currentGrammarDef.removeStr ? `去掉「${currentGrammarDef.removeStr}」，` : '，') + `加上「${currentGrammarDef.appendStr}」。`;
     } else exp = getExplanation(currentVerb, currentTarget);
@@ -750,7 +750,7 @@ export default function App() {
     setExplanation(exp);
     setUserInput(finalAnswer);
 
-    const qTitle = `請將「${stripRuby(currentVerb[sourceForm])}」轉換為【${currentGrammarDef ? currentGrammarDef.name : FORM_OPTIONS.find(f=>f.id===currentTarget)?.label || currentTarget}】：`;
+    const qTitle = `請將「${stripRuby(currentVerb[sourceForm])}」轉換為【${currentGrammarDef ? currentGrammarDef.name : verbForms.find(f=>f.id===currentTarget)?.label || currentTarget}】：`;
 
     if (isCorrect) {
       setScore(prev => prev + 1);
@@ -1766,7 +1766,7 @@ export default function App() {
                          <div>
                            <div className="font-bold text-slate-800 text-lg mb-1.5">{g.name}</div>
                            <div className="text-sm text-slate-500 flex items-center gap-2">
-                              接續：<span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md font-medium border border-slate-200">{FORM_OPTIONS.find(f=>f.id===g.baseForm)?.label}</span>
+                              接續：<span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md font-medium border border-slate-200">{verbForms.find(f=>f.id===g.baseForm)?.label}</span>
                               {g.removeStr && <span className="text-red-400 font-bold">-「{g.removeStr}」</span>}
                               <span className="text-emerald-500 font-bold">+「{g.appendStr}」</span>
                            </div>
@@ -1780,7 +1780,7 @@ export default function App() {
                     <div className="space-y-5">
                       <div><label className="block text-sm font-bold text-emerald-700 mb-1.5">文法名稱 (提示語)</label><input type="text" value={newGrammar.name} onChange={e => setNewGrammar(p => ({...p, name: e.target.value}))} placeholder="例：請不要... (〜ないでください)" className="w-full p-4 rounded-xl border border-emerald-200 outline-none focus:border-emerald-500"/></div>
                       <div className="grid grid-cols-2 gap-4">
-                        <div><label className="block text-sm font-bold text-emerald-700 mb-1.5">接續基礎形</label><select value={newGrammar.baseForm} onChange={e => setNewGrammar(p => ({...p, baseForm: e.target.value}))} className="w-full p-4 rounded-xl border border-emerald-200 outline-none focus:border-emerald-500 bg-white">{FORM_OPTIONS.map(opt => <option key={opt.id} value={opt.id}>{opt.label}</option>)}</select></div>
+                        <div><label className="block text-sm font-bold text-emerald-700 mb-1.5">接續基礎形</label><select value={newGrammar.baseForm} onChange={e => setNewGrammar(p => ({...p, baseForm: e.target.value}))} className="w-full p-4 rounded-xl border border-emerald-200 outline-none focus:border-emerald-500 bg-white">{verbForms.map(opt => <option key={opt.id} value={opt.id}>{opt.label}</option>)}</select></div>
                         <div><label className="block text-sm font-bold text-emerald-700 mb-1.5">加上字尾</label><input type="text" value={newGrammar.appendStr} onChange={e => setNewGrammar(p => ({...p, appendStr: e.target.value}))} placeholder="例：でください" className="w-full p-4 rounded-xl border border-emerald-200 outline-none focus:border-emerald-500"/></div>
                       </div>
                       <button onClick={handleAddGrammar} className="w-full py-4 mt-4 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition-colors shadow-sm text-lg">儲存新文法</button>
