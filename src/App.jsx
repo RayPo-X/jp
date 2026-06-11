@@ -503,6 +503,17 @@ return parsed;
     return { emoji: '🏆', label: '精通' };
   };
 
+  // 單字建立日期
+  const getAddedDate = (id) => {
+    if (!id) return '-';
+    const parts = id.split('_');
+    if (parts.length >= 3 && !isNaN(Number(parts[2]))) {
+      const date = new Date(Number(parts[2]));
+      return `${date.getMonth() + 1}/${date.getDate()}`;
+    }
+    return '內建';
+  };
+
   // 管理頁面：正在編輯的標籤 ID
   const [editingTagId, setEditingTagId] = useState(null);
 
@@ -1843,7 +1854,7 @@ return parsed;
              <datalist id="db-theme-suggestions">{Array.from(new Set(vocabDB.map(v => v.tag))).filter(Boolean).map(tag => <option key={tag} value={tag} />)}</datalist>
              <div className="overflow-x-auto">
                <table className="w-full text-left text-sm">
-                 <thead className="bg-slate-50 text-slate-600"><tr><th className="p-4 rounded-tl-xl">主題標籤</th><th className="p-4">單字 (平假名)</th><th className="p-4">中文 / 例句</th><th className="p-4">熟練度</th><th className="p-4">下次複習</th><th className="p-4 rounded-tr-xl">操作</th></tr></thead>
+                 <thead className="bg-slate-50 text-slate-600"><tr><th className="p-4 rounded-tl-xl">主題標籤</th><th className="p-4">單字 (平假名)</th><th className="p-4">中文 / 例句</th><th className="p-4">熟練度</th><th className="p-4">加入日期</th><th className="p-4">下次複習</th><th className="p-4 rounded-tr-xl">操作</th></tr></thead>
                  <tbody>
                     {vocabDB.map(v => (
                        <tr key={v.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
@@ -1886,6 +1897,7 @@ return parsed;
                               <span className="bg-emerald-50 text-emerald-700 px-2 py-1 rounded-lg font-mono text-xs border border-emerald-100">EF {v.ef.toFixed(1)}</span>
                             </div>
                           </td>
+                          <td className="p-4 text-slate-500 font-medium">{getAddedDate(v.id)}</td>
                           <td className="p-4 text-slate-500 font-medium">{v.interval === 0 ? '今天' : `${v.interval} 天後`}</td>
                           <td className="p-4"><button onClick={()=>{if(window.confirm('確定刪除？')) setVocabDB(vocabDB.filter(x=>x.id!==v.id))}} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><Trash2 className="w-4 h-4"/></button></td>
                        </tr>
