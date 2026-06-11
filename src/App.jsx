@@ -871,6 +871,7 @@ return parsed;
 
   const [batchInputs, setBatchInputs] = useState(Array(5).fill({ word: '', reading: '', meaning: '', tag: '自訂', example: '' }));
   const [importText, setImportText] = useState(''); 
+  const [addToReviewNow, setAddToReviewNow] = useState(true);
 
   const handleRematchBatchTheme = (idx) => {
     const n = [...batchInputs];
@@ -898,7 +899,7 @@ return parsed;
         meaning: v.meaning.trim(), 
         tag: v.tag || '自訂', 
         example: v.example.trim(),
-        ef: 2.5, interval: 0, repetitions: 0, nextReview: 0, status: 'new'
+        ef: 2.5, interval: 0, repetitions: 0, nextReview: 0, status: addToReviewNow ? 'learning' : 'new'
     }));
     if (newVocabs.length > 0) {
         setVocabDB(prev => [...prev, ...newVocabs]);
@@ -1790,6 +1791,12 @@ return parsed;
                         </div>
                       </div>
                    ))}
+                </div>
+                <div className="mb-4 mt-2">
+                   <label className="flex items-center gap-3 cursor-pointer p-4 bg-amber-50 rounded-xl text-amber-800 font-bold border border-amber-200 hover:bg-amber-100 transition-colors">
+                     <input type="checkbox" checked={addToReviewNow} onChange={(e)=>setAddToReviewNow(e.target.checked)} className="w-5 h-5 accent-amber-600"/>
+                     <span>直接排入今日的「單字字卡測驗」 (若取消勾選，則需透過首頁的「每日新詞解鎖」手動啟用)</span>
+                   </label>
                 </div>
                 <button onClick={handleBatchSave} className="w-full py-4 bg-amber-600 text-white rounded-2xl font-bold text-lg hover:bg-amber-700 transition-colors shadow-sm">批次儲存到資料庫</button>
              </div>
