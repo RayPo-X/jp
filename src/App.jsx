@@ -379,7 +379,7 @@ export default function App() {
            if (!v.status) return { ...v, status: v.repetitions >= 5 ? 'mastered' : 'new' };
            return v;
          });
-         return parsed;
+return parsed;
       }
       return INITIAL_VOCAB_DB.map(v => ({ ...v, status: 'new' }));
     } catch { return INITIAL_VOCAB_DB.map(v => ({ ...v, status: 'new' })); }
@@ -513,6 +513,7 @@ export default function App() {
   const [inputMode, setInputMode] = useState('choice'); 
   const [autoAdvance, setAutoAdvance] = useState(false); 
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showManualModal, setShowManualModal] = useState(false);
 
   const [questionCount, setQuestionCount] = useState(1);
   const [score, setScore] = useState(0);
@@ -956,7 +957,7 @@ export default function App() {
         const parts = trimmed.split(/[\t,，、\/\|]+|\s{2,}/).map(s => s.trim()).filter(Boolean);
         if (parts.length >= 3) {
             newItems.push({ word: parts[0], reading: parts[1], meaning: parts[2], tag: currentTheme || '自訂', example: '' });
-        } else if (parts.length === 2) {
+        } else if (parts.length >= 2) {
             newItems.push({ word: hasKanji(parts[0]) ? parts[0] : '', reading: hasKanji(parts[0]) ? '' : parts[0], meaning: parts[1], tag: currentTheme || '自訂', example: '' });
         } else if (parts.length === 1) {
             let word = ''; let reading = '';
@@ -1243,16 +1244,110 @@ export default function App() {
         </div>
       )}
 
+      {showManualModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 sm:p-6 overflow-y-auto">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl animate-in zoom-in-95 flex flex-col" style={{ maxHeight: 'calc(100vh - 2rem)' }}>
+             <div className="p-6 border-b border-slate-100 flex justify-between items-center sticky top-0 bg-white/95 backdrop-blur rounded-t-3xl z-10">
+                <h2 className="text-2xl font-black flex items-center gap-3 text-slate-800">
+                   <BookOpen className="w-8 h-8 text-amber-500"/> 日文綜合特訓中心 - 使用說明書
+                </h2>
+                <button onClick={()=>setShowManualModal(false)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"><XCircle className="w-7 h-7"/></button>
+             </div>
+             <div className="p-6 overflow-y-auto space-y-8 text-slate-700">
+               <section>
+                 <h3 className="text-xl font-bold text-slate-800 mb-4 border-b-2 border-amber-200 pb-2 flex items-center gap-2"><Home className="w-6 h-6 text-amber-500"/> 一、首頁：學習的起點</h3>
+                 <div className="space-y-4">
+                    <div className="bg-slate-50 p-4 rounded-2xl">
+                       <h4 className="font-bold text-amber-700 mb-2">1. 每日新詞解鎖 (Daily Unlock)</h4>
+                       <ul className="list-disc list-inside space-y-1 text-slate-600 ml-2">
+                          <li><strong>用途</strong>：每天開始時，先從這裡獲取新的單字。</li>
+                          <li><strong>操作</strong>：拉桿選擇解鎖數量（最高 10 個），選定主題。</li>
+                          <li><strong>邏輯</strong>：系統會從您「完全沒背過 (New)」的資料庫中抽出新詞。解鎖後單字變成「學習中」，並立刻進入閃卡預習。</li>
+                       </ul>
+                    </div>
+                    <div className="bg-slate-50 p-4 rounded-2xl">
+                       <h4 className="font-bold text-amber-700 mb-2">2. 主題抽卡總覽 (Theme Draw)</h4>
+                       <ul className="list-disc list-inside space-y-1 text-slate-600 ml-2">
+                          <li><strong>用途</strong>：想針對特定主題瘋狂複習時使用。</li>
+                          <li><strong>邏輯</strong>：只會從您「正在學習中」或「已熟練掌握」的單字庫中抽卡。若尚未解鎖任何新詞，將無法抽卡！</li>
+                       </ul>
+                    </div>
+                    <div className="bg-slate-50 p-4 rounded-2xl">
+                       <h4 className="font-bold text-amber-700 mb-2">3. 今日複習任務 (SRS Review)</h4>
+                       <ul className="list-disc list-inside space-y-1 text-slate-600 ml-2">
+                          <li><strong>用途</strong>：系統根據遺忘曲線，自動安排今天需要複習的單字與變化。包含「單字測驗」與「動詞變化道場」。</li>
+                       </ul>
+                    </div>
+                 </div>
+               </section>
+
+               <section>
+                 <h3 className="text-xl font-bold text-slate-800 mb-4 border-b-2 border-blue-200 pb-2 flex items-center gap-2"><Swords className="w-6 h-6 text-blue-500"/> 二、測驗模式介紹</h3>
+                 <div className="space-y-4">
+                    <div className="bg-blue-50 p-4 rounded-2xl">
+                       <h4 className="font-bold text-blue-700 mb-2">1. 單字字卡測驗 (Vocab Test)</h4>
+                       <p className="mb-2">主要考驗您對<strong>單字本身</strong>的理解。支援選擇題與打字輸入。</p>
+                       <ul className="list-disc list-inside space-y-1 text-slate-600 ml-2">
+                          <li>看日文選中文（預設）</li>
+                          <li><strong>例句填空測驗</strong>：若單字有例句，系統會將單字挖空，讓您依上下文選出正確讀音。</li>
+                       </ul>
+                    </div>
+                    <div className="bg-blue-50 p-4 rounded-2xl">
+                       <h4 className="font-bold text-blue-700 mb-2">2. 動詞變化道場 (Verb Dojo)</h4>
+                       <p className="mb-2"><strong>不考單字意思</strong>，專門訓練大腦的<strong>文法變形反應速度</strong>！</p>
+                       <ul className="list-disc list-inside space-y-1 text-slate-600 ml-2">
+                          <li>勾選想要訓練的變化型態（例如：て形、自訂文法）。</li>
+                          <li>畫面上出現動詞原形（如：食べる），您必須回答指定的變化形態（如：食べて）。</li>
+                       </ul>
+                    </div>
+                 </div>
+               </section>
+
+               <section>
+                 <h3 className="text-xl font-bold text-slate-800 mb-4 border-b-2 border-indigo-200 pb-2 flex items-center gap-2"><Settings className="w-6 h-6 text-indigo-500"/> 三、管理與進階功能</h3>
+                 <div className="space-y-4">
+                    <div className="bg-indigo-50 p-4 rounded-2xl">
+                       <h4 className="font-bold text-indigo-700 mb-2">1. 動詞/形容詞管理 (Database)</h4>
+                       <ul className="list-disc list-inside space-y-1 text-slate-600 ml-2">
+                          <li><strong>單筆新增</strong>：手動輸入新詞，支援設定例句與漢字標音格式（如：<code>雨[あめ]が降[ふ]る</code>）。</li>
+                          <li><strong>批次匯入</strong>：從試算表貼上，支援格式：日文、讀音、中文、主題、例句。</li>
+                          <li><strong>自訂動詞變化欄位</strong>：為基礎單字擴充新的時態欄位。</li>
+                       </ul>
+                    </div>
+                    <div className="bg-indigo-50 p-4 rounded-2xl">
+                       <h4 className="font-bold text-indigo-700 mb-2">2. 自訂文法公式庫 (Custom Grammar)</h4>
+                       <p className="mb-2">把「文法公式」教給系統，自動生成測驗題！</p>
+                       <ul className="list-disc list-inside space-y-1 text-slate-600 ml-2">
+                          <li>設定名稱（如：請做... (～てください)）。</li>
+                          <li>設定接續基礎形（如接在 て形 後）。</li>
+                          <li>設定加上字尾（如加上 ください）。</li>
+                          <li>系統將自動在「動詞變化道場」產生這項文法的變形測驗。</li>
+                       </ul>
+                    </div>
+                 </div>
+               </section>
+             </div>
+             <div className="p-6 border-t border-slate-100 bg-slate-50 rounded-b-3xl text-center">
+                <button onClick={()=>setShowManualModal(false)} className="px-8 py-3 bg-slate-800 text-white rounded-xl font-bold hover:bg-slate-700 transition-colors">我了解了，開始訓練！</button>
+             </div>
+          </div>
+        </div>
+      )}
+
       {appState === 'home' && (
         <div className="max-w-6xl mx-auto pt-6 sm:pt-12 animate-in fade-in slide-in-from-bottom-4">
 
           {/* Hero Header */}
-          <div className="text-center mb-10">
+          <div className="text-center mb-10 relative">
             <div className="inline-flex p-5 bg-gradient-to-br from-blue-100 to-indigo-100 text-blue-600 rounded-3xl mb-4">
               <BookOpen className="w-14 h-14"/>
             </div>
             <h1 className="text-4xl sm:text-5xl font-black text-slate-800 tracking-tight mb-3">日文綜合特訓中心</h1>
             <p className="text-slate-400 text-base font-medium">每天一點點，透過科學方法建立直覺與長久記憶。</p>
+            <button onClick={() => setShowManualModal(true)} className="absolute top-0 right-0 sm:right-4 p-3 bg-amber-50 text-amber-600 rounded-2xl hover:bg-amber-100 transition-colors flex items-center gap-2 font-bold shadow-sm">
+              <BookOpen className="w-5 h-5"/>
+              <span className="hidden sm:inline">使用說明書</span>
+            </button>
           </div>
 
           {/* Two Column Layout */}
