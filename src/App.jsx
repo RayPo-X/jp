@@ -302,19 +302,21 @@ const generateDistractors = (word, target, grammarDef) => {
   const jishoRuby = word.jisho;
   const stemRuby = jishoRuby.slice(0, -1);
 
-  if (!grammarDef) {
-      const dummySuffixes = ['て', 'た', 'ない', 'なかった', 'る', 'ます', 'んだ', 'いて', 'いた', 'くて', 'かった', 'だ', 'じゃない', 'じゃなかった', 'って', 'った', 'いで', 'わ', 'あ', 'ら', 'く'];
-      let fallbackStem = stemRuby;
-      if (word.type === 'adj_na') fallbackStem = jishoRuby.slice(0, -1); 
-      
-      const shuffledSuffixes = [...dummySuffixes].sort(() => Math.random() - 0.5);
-      for (const suf of shuffledSuffixes) {
-          if (optionsMap.size >= 4) break;
-          const dummyWordRuby = fallbackStem + suf;
-          const dummyWordPlain = stripRuby(dummyWordRuby);
-          if (!optionsMap.has(dummyWordPlain) && dummyWordPlain !== stripRuby(correctRuby)) {
-              optionsMap.set(dummyWordPlain, dummyWordRuby);
-          }
+  const dummySuffixes = ['て', 'た', 'ない', 'なかった', 'る', 'ます', 'んだ', 'いて', 'いた', 'くて', 'かった', 'だ', 'じゃない', 'じゃなかった', 'って', 'った', 'いで', 'わ', 'あ', 'ら', 'く'];
+  let fallbackStem = stemRuby;
+  if (word.type === 'adj_na') fallbackStem = jishoRuby.slice(0, -1); 
+  
+  const shuffledSuffixes = [...dummySuffixes].sort(() => Math.random() - 0.5);
+  for (const suf of shuffledSuffixes) {
+      if (optionsMap.size >= 4) break;
+      let dummyWordRuby = fallbackStem + suf;
+      if (grammarDef) {
+          const replaceRegex = new RegExp((grammarDef.removeStr || '') + '$');
+          dummyWordRuby = dummyWordRuby.replace(replaceRegex, '') + grammarDef.appendStr;
+      }
+      const dummyWordPlain = stripRuby(dummyWordRuby);
+      if (!optionsMap.has(dummyWordPlain) && dummyWordPlain !== stripRuby(correctRuby)) {
+          optionsMap.set(dummyWordPlain, dummyWordRuby);
       }
   }
   return Array.from(optionsMap.entries()).map(([plain, ruby]) => ({ plain, ruby })).sort(() => Math.random() - 0.5).slice(0, 4);
