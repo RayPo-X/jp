@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { BUILT_IN_DICTIONARY, getAvailableThemes, getWordsByTheme } from './dictionary';
 import { 
   Settings, Play, CheckCircle2, XCircle, ArrowRight, BookOpen, 
   Timer, RotateCcw, AlertCircle, Trophy, Keyboard, ListTodo, 
@@ -992,11 +993,25 @@ return parsed;
   };
 
   const handleUnlockNewWords = () => {
-    let pool = vocabDB.filter(v => v.status === 'new');
+    // 1. 取得指定主題的所有內建單字
+    const systemWords = getWordsByTheme(unlockTheme);
+    const existingWords = new Set(vocabDB.map(v => v.word));
+    const poolFromSys = systemWords.filter(v => !existingWords.has(v.word)).map((v, i) => ({
+       ...v,
+       id: `v_sys_${Date.now()}_${i}`,
+       status: 'learning',
+       nextReview: Date.now()
+    }));
+
+    // 2. 加上以前卡在資料庫裡的 new 單字 (相容舊資料)
+    let poolFromUser = vocabDB.filter(v => v.status === 'new');
     if (unlockTheme !== 'random') {
-      pool = pool.filter(v => v.tag === unlockTheme);
+       poolFromUser = poolFromUser.filter(v => v.tag === unlockTheme);
     }
-    if (pool.length === 0) return alert('沒有符合條件的新單字可供解鎖！');
+
+    const pool = [...poolFromSys, ...poolFromUser];
+
+    if (pool.length === 0) return alert('這個主題的單字已經全部解鎖完畢囉！請選擇其他主題，或去「動詞與單字庫管理」自行新增。');
     
     // Shuffle pool
     const shuffled = [...pool].sort(() => 0.5 - Math.random());
@@ -1027,13 +1042,22 @@ return parsed;
   };
 
   const handleFinishFlashcards = () => {
-    // 預習完成後，將 flashcardQueue 中的單字狀態轉為 learning
-    const newlyLearnedIds = flashcardQueue.map(v => v.id);
-    setVocabDB(prev => prev.map(v => 
-      newlyLearnedIds.includes(v.id) ? { ...v, status: 'learning' } : v
-    ));
+    // 預習完成後，將這些單字正式寫入使用者的 vocabDB
+    setVocabDB(prev => {
+       const prevMap = new Map(prev.map(v => [v.id, v]));
+       flashcardQueue.forEach(item => {
+           if (prevMap.has(item.id)) {
+               // 原本就在 DB 的 (來自舊 new 狀態)，更新為 learning
+               prevMap.set(item.id, { ...item, status: 'learning', nextReview: Date.now() });
+           } else {
+               // 來自系統辭典庫的全新單字，直接存入
+               prevMap.set(item.id, item);
+           }
+       });
+       return Array.from(prevMap.values());
+    });
     setAppState('home');
-    alert(`太棒了！您已經解鎖並預習了 ${flashcardQueue.length} 個新單字！它們已被正式加入學習清單中。`);
+    alert(`太棒了！您已經解鎖並預習了 ${flashcardQueue.length} 個新單字！它們已被正式加入您的學習清單中。`);
   };
 
   const [newGrammar, setNewGrammar] = useState({ name: '', baseForm: 'te', removeStr: '', appendStr: '', appliesTo: ['verb'] });
@@ -1567,7 +1591,7 @@ return parsed;
                   <label className="block text-sm font-bold text-slate-700 mb-1">選擇主題</label>
                   <select value={unlockTheme} onChange={(e)=>setUnlockTheme(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-indigo-400">
                     <option value="random">🎲 隨機為我挑選</option>
-                    {availableThemes.map(t => <option key={t} value={t}>{t}</option>)}
+                    {getAvailableThemes().map(t => <option key={t} value={t}>{t}</option>)}
                   </select>
                 </div>
                 <div>
