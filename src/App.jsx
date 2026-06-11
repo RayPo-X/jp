@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+﻿import React, { useState, useEffect, useCallback } from 'react';
 import { BUILT_IN_DICTIONARY, getAvailableThemes, getWordsByTheme } from './dictionary';
 import { 
   Settings, Play, CheckCircle2, XCircle, ArrowRight, BookOpen, 
@@ -402,7 +402,10 @@ return parsed;
   const [referenceQueue, setReferenceQueue] = useState([]);
   
   useEffect(() => { localStorage.setItem('verbApp_vocabDB', JSON.stringify(vocabDB)); }, [vocabDB]);
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
   const todayQueue = vocabDB.filter(v => v.status !== 'new' && v.nextReview <= Date.now());
+  const reviewedTodayQueue = vocabDB.filter(v => v.lastReviewed && v.lastReviewed >= todayStart.getTime());
 
   // ==== 動詞系統 State ====
   const [verbDB, setVerbDB] = useState(() => {
@@ -542,6 +545,7 @@ return parsed;
   const startVocabSession = (mode, themeId = null) => {
     let queue = [];
     if (mode === 'srs') queue = [...todayQueue];
+    else if (mode === 'today_extra') queue = [...reviewedTodayQueue];
     else if (mode === 'mistakes') queue = Object.values(vocabMistakes);
     else if (mode === 'sentence') {
       queue = vocabDB.filter(v => v.example && v.example.trim().length > 0);
@@ -654,13 +658,13 @@ return parsed;
                    reps++;
                    if (reps >= 5) status = 'mastered';
                } else { reps = 0; interval = 0; status = 'learning'; }
-               return { ...v, ef, interval, repetitions: reps, nextReview: Date.now() + interval * 86400000, status };
+               return { ...v, ef, interval, repetitions: reps, nextReview: Date.now() + interval * 86400000, status, lastReviewed: Date.now() };
            }
            return v;
        }));
     }
 
-    if (!isCorrect && vocabTestMode === 'srs') {
+    if (!isCorrect && (vocabTestMode === 'srs' || vocabTestMode === 'today_extra')) {
       setActiveVocabQueue(prev => [...prev.slice(1), prev[0]]);
     }
 
@@ -1048,10 +1052,10 @@ return parsed;
        flashcardQueue.forEach(item => {
            if (prevMap.has(item.id)) {
                // 原本就在 DB 的 (來自舊 new 狀態)，更新為 learning
-               prevMap.set(item.id, { ...item, status: 'learning', nextReview: Date.now() });
+               prevMap.set(item.id, { ...item, status: 'learning', nextReview: Date.now(), lastReviewed: Date.now() });
            } else {
                // 來自系統辭典庫的全新單字，直接存入
-               prevMap.set(item.id, item);
+               prevMap.set(item.id, { ...item, lastReviewed: Date.now() });
            }
        });
        return Array.from(prevMap.values());
@@ -1405,17 +1409,28 @@ return parsed;
               </div>
 
               {/* Primary Action */}
-              <button
-                onClick={() => startVocabSession('srs')}
-                disabled={todayQueue.length === 0}
-                className={`w-full py-5 rounded-2xl font-bold text-lg flex justify-center items-center gap-2 transition-all ${
-                  todayQueue.length > 0
-                    ? 'bg-amber-500 text-white hover:bg-amber-600 shadow-sm hover:shadow-md active:scale-[0.98]'
-                    : 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                }`}
-              >
-                {todayQueue.length > 0 ? `🌅 開始今日複習 (${todayQueue.length} 題)` : '🎉 今日任務全部完成！'}
-              </button>
+              {todayQueue.length > 0 ? (
+                <button
+                  onClick={() => startVocabSession('srs')}
+                  className="w-full py-5 rounded-2xl font-bold text-lg flex justify-center items-center gap-2 transition-all bg-amber-500 text-white hover:bg-amber-600 shadow-sm hover:shadow-md active:scale-[0.98]"
+                >
+                  🌅 開始今日複習 ({todayQueue.length} 題)
+                </button>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  <button disabled className="w-full py-5 rounded-2xl font-bold text-lg flex justify-center items-center gap-2 transition-all bg-slate-100 text-slate-400 cursor-not-allowed">
+                    🎉 今日任務全部完成！
+                  </button>
+                  {reviewedTodayQueue.length > 0 && (
+                    <button
+                      onClick={() => startVocabSession('today_extra')}
+                      className="w-full py-3 rounded-2xl font-bold text-base flex justify-center items-center gap-2 bg-amber-50 border-2 border-amber-200 text-amber-700 hover:bg-amber-100 transition-all"
+                    >
+                      <RotateCcw className="w-5 h-5"/>重新複習今日單字 ({reviewedTodayQueue.length} 題)
+                    </button>
+                  )}
+                </div>
+              )}
 
               {/* Secondary Actions 2x2 */}
               <div className="grid grid-cols-2 gap-3">
