@@ -1079,12 +1079,7 @@ return parsed;
 
 #### 📝 例句
 - 毎日バスで学校へ行きます。
-➜ 每天搭公車去學校。
-
-### [[許可表達]] (雙括號代表文法名稱)
-#### 🧩 結構
-- 動詞て形 + もいいですか
-- 動詞ない形 + なくてもいいです`;
+➜ 每天搭公車去學校。`;
 
   const handleCopyTemplate = () => {
     navigator.clipboard.writeText(obsidianTemplate);
@@ -1112,11 +1107,9 @@ return parsed;
 
   const parseObsidianNotes = (text) => {
     const vocabResults = [];
-    const grammarResults = [];
 
     let currentMode = 'vocab'; 
     let currentTag = '自訂';
-    let currentGrammarName = '';
     
     let currentVocab = null;
 
@@ -1132,13 +1125,8 @@ return parsed;
 
          if (line.startsWith('### ')) {
              const rawHeader = line.replace(/^###\s+/, '').trim();
-             if (rawHeader.includes('[[') && rawHeader.includes(']]')) {
-                 currentMode = 'grammar_desc';
-                 currentGrammarName = rawHeader.replace(/\[\[|\]\]/g, '').trim(); 
-             } else {
-                 currentMode = 'vocab';
-                 currentTag = rawHeader.replace(/^[\s\S]*?(?=[a-zA-Z\u4e00-\u9fa5\u3040-\u309F\u30A0-\u30FF])/, '').trim() || rawHeader;
-             }
+             currentMode = 'vocab';
+             currentTag = rawHeader.replace(/^[\s\S]*?(?=[a-zA-Z\u4e00-\u9fa5\u3040-\u309F\u30A0-\u30FF])/, '').trim() || rawHeader;
              continue;
          }
 
@@ -1149,45 +1137,16 @@ return parsed;
              }
          }
 
-         if (currentMode === 'grammar_desc' && line.startsWith('👉 ')) {
-             currentGrammarName = line.replace(/^👉\s*/, '').trim();
-             continue;
-         }
-
-         if (line.startsWith('#### 🧩 結構')) {
-             currentMode = 'grammar_struct';
-             continue;
-         }
-
          if (line.startsWith('#### 📝 例句')) {
              currentMode = 'sentence';
-             currentTag = currentGrammarName || '例句'; 
+             currentTag = '例句'; 
              continue;
          }
 
          if (line.startsWith('- ')) {
              const rawContent = line.substring(2).trim();
              
-             if (currentMode === 'grammar_struct') {
-                 const parts = rawContent.split('+').map(s => s.trim());
-                 if (parts.length >= 2 && parts[0].includes('動詞')) {
-                     let baseForm = 'dic'; 
-                     if (parts[0].includes('辭書形') || parts[0].includes('辞書形')) baseForm = 'dic';
-                     else if (parts[0].includes('た形')) baseForm = 'ta';
-                     else if (parts[0].includes('て形')) baseForm = 'te';
-                     else if (parts[0].includes('ない形')) baseForm = 'nai';
-                     
-                     let appendStr = parts.slice(1).join('').replace(/～/g, ''); 
-                     grammarResults.push({
-                         id: 'g_obs_' + Date.now() + '_' + Math.random().toString(36).substring(2,9),
-                         name: currentGrammarName || appendStr,
-                         baseForm: baseForm,
-                         removeStr: '',
-                         appendStr: appendStr,
-                         appliesTo: ['verb']
-                     });
-                 }
-             } else if (currentMode === 'vocab') {
+             if (currentMode === 'vocab') {
                  if (currentVocab) vocabResults.push({...currentVocab});
                  
                  let word = rawContent;
@@ -1221,7 +1180,7 @@ return parsed;
     }
     if (currentVocab) vocabResults.push(currentVocab);
 
-    return { vocabResults, grammarResults };
+    return { vocabResults };
   };
 
   const handleScanObsidian = async (e) => {
@@ -1233,9 +1192,8 @@ return parsed;
           const allGrammars = [];
           
           const text = await file.text();
-          const { vocabResults, grammarResults } = parseObsidianNotes(text);
+          const { vocabResults } = parseObsidianNotes(text);
           allVocabs.push(...vocabResults);
-          allGrammars.push(...grammarResults);
           
           // Deduplicate Vocabs
           const existingWords = new Set(vocabDB.map(v => v.word));
@@ -1296,14 +1254,7 @@ return parsed;
           });
       }
       
-      if (obsidianScannedGrammar.length > 0) {
-          createVocabBackup();
-          setCustomGrammars(prev => [...prev, ...obsidianScannedGrammar]);
-      }
-      
-      setObsidianScannedWords([]);
-      setObsidianScannedGrammar([]);
-      alert('單字已放入「確認與編輯區」，請往下捲動查看並點擊「批次儲存」。\n（若有文法規則，已直接匯入系統）');
+      alert('單字已放入「確認與編輯區」，請往下捲動查看並點擊「批次儲存」。');
   };
 
   const handleBatchSave = () => {
@@ -2350,24 +2301,21 @@ return parsed;
              
              
              <div className="bg-slate-800 p-6 rounded-3xl border border-slate-700 mb-8 shadow-lg">
-                <div className="flex justify-between items-center mb-4"><h3 className="font-bold text-white text-lg flex items-center gap-2"><Sparkles className="w-5 h-5 text-purple-400"/> Obsidian 智慧同步 (支援文法與例句)</h3></div>
+                <div className="flex justify-between items-center mb-4"><h3 className="font-bold text-white text-lg flex items-center gap-2"><Sparkles className="w-5 h-5 text-purple-400"/> Obsidian 智慧同步 (僅支援單字與例句)</h3></div>
                 <div className="bg-slate-700/50 p-5 rounded-2xl border border-slate-600">
-                  <p className="text-slate-300 text-sm mb-4 leading-relaxed">一鍵掃描資料夾，系統會自動轉換 🟡【單字】、#### 📝 例句 與 #### 🧩 結構，並過濾重複項目直接匯入。</p>
+                  <p className="text-slate-300 text-sm mb-4 leading-relaxed">選擇筆記檔案，系統會自動轉換 🟡【單字】、#### 📝 例句 結構，並過濾重複項目匯入。</p>
                   
-                  {(obsidianScannedWords.length > 0 || obsidianScannedGrammar.length > 0) ? (
+                  {(obsidianScannedWords.length > 0) ? (
                       <div className="mb-4">
-                        <div className="text-green-400 font-bold mb-2">🎉 找到 {obsidianScannedWords.length} 個新單字/例句，{obsidianScannedGrammar.length} 條新文法規則！</div>
+                        <div className="text-green-400 font-bold mb-2">🎉 找到 {obsidianScannedWords.length} 個新單字/例句！</div>
                         <div className="max-h-48 overflow-y-auto bg-slate-800 rounded-xl p-3 border border-slate-600 text-sm text-slate-300 space-y-1">
-                           {obsidianScannedGrammar.map((g, i) => (
-                              <div key={'g'+i} className="flex justify-between text-amber-300"><span>🧩 {g.name}</span><span className="text-slate-400">({g.baseForm} + {g.appendStr})</span></div>
-                           ))}
                            {obsidianScannedWords.map((w, i) => (
                               <div key={'w'+i} className="flex justify-between"><span>{w.word} {w.reading !== w.word && '('+w.reading+')'}</span><span className="text-slate-400">{w.meaning} [{w.tag}]</span></div>
                            ))}
                         </div>
                         <div className="flex gap-3 mt-4">
                            <button onClick={handleImportObsidian} className="flex-1 py-3 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 transition-colors">📥 匯入至確認與編輯區</button>
-                           <button onClick={() => {setObsidianScannedWords([]); setObsidianScannedGrammar([]);}} className="py-3 px-6 bg-slate-600 text-white rounded-xl font-bold hover:bg-slate-500 transition-colors">取消</button>
+                           <button onClick={() => {setObsidianScannedWords([]);}} className="py-3 px-6 bg-slate-600 text-white rounded-xl font-bold hover:bg-slate-500 transition-colors">取消</button>
                         </div>
                       </div>
                   ) : (
