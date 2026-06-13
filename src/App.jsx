@@ -1063,7 +1063,7 @@ return parsed;
 
   const [batchInputs, setBatchInputs] = useState(Array.from({ length: 5 }, () => ({ word: '', reading: '', meaning: '', tag: '自訂', example: '' })));
   const [autoUnlock, setAutoUnlock] = useState(false);
-  const [obsidianDirHandle, setObsidianDirHandle] = useState(null);
+  const obsidianFileRef = React.useRef(null);
   const [obsidianScannedWords, setObsidianScannedWords] = useState([]);
   const [isScanningObsidian, setIsScanningObsidian] = useState(false);
   const [importText, setImportText] = useState('');
@@ -1203,37 +1203,18 @@ return parsed;
     return { vocabResults, grammarResults };
   };
 
-  const handleScanObsidian = async () => {
+  const handleScanObsidian = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
       try {
           setIsScanningObsidian(true);
-          let dirHandle = obsidianDirHandle;
-          if (!dirHandle) {
-              dirHandle = await window.showDirectoryPicker({ mode: 'read' });
-              setObsidianDirHandle(dirHandle);
-          } else {
-             const permission = await dirHandle.queryPermission({ mode: 'read' });
-             if (permission !== 'granted') {
-                 const newPermission = await dirHandle.requestPermission({ mode: 'read' });
-                 if (newPermission !== 'granted') throw new Error('Permission denied');
-             }
-          }
           const allVocabs = [];
           const allGrammars = [];
           
-          async function scanDirectory(handle) {
-              for await (const entry of handle.values()) {
-                  if (entry.kind === 'file' && entry.name.endsWith('.md')) {
-                      const file = await entry.getFile();
-                      const text = await file.text();
-                      const { vocabResults, grammarResults } = parseObsidianNotes(text);
-                      allVocabs.push(...vocabResults);
-                      allGrammars.push(...grammarResults);
-                  } else if (entry.kind === 'directory' && !entry.name.startsWith('.')) {
-                      await scanDirectory(entry);
-                  }
-              }
-          }
-          await scanDirectory(dirHandle);
+          const text = await file.text();
+          const { vocabResults, grammarResults } = parseObsidianNotes(text);
+          allVocabs.push(...vocabResults);
+          allGrammars.push(...grammarResults);
           
           // Deduplicate Vocabs
           const existingWords = new Set(vocabDB.map(v => v.word));
@@ -1271,7 +1252,7 @@ return parsed;
       } catch (err) {
           console.error(err);
           alert('掃描失敗或已取消授權。');
-          setObsidianDirHandle(null);
+          e.target.value = ''; // Reset input so the same file can be selected again if needed
       } finally {
           setIsScanningObsidian(false);
       }
@@ -2353,9 +2334,12 @@ return parsed;
                         </div>
                       </div>
                   ) : (
-                      <button onClick={handleScanObsidian} disabled={isScanningObsidian} className="w-full py-4 bg-purple-600 text-white rounded-xl font-bold text-lg hover:bg-purple-700 transition-colors flex justify-center items-center gap-2 disabled:opacity-50">
-                        {isScanningObsidian ? '掃描中...' : (obsidianDirHandle ? '🔄 重新掃描 Obsidian 資料夾' : '📁 授權並掃描 Obsidian 資料夾')}
-                      </button>
+                      <>
+                        <input type="file" ref={obsidianFileRef} accept=".md,.txt" onChange={handleScanObsidian} className="hidden" />
+                        <button onClick={() => obsidianFileRef.current.click()} disabled={isScanningObsidian} className="w-full py-4 bg-purple-600 text-white rounded-xl font-bold text-lg hover:bg-purple-700 transition-colors flex justify-center items-center gap-2 disabled:opacity-50">
+                          {isScanningObsidian ? '掃描中...' : '📄 選擇並掃描單一筆記檔案'}
+                        </button>
+                      </>
                   )}
                 </div>
              </div>
