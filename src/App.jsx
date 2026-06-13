@@ -2128,12 +2128,40 @@ return parsed;
               
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-1">選擇主題</label>
-                  <select value={referenceTheme} onChange={(e)=>setReferenceTheme(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-fuchsia-400">
-                    <option value="random">🎲 隨機大亂鬥</option>
-                    <option value="動詞">🏃 動詞全變化特輯</option>
-                    {availableThemes.map(t => <option key={t} value={t}>{t}</option>)}
-                  </select>
+                  <div className="flex justify-between items-end mb-2">
+                    <label className="block text-sm font-bold text-slate-700">選擇主題 (可輸入或點擊按鈕)</label>
+                    <button onClick={() => setThemeSuggestionSeed(Date.now())} className="text-xs font-bold text-fuchsia-500 hover:text-fuchsia-700 flex items-center gap-1 bg-fuchsia-50 px-2 py-1 rounded-md transition-colors"><RefreshCcw className="w-3 h-3" /> 換一批</button>
+                  </div>
+                  <input
+                    type="text"
+                    value={referenceTheme === 'random' ? '' : referenceTheme}
+                    onChange={(e) => setReferenceTheme(e.target.value || 'random')}
+                    placeholder="留空代表 🎲 隨機大亂鬥..."
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-fuchsia-400 mb-3"
+                  />
+                  <div className="flex flex-wrap gap-2">
+                    {currentThemeSuggestions.map(theme => (
+                      <button
+                        key={theme.name}
+                        onClick={() => setReferenceTheme(theme.name)}
+                        className={`px-4 py-1.5 rounded-full text-white font-bold text-sm shadow-sm hover:opacity-90 hover:scale-105 transition-all ${theme.color}`}
+                      >
+                        {theme.name}
+                      </button>
+                    ))}
+                    <button
+                        onClick={() => setReferenceTheme('動詞')}
+                        className={`px-4 py-1.5 rounded-full text-slate-700 font-bold text-sm shadow-sm border border-slate-200 bg-amber-50 hover:bg-amber-100 hover:scale-105 transition-all`}
+                    >
+                        🏃 動詞特輯
+                    </button>
+                    <button
+                        onClick={() => setReferenceTheme('random')}
+                        className={`px-4 py-1.5 rounded-full text-slate-700 font-bold text-sm shadow-sm border border-slate-200 bg-white hover:bg-slate-50 hover:scale-105 transition-all`}
+                    >
+                        🎲 隨機大亂鬥
+                    </button>
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-bold text-slate-700 mb-1">抽卡數量</label>
