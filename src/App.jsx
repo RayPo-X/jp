@@ -381,9 +381,6 @@ export default function App() {
          let parsed = JSON.parse(saved);
          if (!Array.isArray(parsed)) throw new Error('Invalid DB');
          parsed = parsed.filter(v => v !== null && v !== undefined).map(v => {
-           if (v.status === 'learning' && v.repetitions === 0 && v.interval === 0) {
-               return { ...v, status: 'new' };
-           }
            if (!v.status) return { ...v, status: v.repetitions >= 5 ? 'mastered' : 'new' };
            return v;
          });
@@ -536,10 +533,10 @@ return parsed;
 
   // One-time auto reset all vocab to today
   useEffect(() => {
-    const hasReset = localStorage.getItem('auto_reset_vocab_today');
+    const hasReset = localStorage.getItem('auto_reset_vocab_today_v2');
     if (!hasReset && vocabDB.length > 0) {
       setVocabDB(prev => prev.map(v => ({ ...v, status: 'learning', interval: 0, repetitions: 0, nextReview: Date.now() })));
-      localStorage.setItem('auto_reset_vocab_today', 'true');
+      localStorage.setItem('auto_reset_vocab_today_v2', 'true');
     }
   }, [vocabDB]);
   useEffect(() => { localStorage.setItem('verbApp_gistId', gistId); }, [gistId]);
