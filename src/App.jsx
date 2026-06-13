@@ -345,10 +345,15 @@ const generateVocabDistractors = (correctVocab, allVocabs) => {
     return Array.from(optionsMap.values()).sort(() => Math.random() - 0.5);
 };
 
-const generateSentenceDistractors = (correctVocab, allVocabs) => {
+const generateSentenceDistractors = (correctVocab, allVocabs, direction = 'j2c') => {
     const optionsMap = new Map();
-    const correctTrans = parseExample(correctVocab.example || correctVocab.word || correctVocab.reading).translation || correctVocab.meaning;
-    optionsMap.set(correctTrans, correctTrans);
+    let correctStr = '';
+    if (direction === 'j2c') {
+        correctStr = parseExample(correctVocab.example || correctVocab.word || correctVocab.reading).translation || correctVocab.meaning;
+    } else {
+        correctStr = parseExample(correctVocab.example || correctVocab.word || correctVocab.reading).plainSentence || correctVocab.word || correctVocab.reading;
+    }
+    optionsMap.set(correctStr, correctStr);
     
     let pool = allVocabs.filter(v => ((v.example && v.example.trim().length > 0) || v.isSentence) && v.id !== correctVocab.id);
     if (pool.length < 3) pool = allVocabs.filter(v => v.id !== correctVocab.id);
@@ -356,15 +361,26 @@ const generateSentenceDistractors = (correctVocab, allVocabs) => {
     const shuffled = pool.sort(() => Math.random() - 0.5);
     for (const v of shuffled) {
         if (optionsMap.size >= 4) break;
-        const trans = parseExample(v.example || v.word || v.reading).translation || v.meaning;
-        if(trans && !optionsMap.has(trans)) optionsMap.set(trans, trans);
+        let distractorStr = '';
+        if (direction === 'j2c') {
+            distractorStr = parseExample(v.example || v.word || v.reading).translation || v.meaning;
+        } else {
+            distractorStr = parseExample(v.example || v.word || v.reading).plainSentence || v.word || v.reading;
+        }
+        if(distractorStr && !optionsMap.has(distractorStr)) optionsMap.set(distractorStr, distractorStr);
     }
     
     if (optionsMap.size < 4) {
         const extraPool = allVocabs.sort(() => Math.random() - 0.5);
         for(const v of extraPool) {
             if (optionsMap.size >= 4) break;
-            if(v.meaning && !optionsMap.has(v.meaning)) optionsMap.set(v.meaning, v.meaning);
+            let distractorStr = '';
+            if (direction === 'j2c') {
+                distractorStr = v.meaning;
+            } else {
+                distractorStr = parseExample(v.example || v.word || v.reading).plainSentence || v.word || v.reading;
+            }
+            if(distractorStr && !optionsMap.has(distractorStr)) optionsMap.set(distractorStr, distractorStr);
         }
     }
     return Array.from(optionsMap.values()).sort(() => Math.random() - 0.5);
@@ -391,6 +407,7 @@ return parsed;
   });
   const [vocabMistakes, setVocabMistakes] = useState({});
   const [vocabTestMode, setVocabTestMode] = useState('srs'); 
+  const [currentQuestionDirection, setCurrentQuestionDirection] = useState('j2c');
   const [currentThemeLabel, setCurrentThemeLabel] = useState('');
   const [activeVocabQueue, setActiveVocabQueue] = useState([]);
   const [currentVocab, setCurrentVocab] = useState(null);
@@ -427,7 +444,8 @@ return parsed;
   useEffect(() => { localStorage.setItem('verbApp_vocabDB', JSON.stringify(vocabDB)); }, [vocabDB]);
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
-  const todayQueue = vocabDB.filter(v => v.status !== 'new' && v.nextReview <= Date.now());
+  const todayQueue = vocabDB.filter(v => !((v.example && v.example.trim().length > 0) || v.isSentence) && v.status !== 'new' && v.nextReview <= Date.now());
+  const todaySentenceQueue = vocabDB.filter(v => ((v.example && v.example.trim().length > 0) || v.isSentence) && v.status !== 'new' && v.nextReview <= Date.now());
   const reviewedTodayQueue = vocabDB.filter(v => v.lastReviewed && v.lastReviewed >= todayStart.getTime());
 
   // ==== 動詞系統 State ====
@@ -735,7 +753,11 @@ return parsed;
     if (mode === 'srs') queue = [...todayQueue];
     else if (mode === 'today_extra') queue = [...reviewedTodayQueue];
     else if (mode === 'mistakes') queue = Object.values(vocabMistakes);
-    else if (mode === 'sentence') {
+    else if (mode === 'sentence_srs') {
+      queue = [...todaySentenceQueue];
+      if (queue.length === 0) { alert('目前沒有需要複習的例句喔！'); return; }
+    }
+    else if (mode === 'sentence_infinite') {
       queue = vocabDB.filter(v => (v.example && v.example.trim().length > 0) || v.isSentence);
       if (queue.length === 0) { alert('目前沒有包含例句的單字喔！'); return; }
     }
@@ -780,9 +802,15 @@ return parsed;
     setExplanation('');
     setTimeLeft(actualTimeLimit);
     
+    let direction = 'j2c';
+    if (currentMode === 'sentence_srs' || currentMode === 'sentence_infinite') {
+        direction = Math.random() > 0.5 ? 'j2c' : 'c2j';
+        setCurrentQuestionDirection(direction);
+    }
+    
     if (inputMode === 'choice') {
-        if (currentMode === 'sentence') {
-            setChoiceOptions(generateSentenceDistractors(nextVocab, vocabDB));
+        if (currentMode === 'sentence_srs' || currentMode === 'sentence_infinite') {
+            setChoiceOptions(generateSentenceDistractors(nextVocab, vocabDB, direction));
         } else {
             setChoiceOptions(generateVocabDistractors(nextVocab, vocabDB));
         }
@@ -795,8 +823,12 @@ return parsed;
     if (!finalAnswer.trim() && answerToCheck === null) return;
 
     let correctAnswerStr = '';
-    if (vocabTestMode === 'sentence') {
-        correctAnswerStr = parseExample(currentVocab.example || currentVocab.word || currentVocab.reading).translation || currentVocab.meaning;
+    if (vocabTestMode === 'sentence_srs' || vocabTestMode === 'sentence_infinite') {
+        if (currentQuestionDirection === 'j2c') {
+            correctAnswerStr = parseExample(currentVocab.example || currentVocab.word || currentVocab.reading).translation || currentVocab.meaning;
+        } else {
+            correctAnswerStr = parseExample(currentVocab.example || currentVocab.word || currentVocab.reading).plainSentence || currentVocab.word || currentVocab.reading;
+        }
     } else {
         correctAnswerStr = currentVocab.reading;
     }
@@ -817,14 +849,16 @@ return parsed;
     }
 
     setRoundHistory(prev => [...prev, {
-      question: vocabTestMode === 'sentence' ? (parseExample(currentVocab.example || currentVocab.word || currentVocab.reading).plainSentence || currentVocab.word || currentVocab.reading) : currentVocab.meaning,
+      question: (vocabTestMode === 'sentence_srs' || vocabTestMode === 'sentence_infinite') ? 
+        (currentQuestionDirection === 'j2c' ? (parseExample(currentVocab.example || currentVocab.word || currentVocab.reading).plainSentence || currentVocab.word || currentVocab.reading) : currentVocab.meaning) 
+        : currentVocab.meaning,
       userAnswer: finalAnswer,
       correctAnswer: correctAnswerStr,
       userIsCorrect: isCorrect,
       explanation: currentVocab.word ? `核心單字：${currentVocab.word}` : `純假名單字`
     }]);
 
-    if (vocabTestMode === 'srs') {
+    if (vocabTestMode === 'srs' || vocabTestMode === 'sentence_srs') {
        let quality = 0;
        if (isCorrect) {
            if (timeSpent <= actualTimeLimit / 2) quality = 5;
@@ -1875,26 +1909,37 @@ return parsed;
               )}
 
               {/* Secondary Actions 2x2 */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3 mb-3">
                 <button onClick={() => setAppState('theme_select')}
                   className="py-4 bg-blue-50 border border-blue-100 text-blue-700 rounded-2xl font-bold hover:bg-blue-500 hover:text-white hover:border-blue-500 transition-all text-sm flex flex-col items-center gap-1.5">
                   <span className="text-xl">🎮</span>主題單字闖關
-                </button>
-                <button onClick={() => startVocabSession('sentence')}
-                  disabled={vocabDB.filter(v => (v.example && v.example.trim().length > 0) || v.isSentence).length === 0}
-                  className="py-4 bg-fuchsia-50 border border-fuchsia-100 text-fuchsia-700 rounded-2xl font-bold hover:bg-fuchsia-500 hover:text-white hover:border-fuchsia-500 transition-all text-sm flex flex-col items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed">
-                  <MessageSquareQuote className="w-5 h-5"/>例句翻譯特訓
                 </button>
                 <button onClick={() => startVocabSession('mistakes')}
                   disabled={Object.keys(vocabMistakes).length === 0}
                   className="py-4 bg-red-50 border border-red-100 text-red-600 rounded-2xl font-bold hover:bg-red-500 hover:text-white hover:border-red-500 transition-all text-sm flex flex-col items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed">
                   <span className="text-xl">🔥</span>單字錯題特訓
                 </button>
-                <button onClick={() => setAppState('vocab_manage')}
-                  className="py-4 bg-slate-800 text-white rounded-2xl font-bold hover:bg-slate-700 transition-all text-sm flex flex-col items-center gap-1.5">
-                  <BookType className="w-5 h-5"/>管理記憶庫
+              </div>
+
+              {/* 例句特訓區 */}
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <button onClick={() => startVocabSession('sentence_srs')}
+                  disabled={todaySentenceQueue.length === 0}
+                  className="py-4 bg-fuchsia-50 border border-fuchsia-100 text-fuchsia-700 rounded-2xl font-bold hover:bg-fuchsia-500 hover:text-white hover:border-fuchsia-500 transition-all text-sm flex flex-col items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed">
+                  <span className="text-xl">🎯</span>例句專屬 SRS {todaySentenceQueue.length > 0 ? `(${todaySentenceQueue.length})` : '(完成)'}
+                </button>
+                <button onClick={() => startVocabSession('sentence_infinite')}
+                  disabled={vocabDB.filter(v => (v.example && v.example.trim().length > 0) || v.isSentence).length === 0}
+                  className="py-4 bg-purple-50 border border-purple-100 text-purple-700 rounded-2xl font-bold hover:bg-purple-500 hover:text-white hover:border-purple-500 transition-all text-sm flex flex-col items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed">
+                  <span className="text-xl">♾️</span>例句無極限特訓
                 </button>
               </div>
+
+              {/* Management */}
+              <button onClick={() => setAppState('vocab_manage')}
+                 className="w-full py-4 bg-slate-800 text-white rounded-2xl font-bold hover:bg-slate-700 transition-all text-sm flex justify-center items-center gap-2">
+                 <BookType className="w-5 h-5"/>管理記憶庫
+              </button>
             </div>
 
             {/* ===== RIGHT: 動詞文法訓練場 ===== */}
@@ -2671,11 +2716,11 @@ return parsed;
 
             {appState === 'vocab_playing' && currentVocab && (
                <>
-                 {vocabTestMode === 'sentence' ? (
+                 {(vocabTestMode === 'sentence_srs' || vocabTestMode === 'sentence_infinite') ? (
                      <>
-                       <div className="text-sm text-slate-500 mb-2">請翻譯以下例句（不顯示漢字以訓練聽力/閱讀）：</div>
+                       <div className="text-sm text-slate-500 mb-2">{currentQuestionDirection === 'j2c' ? '請翻譯以下例句（不顯示漢字以訓練聽力/閱讀）：' : '請將以下中文翻譯成日文（訓練輸出/寫作）：'}</div>
                        <div className="text-2xl sm:text-3xl font-black text-slate-800 tracking-wide mb-8 py-8 px-4 bg-slate-50 rounded-2xl border border-slate-200">
-                          {parseExample(currentVocab.example || currentVocab.word || currentVocab.reading).readingOnly}
+                          {currentQuestionDirection === 'j2c' ? parseExample(currentVocab.example || currentVocab.word || currentVocab.reading).readingOnly : currentVocab.meaning}
                        </div>
                      </>
                  ) : (
@@ -2698,8 +2743,12 @@ return parsed;
                     let isPlainMatch = false;
                     
                     if (appState === 'vocab_playing') {
-                        if (vocabTestMode === 'sentence') {
-                            isPlainMatch = opt === (parseExample(currentVocab.example).translation || currentVocab.meaning);
+                        if (vocabTestMode === 'sentence_srs' || vocabTestMode === 'sentence_infinite') {
+                            if (currentQuestionDirection === 'j2c') {
+                                isPlainMatch = opt === (parseExample(currentVocab.example || currentVocab.word || currentVocab.reading).translation || currentVocab.meaning);
+                            } else {
+                                isPlainMatch = opt === (parseExample(currentVocab.example || currentVocab.word || currentVocab.reading).plainSentence || currentVocab.word || currentVocab.reading);
+                            }
                         } else {
                             isPlainMatch = opt === currentVocab.reading;
                         }
@@ -2750,7 +2799,9 @@ return parsed;
                        <span className="font-semibold text-red-700 whitespace-nowrap">正確答案：</span>
                        <span className="text-2xl font-black">
                            {appState === 'vocab_playing' 
-                               ? (vocabTestMode === 'sentence' ? (parseExample(currentVocab.example).translation || currentVocab.meaning) : currentVocab.reading) 
+                               ? ((vocabTestMode === 'sentence_srs' || vocabTestMode === 'sentence_infinite') 
+                                   ? (currentQuestionDirection === 'j2c' ? (parseExample(currentVocab.example || currentVocab.word || currentVocab.reading).translation || currentVocab.meaning) : (parseExample(currentVocab.example || currentVocab.word || currentVocab.reading).plainSentence || currentVocab.word || currentVocab.reading)) 
+                                   : currentVocab.reading) 
                                : renderRuby(currentCorrectRuby)}
                        </span>
                    </div>
@@ -2758,7 +2809,7 @@ return parsed;
                        <span className="font-semibold text-red-700 whitespace-nowrap">重點提示：</span>
                        <span className="font-medium leading-relaxed">
                            {appState === 'vocab_playing' 
-                               ? (vocabTestMode === 'sentence' 
+                               ? ((vocabTestMode === 'sentence_srs' || vocabTestMode === 'sentence_infinite')
                                    ? `核心單字：${currentVocab.word || currentVocab.reading} (${currentVocab.meaning})`
                                    : (currentVocab.word ? `日文漢字寫作「${currentVocab.word}」` : `此單字為純假名組合`))
                                : explanation}
