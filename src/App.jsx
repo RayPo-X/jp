@@ -2361,10 +2361,7 @@ return parsed;
              </div>
 
              <div className="bg-amber-50 p-6 rounded-3xl border border-amber-100 mb-8">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="font-bold text-amber-800 text-lg">批次新增單字/例句</h3>
-                  <button onClick={handleRestoreBackup} className="px-3 py-1.5 bg-white border border-amber-200 hover:bg-amber-100 text-amber-800 font-bold rounded-lg transition-colors shadow-sm text-xs">⏮️ 還原前一次操作</button>
-                </div>
+                <div className="flex justify-between items-center mb-4"><h3 className="font-bold text-amber-800 text-lg">批次新增單字/例句</h3></div>
                 <div className="mb-6 bg-white p-5 rounded-2xl border border-amber-200 shadow-sm">
                   <div className="flex items-center gap-2 mb-3 text-sm font-bold text-amber-700"><Sparkles className="w-5 h-5"/> 快速貼上區 (智能過濾 Emoji)</div>
                   <textarea value={importText} onChange={e => setImportText(e.target.value)} placeholder="支援加上主題標籤與例句！例如：&#10;【交通與地點】&#10;くるま（車）&#10;➜ 汽車&#10;💬 新しい車を買いました。（買了新車。）" className="w-full p-4 rounded-xl border border-slate-200 outline-none focus:border-amber-500 text-sm h-32 resize-y placeholder:text-slate-400 leading-relaxed"/>
