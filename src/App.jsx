@@ -1246,7 +1246,8 @@ return parsed;
               reading: w.reading !== w.word ? w.reading : '',
               meaning: w.meaning,
               tag: w.tag || 'Obsidian',
-              example: w.example || ''
+              example: w.example || '',
+              isSentence: !!w.isSentence
           }));
           setBatchInputs(prev => {
               const filtered = prev.filter(v => v.word.trim() || v.reading.trim() || v.meaning.trim() || v.example.trim());
@@ -1268,6 +1269,7 @@ return parsed;
         meaning: v.meaning.trim(), 
         tag: v.tag || '自訂', 
         example: v.example.trim(),
+        isSentence: !!v.isSentence,
         ef: 2.5, interval: 0, repetitions: 0, nextReview: 0, status: addToReviewNow ? 'learning' : 'new'
     }));
     if (newVocabs.length > 0) {
@@ -1327,9 +1329,9 @@ return parsed;
 
         const parts = trimmed.split(/[\t,，、\/\|]+|\s{2,}/).map(s => s.trim()).filter(Boolean);
         if (parts.length >= 3) {
-            newItems.push({ word: parts[0], reading: parts[1], meaning: parts[2], tag: currentTheme || '自訂', example: '' });
+            newItems.push({ word: parts[0], reading: parts[1], meaning: parts[2], tag: currentTheme || '自訂', example: '', isSentence: false });
         } else if (parts.length >= 2) {
-            newItems.push({ word: hasKanji(parts[0]) ? parts[0] : '', reading: hasKanji(parts[0]) ? '' : parts[0], meaning: parts[1], tag: currentTheme || '自訂', example: '' });
+            newItems.push({ word: hasKanji(parts[0]) ? parts[0] : '', reading: hasKanji(parts[0]) ? '' : parts[0], meaning: parts[1], tag: currentTheme || '自訂', example: '', isSentence: false });
         } else if (parts.length === 1) {
             let word = ''; let reading = '';
             const bracketMatch = trimmed.match(/^([^\(（]+)[\(（]([^\)）]+)[\)）]$/);
@@ -1342,7 +1344,7 @@ return parsed;
                 if (!hasKanji(trimmed)) { reading = trimmed; word = ''; } 
                 else { word = trimmed; reading = ''; }
             }
-            newItems.push({ word, reading, meaning: '', tag: currentTheme || '自訂', example: '' });
+            newItems.push({ word, reading, meaning: '', tag: currentTheme || '自訂', example: '', isSentence: false });
         }
     });
 
@@ -1355,7 +1357,7 @@ return parsed;
         });
         const existingFilled = batchInputs.filter(v => (v.word.trim() || v.reading.trim() || v.example.trim()) && v.meaning.trim());
         let updatedList = [...existingFilled, ...validNewItems];
-        if (updatedList.length < 5) updatedList = [...updatedList, ...Array.from({ length: 5 - updatedList.length }, () => ({ word: '', reading: '', meaning: '', tag: '自訂', example: '' }))];
+        if (updatedList.length < 5) updatedList = [...updatedList, ...Array.from({ length: 5 - updatedList.length }, () => ({ word: '', reading: '', meaning: '', tag: '自訂', example: '', isSentence: false }))];
         setBatchInputs(updatedList);
         setImportText(''); 
     }
