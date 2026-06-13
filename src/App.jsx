@@ -513,9 +513,9 @@ return parsed;
   // 單字建立日期
   const getAddedDate = (id) => {
     if (!id) return '-';
-    const parts = id.split('_');
-    if (parts.length >= 3 && !isNaN(Number(parts[2]))) {
-      const date = new Date(Number(parts[2]));
+    const parts = String(id).split('_');
+    if (parts.length >= 3 && !isNaN(Number(parts[parts.length-1]))) {
+      const date = new Date(Number(parts[parts.length-1]));
       return `${date.getMonth() + 1}/${date.getDate()}`;
     }
     return '內建';
@@ -528,6 +528,7 @@ return parsed;
   const sortedVocabDB = useMemo(() => {
     let sorted = [...vocabDB];
     sorted.sort((a, b) => {
+      if (!a) return 1; if (!b) return -1;
       if (!a) return 1; if (!b) return -1;
       let aVal, bVal;
       switch (vocabSortConfig.key) {
@@ -564,6 +565,7 @@ return parsed;
   const sortedVerbDB = useMemo(() => {
     let sorted = [...verbDB];
     sorted.sort((a, b) => {
+      if (!a) return 1; if (!b) return -1;
       if (!a) return 1; if (!b) return -1;
       let aVal, bVal;
       switch (verbSortConfig.key) {
