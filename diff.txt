@@ -1,0 +1,887 @@
+﻿diff --git a/src/App.jsx b/src/App.jsx
+index 4798e3b..483f880 100644
+--- a/src/App.jsx
++++ b/src/App.jsx
+@@ -1,4 +1,4 @@
+-嚜磨mport React, { useState, useEffect, useCallback } from 'react';
++import React, { useState, useEffect, useCallback, useMemo } from 'react';
+ import { autoConjugate } from './conjugator';
+ import { BUILT_IN_DICTIONARY, getAvailableThemes, getWordsByTheme } from './dictionary';
+ import { 
+@@ -7,7 +7,7 @@ import {
+   Pause, SlidersHorizontal, Layers, FolderHeart, ShieldAlert, Trash2, Award, Medal,
+   Heart, Swords, Skull, Flame, Home, Puzzle, Plus, Edit3, 
+   Map as MapIcon, Library, BookType, Sparkles, Coffee, Car, Shirt, SmilePlus,
+-  MessageSquareQuote, PenTool, RefreshCcw
++  MessageSquareQuote, PenTool, RefreshCcw, ListChecks, Save
+ } from 'lucide-react';
+ 
+ const INITIAL_VERB_DB = [
+@@ -201,7 +201,7 @@ const guessThemeByMeaning = (meaning, existingVocabDB = null) => {
+         if (existingMatch) return existingMatch.tag;
+     }
+     
+-    // Step 2: Keyword matching with expanded dictionaries (scoring based)
++    // Step 2: Keyword matching with Chinese dictionary (scoring based)
+     let bestTheme = '?芾?';
+     let maxScore = 0;
+     for (const [theme, regex] of Object.entries(THEME_KEYWORDS)) {
+@@ -212,6 +212,33 @@ const guessThemeByMeaning = (meaning, existingVocabDB = null) => {
+             bestTheme = theme;
+         }
+     }
++
++    // Step 3: If still ?芾?, try Japanese keyword matching
++    if (bestTheme === '?芾?') {
++        const JP_THEME_KEYWORDS = {
++            '憌脤?????: /憌|憌脯?|??|???|?喋?|?研??逖?逖??|颲?|?詻?晞?|?艾?|憛尚?斗硃|??摮撘?|蝛箄|?|????|?整???頌蝞腮?糕?喋?????咽瘞揉?詻?潦|?像|??咽??擳??/,
++            '鈭日??圈?': /銵?|?乓?|撣啜?|銋?|???韏啜?|甇押?|?餉?|?|?踴?瑯|頠憌?璈?頌擏蝛箸葛|?璈摮行|?|?銵?萎噶|?喋??|???潦?|?砍?|?啣|撌帆?逖?敺?悴镼糕??餈?|??/,
++            '????隞?: /???晞?|撅乓?|??箝??逖?揉撣賢?|?瑯??嫘?潦?|?喋??詻?晞????|???押|???院??潮|??|?憚|???胯?頌???扼|瘣?|?嗆?|??/,
++            '頨恍??摨?: /雿??|??|?餉?|?迢?頞逖?徑?逖曌誡?ㄍ甇砝??尚??院?腮?|???洱?悴?逖憸券|?脯?|??|??|?亙熒|銵|撉育敹?/,
++            '?單???閬?: /??|???靽～??撣?|憭└??|敹?|?押?|憟賬?|??|?脯??戭??璆賬??????|??|瘙箝???詻|?乓?|???閬??敹??撽?/,
++            '鞈潛????: /鞎瑯?|憯脯?|??|???|???擃?|摰?|?⊥?|?脣?|?斗挾|靘⊥|??|??|?嫘?|?瑯???喋|?怒??暸?|蝔?嫣鴃/,
++            '撅???瘣?: /摰閏雿?|?典?|?|瘣?|?|蝒?|?餅?|?瑁摨咽瘣膳|?氬?|?稅?ㄍ撘??靽桃?|?唳?|?◢???洱?芥??喋|撖恕|韏瑯??撖?|甇舐ㄗ??,
++            '摮貊?????: /?撥|隤准?|?詻?|????平|??|??閰阡?|?蜀|?平|?亙郎|摮行|??|??|??|?洱暺|摰輸?|蝺渡?|敺拍?|??|瞍Ｗ?|?脯??|?怒?怒?|??/,
++            '撌乩????: /??|隞?|隡冗|隡?|隡|隡降|?勗?|閮|銝|??|?餉店|?～?咽?喋??慝?啣|?箏撐|蝯行?|?Ｘ|??弋?箏|畾平/,
++            '憡?????: /?|?|?單末|甇?|瘜喋?|?嫘??潦?|??|??|?脯?隤剜|??酋|??|???|??准?院???慝頦?|蝺渡?|隡?|頞?/,
++            '?芰?予瘞?: /憭拇?|?育?泜憸育?氬?|??|?會??|撖?|瘨潦??????四憭蝘?洱?悴??育撅悴撌瘚會皝撜閏??憭芷|蝛漏?|?咽?洱曈四?咽?|????????整???,
++            '?????: /??|?蝘撟揉??四?悴隞|?冽|?|??慝憭憭|??|??|?押?|??|??|?啜???扎?|?甈﹄瘥????咽??|?整?|??|???,
++            '??蝷曆漱': /蝘??敶慝敶澆戊|鈭漏??|甇逖?瑟坑憟單坑???|????|?撘憪憒頌??|摰嗆?|??|??|??押????????整???胯???|????|?????
++        };
++        for (const [theme, jpRegex] of Object.entries(JP_THEME_KEYWORDS)) {
++            const globalRegex = new RegExp(jpRegex.source, 'g');
++            const matches = meaning.match(globalRegex);
++            if (matches && matches.length > maxScore) {
++                maxScore = matches.length;
++                bestTheme = theme;
++            }
++        }
++    }
+     
+     return bestTheme;
+ };
+@@ -345,6 +372,19 @@ const generateVocabDistractors = (correctVocab, allVocabs) => {
+     return Array.from(optionsMap.values()).sort(() => Math.random() - 0.5);
+ };
+ 
++const generateReverseDistractors = (correctVocab, allVocabs) => {
++    const optionsMap = new Map();
++    optionsMap.set(correctVocab.meaning, correctVocab.meaning);
++    let pool = allVocabs.filter(v => v.tag === correctVocab.tag && v.id !== correctVocab.id);
++    if (pool.length < 3) pool = allVocabs.filter(v => v.id !== correctVocab.id);
++    const shuffled = pool.sort(() => Math.random() - 0.5);
++    for (const v of shuffled) {
++        if (optionsMap.size >= 4) break;
++        if (v.meaning && !optionsMap.has(v.meaning)) optionsMap.set(v.meaning, v.meaning);
++    }
++    return Array.from(optionsMap.values()).sort(() => Math.random() - 0.5);
++};
++
+ const generateSentenceDistractors = (correctVocab, allVocabs) => {
+     const optionsMap = new Map();
+     const correctTrans = parseExample(correctVocab.example).translation || correctVocab.meaning;
+@@ -381,10 +421,10 @@ export default function App() {
+          let parsed = JSON.parse(saved);
+          if (!Array.isArray(parsed)) throw new Error('Invalid DB');
+          parsed = parsed.filter(v => v !== null && v !== undefined).map(v => {
+-           if (v.status === 'learning' && v.repetitions === 0 && v.interval === 0) {
+-               return { ...v, status: 'new' };
++           if (v.status === 'new') {
++               return { ...v, status: 'learning', nextReview: Date.now() };
+            }
+-           if (!v.status) return { ...v, status: v.repetitions >= 5 ? 'mastered' : 'new' };
++           if (!v.status) return { ...v, status: 'learning', nextReview: Date.now() };
+            return v;
+          });
+ return parsed;
+@@ -411,7 +451,9 @@ return parsed;
+   useEffect(() => { localStorage.setItem('verbApp_vocabDB', JSON.stringify(vocabDB)); }, [vocabDB]);
+   const todayStart = new Date();
+   todayStart.setHours(0, 0, 0, 0);
+-  const todayQueue = vocabDB.filter(v => v.status !== 'new' && v.nextReview <= Date.now());
++  const endOfToday = new Date(todayStart);
++  endOfToday.setHours(23, 59, 59, 999);
++  const todayQueue = vocabDB.filter(v => v.status !== 'new' && v.nextReview <= endOfToday.getTime());
+   const reviewedTodayQueue = vocabDB.filter(v => v.lastReviewed && v.lastReviewed >= todayStart.getTime());
+ 
+   // ==== ??蝟餌絞 State ====
+@@ -485,7 +527,7 @@ return parsed;
+         if (!progress) {
+           // 敺蝺渡???銋??伐?雿?唳?憿?
+           queue.push({ word, target, key, isNew: true });
+-        } else if (progress.nextReview <= now) {
++        } else if (progress.nextReview <= endOfToday.getTime()) {
+           queue.push({ word, target, key, isNew: false, ...progress });
+         }
+       });
+@@ -524,6 +566,42 @@ return parsed;
+   // 蝞∠??嚗迤?函楊頛舐?璅惜 ID
+   const [editingTagId, setEditingTagId] = useState(null);
+ 
++  const [vocabSortConfig, setVocabSortConfig] = useState({ key: 'dateAdded', direction: 'desc' });
++
++  const sortedVocabDB = useMemo(() => {
++    let sorted = [...vocabDB];
++    sorted.sort((a, b) => {
++      let aVal, bVal;
++      switch (vocabSortConfig.key) {
++        case 'tag': aVal = a.tag || ''; bVal = b.tag || ''; break;
++        case 'word': aVal = a.word || a.reading || ''; bVal = b.word || b.reading || ''; break;
++        case 'meaning': aVal = a.meaning || ''; bVal = b.meaning || ''; break;
++        case 'status': aVal = a.repetitions || 0; bVal = b.repetitions || 0; break;
++        case 'nextReview': aVal = a.nextReview || 0; bVal = b.nextReview || 0; break;
++        case 'dateAdded':
++        default:
++          const getTs = (id) => { const p = (id||'').split('_'); return (p.length >= 3 && !isNaN(Number(p[2]))) ? Number(p[2]) : 0; };
++          aVal = getTs(a.id); bVal = getTs(b.id); break;
++      }
++      if (aVal < bVal) return vocabSortConfig.direction === 'asc' ? -1 : 1;
++      if (aVal > bVal) return vocabSortConfig.direction === 'asc' ? 1 : -1;
++      return 0;
++    });
++    return sorted;
++  }, [vocabDB, vocabSortConfig]);
++  
++  const handleSort = (key) => {
++    setVocabSortConfig(prev => ({
++      key,
++      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
++    }));
++  };
++
++  const renderSortIcon = (key) => {
++    if (vocabSortConfig.key !== key) return null;
++    return <span className="ml-1 text-amber-500">{vocabSortConfig.direction === 'asc' ? '?? : '??}</span>;
++  };
++
+   const [currentVerb, setCurrentVerb] = useState(null);
+   const [currentTarget, setCurrentTarget] = useState('');
+   const [currentGrammarDef, setCurrentGrammarDef] = useState(null); 
+@@ -565,6 +643,8 @@ return parsed;
+     if (mode === 'srs') queue = [...todayQueue];
+     else if (mode === 'today_extra') queue = [...reviewedTodayQueue];
+     else if (mode === 'mistakes') queue = Object.values(vocabMistakes);
++    else if (mode === 'all') queue = [...vocabDB];
++    else if (mode === 'reverse') queue = [...vocabDB];
+     else if (mode === 'sentence') {
+       queue = vocabDB.filter(v => v.example && v.example.trim().length > 0);
+       if (queue.length === 0) { alert('?桀?瘝??靘?摮?嚗?); return; }
+@@ -613,6 +693,8 @@ return parsed;
+     if (inputMode === 'choice') {
+         if (currentMode === 'sentence') {
+             setChoiceOptions(generateSentenceDistractors(nextVocab, vocabDB));
++        } else if (currentMode === 'reverse') {
++            setChoiceOptions(generateReverseDistractors(nextVocab, vocabDB));
+         } else {
+             setChoiceOptions(generateVocabDistractors(nextVocab, vocabDB));
+         }
+@@ -627,6 +709,8 @@ return parsed;
+     let correctAnswerStr = '';
+     if (vocabTestMode === 'sentence') {
+         correctAnswerStr = parseExample(currentVocab.example).translation || currentVocab.meaning;
++    } else if (vocabTestMode === 'reverse') {
++        correctAnswerStr = currentVocab.meaning;
+     } else {
+         correctAnswerStr = currentVocab.reading;
+     }
+@@ -647,7 +731,7 @@ return parsed;
+     }
+ 
+     setRoundHistory(prev => [...prev, {
+-      question: vocabTestMode === 'sentence' ? (parseExample(currentVocab.example).plainSentence || currentVocab.word) : currentVocab.meaning,
++      question: vocabTestMode === 'sentence' ? (parseExample(currentVocab.example).plainSentence || currentVocab.word || currentVocab.reading) : (vocabTestMode === 'reverse' ? (currentVocab.word || currentVocab.reading || currentVocab.example) : currentVocab.meaning),
+       userAnswer: finalAnswer,
+       correctAnswer: correctAnswerStr,
+       userIsCorrect: isCorrect,
+@@ -699,7 +783,7 @@ return parsed;
+     }
+   };
+ 
+-  const startVerbRound = (mode) => {
++  const startVerbRound = (mode, theme = null) => {
+     setVerbTestMode(mode);
+     setQuestionCount(1);
+     setScore(0);
+@@ -708,7 +792,7 @@ return parsed;
+     setIsRoundComplete(false);
+     setIsPaused(false);
+     if (mode === 'rpg') setHp(3);
+-    generateVerbQuestion(mode);
++    generateVerbQuestion(mode, theme);
+     setAppState('verb_playing');
+   };
+ 
+@@ -729,6 +813,9 @@ return parsed;
+     }
+     else {
+       let filteredWords = verbDB.filter(w => activeWordTypes.includes(w.type));
++      if (mode === 'theme' && arguments[1]) {
++          filteredWords = filteredWords.filter(w => w.tag === arguments[1]);
++      }
+       if (filteredWords.length === 0) return;
+       filteredWords.forEach(word => validTargets.forEach(target => { if (word[target]) availablePool.push({ word, target, grammarDef: null }); }));
+     }
+@@ -893,6 +980,10 @@ return parsed;
+   };
+ 
+   const [batchInputs, setBatchInputs] = useState(Array.from({ length: 5 }, () => ({ word: '', reading: '', meaning: '', tag: '?芾?', example: '' })));
++  const [obsidianDirHandle, setObsidianDirHandle] = useState(null);
++  const [obsidianScannedWords, setObsidianScannedWords] = useState([]);
++  const [isScanningObsidian, setIsScanningObsidian] = useState(false);
++  const [batchVerbInputs, setBatchVerbInputs] = useState([]);
+   const [importText, setImportText] = useState('');
+   const [verbImportText, setVerbImportText] = useState(''); 
+   const [addToReviewNow, setAddToReviewNow] = useState(true);
+@@ -913,6 +1004,207 @@ return parsed;
+     setVocabDB(prev => prev.map(v => v.id === id ? { ...v, tag: newTag } : v));
+   };
+ 
++
++  const [obsidianScannedGrammar, setObsidianScannedGrammar] = useState([]);
++
++  const parseObsidianNotes = (text) => {
++    const vocabResults = [];
++    const grammarResults = [];
++
++    let currentMode = 'vocab'; 
++    let currentTag = '?芾?';
++    let currentGrammarName = '';
++    
++    let currentVocab = null;
++
++    const lines = text.split('\n');
++    for (let i = 0; i < lines.length; i++) {
++         const line = lines[i].trim();
++         if (!line) continue;
++
++         if (line.includes('? 撠店') || line.includes('3儭 ?')) {
++             currentMode = 'skip';
++             continue;
++         }
++
++         if (line.startsWith('### ')) {
++             const rawHeader = line.replace(/^###\s+/, '').trim();
++             if (rawHeader.includes('[[') && rawHeader.includes(']]')) {
++                 currentMode = 'grammar_desc';
++                 currentGrammarName = rawHeader.replace(/\[\[|\]\]/g, '').trim(); 
++             } else {
++                 currentMode = 'vocab';
++                 currentTag = rawHeader.replace(/^[\s\S]*?(?=[a-zA-Z\u4e00-\u9fa5\u3040-\u309F\u30A0-\u30FF])/, '').trim() || rawHeader;
++             }
++             continue;
++         }
++
++         if (currentMode === 'skip') {
++             if (line.startsWith('### ') || line.startsWith('## ')) {
++             } else {
++                 continue;
++             }
++         }
++
++         if (currentMode === 'grammar_desc' && line.startsWith('?? ')) {
++             currentGrammarName = line.replace(/^??\s*/, '').trim();
++             continue;
++         }
++
++         if (line.startsWith('#### ?妝 蝯?')) {
++             currentMode = 'grammar_struct';
++             continue;
++         }
++
++         if (line.startsWith('#### ?? 靘')) {
++             currentMode = 'sentence';
++             currentTag = currentGrammarName || '靘'; 
++             continue;
++         }
++
++         if (line.startsWith('- ')) {
++             const rawContent = line.substring(2).trim();
++             
++             if (currentMode === 'grammar_struct') {
++                 const parts = rawContent.split('+').map(s => s.trim());
++                 if (parts.length >= 2 && parts[0].includes('??')) {
++                     let baseForm = 'dic'; 
++                     if (parts[0].includes('颲剜敶?) || parts[0].includes('颲敶?)) baseForm = 'dic';
++                     else if (parts[0].includes('?耦')) baseForm = 'ta';
++                     else if (parts[0].includes('?血耦')) baseForm = 'te';
++                     else if (parts[0].includes('?芥?敶?)) baseForm = 'nai';
++                     
++                     let appendStr = parts.slice(1).join('').replace(/嚚?g, ''); 
++                     grammarResults.push({
++                         id: 'g_obs_' + Date.now() + '_' + Math.random().toString(36).substring(2,9),
++                         name: currentGrammarName || appendStr,
++                         baseForm: baseForm,
++                         removeStr: '',
++                         appendStr: appendStr,
++                         appliesTo: ['verb']
++                     });
++                 }
++             } else if (currentMode === 'vocab') {
++                 if (currentVocab) vocabResults.push({...currentVocab});
++                 
++                 let word = rawContent;
++                 let reading = rawContent;
++                 const bracketMatch = rawContent.match(/^(.+?)嚗?.+?)嚗?/) || rawContent.match(/^(.+?)\((.+?)\)$/);
++                 if (bracketMatch) {
++                     word = bracketMatch[2].trim() + '[' + bracketMatch[1].trim() + ']';
++                     reading = bracketMatch[1].trim();
++                 }
++                 currentVocab = {
++                    id: 'obs_' + Date.now() + '_' + Math.random().toString(36).substring(2,9),
++                    word, reading, meaning: '', tag: currentTag, example: '',
++                    ef: 2.5, interval: 0, repetitions: 0, nextReview: Date.now(), status: 'learning'
++                 };
++             } else if (currentMode === 'sentence') {
++                 if (currentVocab) vocabResults.push({...currentVocab});
++                 currentVocab = {
++                    id: 'obs_' + Date.now() + '_' + Math.random().toString(36).substring(2,9),
++                    word: rawContent, reading: rawContent, meaning: '', tag: currentTag, example: '',
++                    ef: 2.5, interval: 0, repetitions: 0, nextReview: Date.now(), status: 'learning'
++                 };
++             }
++             continue;
++         }
++
++         if (currentVocab && (line.startsWith('??') || line.startsWith('-> ') || line.startsWith('=> ') || line.startsWith('?? '))) {
++             currentVocab.meaning = line.replace(/^(?->|=>|??)\s*/, '').trim();
++             vocabResults.push({...currentVocab});
++             currentVocab = null;
++         }
++    }
++    if (currentVocab) vocabResults.push(currentVocab);
++
++    return { vocabResults, grammarResults };
++  };
++
++  const handleScanObsidian = async () => {
++      try {
++          setIsScanningObsidian(true);
++          let dirHandle = obsidianDirHandle;
++          if (!dirHandle) {
++              dirHandle = await window.showDirectoryPicker({ mode: 'read' });
++              setObsidianDirHandle(dirHandle);
++          } else {
++             const permission = await dirHandle.queryPermission({ mode: 'read' });
++             if (permission !== 'granted') {
++                 const newPermission = await dirHandle.requestPermission({ mode: 'read' });
++                 if (newPermission !== 'granted') throw new Error('Permission denied');
++             }
++          }
++          const allVocabs = [];
++          const allGrammars = [];
++          
++          async function scanDirectory(handle) {
++              for await (const entry of handle.values()) {
++                  if (entry.kind === 'file' && entry.name.endsWith('.md')) {
++                      const file = await entry.getFile();
++                      const text = await file.text();
++                      const { vocabResults, grammarResults } = parseObsidianNotes(text);
++                      allVocabs.push(...vocabResults);
++                      allGrammars.push(...grammarResults);
++                  } else if (entry.kind === 'directory' && !entry.name.startsWith('.')) {
++                      await scanDirectory(entry);
++                  }
++              }
++          }
++          await scanDirectory(dirHandle);
++          
++          // Deduplicate Vocabs
++          const existingWords = new Set(vocabDB.map(v => v.word));
++          const newWords = allVocabs.filter(v => !existingWords.has(v.word));
++          const uniqueNewWords = [];
++          const seen = new Set();
++          for (const w of newWords) {
++              if (!seen.has(w.word) && w.meaning.trim() !== '') {
++                  seen.add(w.word);
++                  uniqueNewWords.push(w);
++              }
++          }
++
++          // Deduplicate Grammars
++          const existingGrammars = new Set(customGrammars.map(g => g.name + '_' + g.appendStr));
++          const newGrammarsList = allGrammars.filter(g => !existingGrammars.has(g.name + '_' + g.appendStr));
++          const uniqueNewGrammars = [];
++          const seenGrammar = new Set();
++          for (const g of newGrammarsList) {
++              const key = g.name + '_' + g.appendStr;
++              if (!seenGrammar.has(key)) {
++                  seenGrammar.add(key);
++                  uniqueNewGrammars.push(g);
++              }
++          }
++
++          setObsidianScannedWords(uniqueNewWords);
++          setObsidianScannedGrammar(uniqueNewGrammars);
++          
++          if (uniqueNewWords.length === 0 && uniqueNewGrammars.length === 0) {
++              alert('??摰?嚗???唳?桀???瘜???撌脣摮澈銝准?);
++          } else {
++              alert('??摰?嚗?曉 ' + uniqueNewWords.length + ' ??桀?/靘嚗? + uniqueNewGrammars.length + ' 璇??閬?嚗?);
++          }
++      } catch (err) {
++          console.error(err);
++          alert('??憭望??歇??????);
++          setObsidianDirHandle(null);
++      } finally {
++          setIsScanningObsidian(false);
++      }
++  };
++
++  const handleImportObsidian = () => {
++      if (obsidianScannedWords.length === 0 && obsidianScannedGrammar.length === 0) return;
++      if (obsidianScannedWords.length > 0) setVocabDB(prev => [...prev, ...obsidianScannedWords]);
++      if (obsidianScannedGrammar.length > 0) setCustomGrammars(prev => [...prev, ...obsidianScannedGrammar]);
++      
++      setObsidianScannedWords([]);
++      setObsidianScannedGrammar([]);
++      alert('?臬??嚗??歇?郊??);
++  };
++
+   const handleBatchSave = () => {
+     const newVocabs = batchInputs
+       .filter(v => (v.word.trim() || v.reading.trim() || v.example.trim()) && v.meaning.trim())
+@@ -923,11 +1215,11 @@ return parsed;
+         meaning: v.meaning.trim(), 
+         tag: v.tag || '?芾?', 
+         example: v.example.trim(),
+-        ef: 2.5, interval: 0, repetitions: 0, nextReview: 0, status: addToReviewNow ? 'learning' : 'new'
++        ef: 2.5, interval: 0, repetitions: 0, nextReview: Date.now(), status: 'learning'
+     }));
+     if (newVocabs.length > 0) {
+         setVocabDB(prev => [...prev, ...newVocabs]);
+-        setBatchInputs(Array(5).fill({ word: '', reading: '', meaning: '', tag: '?芾?', example: '' }));
++        setBatchInputs(Array.from({ length: 5 }, () => ({ word: '', reading: '', meaning: '', tag: '?芾?', example: '' })));
+         alert(`??? ${newVocabs.length} ?摮?靘?啣飛蝧???`);
+     } else alert('瘝??曉?臬摮??批捆嚗?蝣箄??喳?憛怠神?葉???像???????乓?);
+   };
+@@ -979,7 +1271,16 @@ return parsed;
+             return;
+         }
+ 
+-        const parts = trimmed.split(/[\t,嚗/\|]+|\s{2,}/).map(s => s.trim()).filter(Boolean);
++        const isJp = /[\u3040-\u309F\u30A0-\u30FF]/.test(trimmed);
++        if (newItems.length > 0 && newItems[newItems.length - 1].meaning === '' && !isJp) {
++             newItems[newItems.length - 1].meaning = trimmed;
++             if (!currentTheme) {
++                newItems[newItems.length - 1].tag = guessThemeByMeaning(trimmed, vocabDB);
++             }
++             return;
++        }
++
++        const parts = trimmed.split(/[\t,嚗/\|]+|\s{2,}/).map(s => s.trim()).filter(Boolean);
+         if (parts.length >= 3) {
+             newItems.push({ word: parts[0], reading: parts[1], meaning: parts[2], tag: currentTheme || '?芾?', example: '' });
+         } else if (parts.length >= 2) {
+@@ -993,25 +1294,29 @@ return parsed;
+                 if (!hasKanji(outside)) { reading = outside; word = ''; } 
+                 else { word = outside; reading = inside; }
+             } else {
+-                if (!hasKanji(trimmed)) { reading = trimmed; word = ''; } 
++                if (!hasKanji(trimmed) && trimmed.length < 15 && !trimmed.includes('??) && !trimmed.includes('??)) { reading = trimmed; word = ''; } 
+                 else { word = trimmed; reading = ''; }
+             }
+             newItems.push({ word, reading, meaning: '', tag: currentTheme || '?芾?', example: '' });
+         }
+     });
+ 
+-    const validNewItems = newItems.filter(item => (item.reading || item.example) && item.meaning);
++    const validNewItems = newItems.filter(item => item.word || item.reading || item.example);
+     if (validNewItems.length > 0) {
+         validNewItems.forEach(item => {
+             if (item.tag === '?芾?') {
+-                item.tag = guessThemeByMeaning(item.meaning, vocabDB);
++                // Try to guess from meaning first, then from word content
++                const guessSource = item.meaning || item.word || item.reading || item.example;
++                item.tag = guessThemeByMeaning(guessSource, vocabDB);
+             }
+         });
+         const existingFilled = batchInputs.filter(v => (v.word.trim() || v.reading.trim() || v.example.trim()) && v.meaning.trim());
+         let updatedList = [...existingFilled, ...validNewItems];
+-        if (updatedList.length < 5) updatedList = [...updatedList, ...Array(5 - updatedList.length).fill({ word: '', reading: '', meaning: '', tag: '?芾?', example: '' })];
++        if (updatedList.length < 5) updatedList = [...updatedList, ...Array.from({ length: 5 - updatedList.length }, () => ({ word: '', reading: '', meaning: '', tag: '?芾?', example: '' }))];
+         setBatchInputs(updatedList);
+         setImportText(''); 
++    } else {
++        alert('閫??憭望?嚗?蝣箄??撓?交?摮?);
+     }
+   };
+ 
+@@ -1019,21 +1324,13 @@ return parsed;
+     // 1. ????銝駁????撱箏摮?     const systemWords = getWordsByTheme(unlockTheme);
+     const existingWords = new Set(vocabDB.map(v => v.word));
+-    const poolFromSys = systemWords.filter(v => !existingWords.has(v.word)).map((v, i) => ({
++    const pool = systemWords.filter(v => !existingWords.has(v.word)).map((v, i) => ({
+        ...v,
+        id: `v_sys_${Date.now()}_${i}`,
+        status: 'learning',
+        nextReview: Date.now()
+     }));
+ 
+-    // 2. ??隞亙??∪鞈?摨怨ㄐ??new ?桀? (?詨捆????
+-    let poolFromUser = vocabDB.filter(v => v.status === 'new');
+-    if (unlockTheme !== 'random') {
+-       poolFromUser = poolFromUser.filter(v => v.tag === unlockTheme);
+-    }
+-
+-    const pool = [...poolFromSys, ...poolFromUser];
+-
+     if (pool.length === 0) return alert('?蜓憿??桀?撌脩??券閫??摰??隢?隞蜓憿????閰??桀?摨怎恣?銵憓?);
+     
+     // Shuffle pool
+@@ -1050,7 +1347,7 @@ return parsed;
+     if (referenceTheme === 'verb_all') {
+       pool = verbDB;
+     } else {
+-      pool = vocabDB.filter(v => v.status !== 'new');
++      pool = vocabDB;
+       if (referenceTheme !== 'random') {
+         pool = pool.filter(v => v.tag === referenceTheme);
+       }
+@@ -1091,7 +1388,7 @@ return parsed;
+   };
+ 
+   const getInitialVerbInputs = () => {
+-      const base = { type: 'verb', group: '1', difficulty: 'n5', masu: '', meaning: '' };
++      const base = { type: 'verb', group: '1', difficulty: 'n5', masu: '', meaning: '', tag: '?芾?', example: '' };
+       verbForms.forEach(f => { base[f.id] = ''; });
+       return base;
+   };
+@@ -1141,7 +1438,9 @@ return parsed;
+             return;
+         }
+ 
+-        if (newVerbs.length === 0 || (newVerbs[newVerbs.length - 1].meaning !== '' && !exampleMatch)) {
++        const isVerbOrAdj = /([?????扎?嗚????氓|??|??)$/.test(trimmed.replace(/\[.*?\]/g, '')) && /[\u3040-\u309F]/.test(trimmed);
++
++        if (newVerbs.length === 0 || (newVerbs[newVerbs.length - 1].meaning !== '' && !exampleMatch) || isVerbOrAdj) {
+              const verbObj = getInitialVerbInputs();
+              verbObj.type = currentType;
+              verbObj.group = currentGroup;
+@@ -1156,13 +1455,30 @@ return parsed;
+         }
+     });
+ 
+-    const validVerbs = newVerbs.filter(v => v.jisho && v.meaning);
++    const validVerbs = newVerbs.filter(v => v.jisho);
+     if (validVerbs.length > 0) {
+-        setVerbDB(prev => [...prev, ...validVerbs.map((v, i) => ({ ...v, id: v.type + '_custom_' + Date.now() + '_' + i }))]);
++        validVerbs.forEach(v => {
++            if (!v.meaning) {
++                const existing = verbDB.find(db => db.jisho === v.jisho) || INITIAL_VERB_DB.find(db => db.jisho === v.jisho);
++                if (existing) v.meaning = existing.meaning;
++                else v.meaning = '(?芣?靘葉??';
++            }
++        });
++        setBatchVerbInputs(prev => [...prev, ...validVerbs.map((v, i) => ({ ...v, id: v.type + '_custom_' + Date.now() + '_' + i }))]);
+         setVerbImportText('');
+-        alert('???臬 ' + validVerbs.length + ' ??敶?');
+     } else {
+-        alert('閫??憭望?嚗?蝣箄??澆??臬?箝冪?詨耦??銵葉????);
++        alert('閫??憭望?嚗?蝣箄??澆???);
++    }
++  };
++
++    const handleBatchSaveVerb = () => {
++    const newVerbs = batchVerbInputs.filter(v => v.jisho && v.meaning && v.meaning !== '(?芣?靘葉??');
++    if (newVerbs.length > 0) {
++        setVerbDB(prev => [...prev, ...newVerbs]);
++        setBatchVerbInputs([]);
++        alert('???啣? ' + newVerbs.length + ' ??敶?');
++    } else {
++        alert('瘝??舀憓??嚗?蝣箄??臬憛怠神鈭冪?詨耦?葉????);
+     }
+   };
+ 
+@@ -1508,21 +1824,32 @@ return parsed;
+               )}
+ 
+               {/* Secondary Actions 2x2 */}
+-              <div className="grid grid-cols-2 gap-3">
++              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                 <button onClick={() => setAppState('theme_select')}
+                   className="py-4 bg-blue-50 border border-blue-100 text-blue-700 rounded-2xl font-bold hover:bg-blue-500 hover:text-white hover:border-blue-500 transition-all text-sm flex flex-col items-center gap-1.5">
+                   <span className="text-xl">?</span>銝駁??桀???
+                 </button>
++                <button onClick={() => startVocabSession('reverse')} className="py-4 bg-teal-50 border border-teal-100 text-teal-700 rounded-2xl font-bold hover:bg-teal-500 hover:text-white hover:border-teal-500 transition-all text-sm flex flex-col items-center gap-1.5">
++                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-refresh-ccw w-5 h-5"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21v-5h5"/></svg>
++                  ?交??訾葉?葫撽?+                  <span className="text-[10px] font-normal opacity-80 -mt-1">(皜祇?銝餃摮?</span>
++                </button>
+                 <button onClick={() => startVocabSession('sentence')}
+                   disabled={vocabDB.filter(v => v.example).length === 0}
+                   className="py-4 bg-fuchsia-50 border border-fuchsia-100 text-fuchsia-700 rounded-2xl font-bold hover:bg-fuchsia-500 hover:text-white hover:border-fuchsia-500 transition-all text-sm flex flex-col items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed">
+-                  <MessageSquareQuote className="w-5 h-5"/>靘蝧餉陌?寡?
++                  <MessageSquareQuote className="w-5 h-5"/>
++                  靘?質?皜祇?
++                  <span className="text-[10px] font-normal opacity-80 -mt-1">(皜祇??惇靘)</span>
+                 </button>
+                 <button onClick={() => startVocabSession('mistakes')}
+                   disabled={Object.keys(vocabMistakes).length === 0}
+                   className="py-4 bg-red-50 border border-red-100 text-red-600 rounded-2xl font-bold hover:bg-red-500 hover:text-white hover:border-red-500 transition-all text-sm flex flex-col items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed">
+                   <span className="text-xl">?</span>?桀??舫??寡?
+                 </button>
++                <button onClick={() => startVocabSession('all')}
++                  className="py-4 bg-indigo-50 border border-indigo-100 text-indigo-700 rounded-2xl font-bold hover:bg-indigo-500 hover:text-white hover:border-indigo-500 transition-all text-sm flex flex-col items-center gap-1.5">
++                  <span className="text-xl">??</span>?券?桀?蝬?皜祇?
++                </button>
+                 <button onClick={() => setAppState('vocab_manage')}
+                   className="py-4 bg-slate-800 text-white rounded-2xl font-bold hover:bg-slate-700 transition-all text-sm flex flex-col items-center gap-1.5">
+                   <BookType className="w-5 h-5"/>蝞∠?閮摨?@@ -1678,11 +2005,24 @@ return parsed;
+               
+               <div className="space-y-4">
+                 <div>
+-                  <label className="block text-sm font-bold text-slate-700 mb-1">?豢?銝駁?</label>
+-                  <select value={unlockTheme} onChange={(e)=>setUnlockTheme(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-indigo-400">
+-                    <option value="random">? ?冽??箸??</option>
+-                    {getAvailableThemes().map(t => <option key={t} value={t}>{t}</option>)}
+-                  </select>
++                  <label className="block text-sm font-bold text-slate-700 mb-2">?豢??撓?乩蜓憿?/label>
++                  <input 
++                    type="text" 
++                    list="unlock-theme-suggestions"
++                    value={unlockTheme === 'random' ? '' : unlockTheme} 
++                    onChange={(e)=>setUnlockTheme(e.target.value || 'random')} 
++                    placeholder="暺??詨嚗??湔?? (?征?粹璈?"
++                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-indigo-400 font-medium"
++                  />
++                  <datalist id="unlock-theme-suggestions">
++                    {Array.from(new Set([...getAvailableThemes()])).filter(Boolean).map(t => <option key={t} value={t} />)}
++                  </datalist>
++                  <div className="flex flex-wrap gap-2 mt-3">
++                    <button onClick={() => setUnlockTheme('random')} className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${unlockTheme === 'random' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}>? ?冽?</button>
++                    {Array.from(new Set([...getAvailableThemes()])).filter(Boolean).slice(0, 5).map(t => (
++                      <button key={t} onClick={() => setUnlockTheme(t)} className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${unlockTheme === t ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}>{t}</button>
++                    ))}
++                  </div>
+                 </div>
+                 <div>
+                   <label className="block text-sm font-bold text-slate-700 mb-1">閫???賊?</label>
+@@ -1834,6 +2174,43 @@ return parsed;
+           </div>
+       )}
+ 
++      {appState === 'verb_theme_select' && (
++        <div className="max-w-4xl mx-auto mt-6 animate-in fade-in zoom-in-95">
++          <div className="text-center mb-8">
++            <h2 className="text-3xl font-black text-slate-800 flex items-center justify-center gap-3"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-map w-8 h-8 text-blue-500"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" x2="9" y1="3" y2="18"/><line x1="15" x2="15" y1="6" y2="21"/></svg> 銝駁?????</h2>
++            <p className="text-slate-500 mt-2">?豢?銝??憓??刻府??銝翰?儘隤?閰?</p>
++          </div>
++          
++          <div className="grid sm:grid-cols-2 gap-4">
++            <button onClick={() => {
++                const availableThemes = Array.from(new Set(verbDB.map(v => v.tag))).filter(t => t && t !== '?芾?');
++                if (availableThemes.length === 0) { alert('?桀?瘝??舐?蜓憿?嚗?); return; }
++                const randomTheme = availableThemes[Math.floor(Math.random() * availableThemes.length)];
++                startVerbRound('theme', randomTheme);
++            }} className="sm:col-span-2 p-6 bg-gradient-to-br from-indigo-500 to-purple-600 border-none rounded-3xl text-left flex items-center gap-5 transition-all hover:shadow-xl hover:scale-[1.02] group text-white">
++               <div className="p-4 bg-white/20 rounded-2xl group-hover:rotate-12 transition-transform backdrop-blur-sm"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-sparkles w-8 h-8 text-white"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg></div>
++               <div>
++                  <h3 className="text-2xl font-black tracking-wide">? ?冽?銝駁??</h3>
++                  <p className="text-white/80 text-sm mt-1 font-medium">蝟餌絞?冽??銝?蜓憿脰???皜祇?嚗?/p>
++               </div>
++            </button>
++
++            {Array.from(new Set(verbDB.map(v => v.tag))).filter(t => t && t !== '?芾?').map(tagName => {
++              const count = verbDB.filter(v => v.tag === tagName).length;
++              return (
++                <button key={tagName} onClick={() => startVerbRound('theme', tagName)} className="p-6 bg-white border border-slate-200 hover:border-blue-400 rounded-3xl text-left flex items-start gap-4 transition-all hover:shadow-md group">
++                   <div className="p-4 rounded-2xl group-hover:scale-110 transition-transform bg-blue-100 text-blue-600"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-folder-heart w-8 h-8"><path d="M11 20H4a2 2 0 0 1-2-2V5c0-1.1.9-2 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H20a2 2 0 0 1 2 2v1.5"/><path d="M13.9 17.45c-1.2-1.2-1.14-2.8-.2-3.73a2.43 2.43 0 0 1 3.44 0l.36.34.34-.34a2.43 2.43 0 0 1 3.45 0c.93.93 1 2.53-.2 3.73l-3.59 3.59Z"/></svg></div>
++                   <div>
++                      <h3 className="text-xl font-bold text-slate-800">{tagName}</h3>
++                      <div className="mt-3 text-xs font-bold text-slate-400 bg-slate-50 inline-block px-2 py-1 rounded">?園? {count} ??閰?/div>
++                   </div>
++                </button>
++              );
++            })}
++          </div>
++        </div>
++      )}
++
+       {appState === 'theme_select' && (
+         <div className="max-w-4xl mx-auto mt-6 animate-in fade-in zoom-in-95">
+           <div className="text-center mb-8">
+@@ -1872,6 +2249,36 @@ return parsed;
+            <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-100">
+              <div className="flex justify-between items-center mb-6"><h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2"><BookType className="w-6 h-6 text-amber-500"/> 蝞∠??桀?閮摨?/h2></div>
+              
++             
++             <div className="bg-slate-800 p-6 rounded-3xl border border-slate-700 mb-8 shadow-lg">
++                <div className="flex justify-between items-center mb-4"><h3 className="font-bold text-white text-lg flex items-center gap-2"><Sparkles className="w-5 h-5 text-purple-400"/> Obsidian ?箸?郊 (?舀??????</h3></div>
++                <div className="bg-slate-700/50 p-5 rounded-2xl border border-slate-600">
++                  <p className="text-slate-300 text-sm mb-4 leading-relaxed">銝?菜????冗嚗頂蝯望??芸?頧? ??摮?### ?? 靘 ??#### ?妝 蝯?嚗蒂?蕪????湔?臬??/p>
++                  
++                  {(obsidianScannedWords.length > 0 || obsidianScannedGrammar.length > 0) ? (
++                      <div className="mb-4">
++                        <div className="text-green-400 font-bold mb-2">?? ?曉 {obsidianScannedWords.length} ??桀?/靘嚗obsidianScannedGrammar.length} 璇??閬?嚗?/div>
++                        <div className="max-h-48 overflow-y-auto bg-slate-800 rounded-xl p-3 border border-slate-600 text-sm text-slate-300 space-y-1">
++                           {obsidianScannedGrammar.map((g, i) => (
++                              <div key={'g'+i} className="flex justify-between text-amber-300"><span>?妝 {g.name}</span><span className="text-slate-400">({g.baseForm} + {g.appendStr})</span></div>
++                           ))}
++                           {obsidianScannedWords.map((w, i) => (
++                              <div key={'w'+i} className="flex justify-between"><span>{w.word} {w.reading !== w.word && '('+w.reading+')'}</span><span className="text-slate-400">{w.meaning} [{w.tag}]</span></div>
++                           ))}
++                        </div>
++                        <div className="flex gap-3 mt-4">
++                           <button onClick={handleImportObsidian} className="flex-1 py-3 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 transition-colors">? 銝?萄?亙??/button>
++                           <button onClick={() => {setObsidianScannedWords([]); setObsidianScannedGrammar([]);}} className="py-3 px-6 bg-slate-600 text-white rounded-xl font-bold hover:bg-slate-500 transition-colors">??</button>
++                        </div>
++                      </div>
++                  ) : (
++                      <button onClick={handleScanObsidian} disabled={isScanningObsidian} className="w-full py-4 bg-purple-600 text-white rounded-xl font-bold text-lg hover:bg-purple-700 transition-colors flex justify-center items-center gap-2 disabled:opacity-50">
++                        {isScanningObsidian ? '??銝?..' : (obsidianDirHandle ? '?? ??? Obsidian 鞈?憭? : '?? ??銝行???Obsidian 鞈?憭?)}
++                      </button>
++                  )}
++                </div>
++             </div>
++
+              <div className="bg-amber-50 p-6 rounded-3xl border border-amber-100 mb-8">
+                 <div className="flex justify-between items-center mb-4"><h3 className="font-bold text-amber-800 text-lg">?寞活?啣??桀?/靘</h3></div>
+                 <div className="mb-6 bg-white p-5 rounded-2xl border border-amber-200 shadow-sm">
+@@ -1918,9 +2325,17 @@ return parsed;
+              <datalist id="db-theme-suggestions">{Array.from(new Set(vocabDB.map(v => v.tag))).filter(Boolean).map(tag => <option key={tag} value={tag} />)}</datalist>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+-                 <thead className="bg-slate-50 text-slate-600"><tr><th className="p-4 rounded-tl-xl">銝駁?璅惜</th><th className="p-4">?桀? (撟喳???</th><th className="p-4">銝剜? / 靘</th><th className="p-4">?毀摨?/th><th className="p-4">??交?</th><th className="p-4">銝活銴?</th><th className="p-4 rounded-tr-xl">??</th></tr></thead>
++                 <thead className="bg-slate-50 text-slate-600"><tr>
++                    <th className="p-4 rounded-tl-xl cursor-pointer hover:bg-slate-100 transition-colors select-none" onClick={() => handleSort('tag')}>銝駁?璅惜{renderSortIcon('tag')}</th>
++                    <th className="p-4 cursor-pointer hover:bg-slate-100 transition-colors select-none" onClick={() => handleSort('word')}>?桀? (撟喳???{renderSortIcon('word')}</th>
++                    <th className="p-4 cursor-pointer hover:bg-slate-100 transition-colors select-none" onClick={() => handleSort('meaning')}>銝剜? / 靘{renderSortIcon('meaning')}</th>
++                    <th className="p-4 cursor-pointer hover:bg-slate-100 transition-colors select-none" onClick={() => handleSort('status')}>?毀摨州renderSortIcon('status')}</th>
++                    <th className="p-4 cursor-pointer hover:bg-slate-100 transition-colors select-none" onClick={() => handleSort('dateAdded')}>??交?{renderSortIcon('dateAdded')}</th>
++                    <th className="p-4 cursor-pointer hover:bg-slate-100 transition-colors select-none" onClick={() => handleSort('nextReview')}>銝活銴?{renderSortIcon('nextReview')}</th>
++                    <th className="p-4 rounded-tr-xl">??</th>
++                 </tr></thead>
+                  <tbody>
+-                    {vocabDB.map(v => (
++                    {sortedVocabDB.map(v => (
+                        <tr key={v.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
+                           <td className="p-4">
+                              <div className="flex items-center gap-1.5">
+@@ -1978,37 +2393,6 @@ return parsed;
+            <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-100">
+               <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2 mb-8"><Puzzle className="w-6 h-6 text-emerald-600"/> 蝞∠??芾????砍?摨?/h2>
+               <div className="grid lg:grid-cols-2 gap-8">
+-                 <div className="space-y-4">
+-                   <h3 className="font-bold text-slate-700 mb-4 text-lg">撌脣摮??砍?</h3>
+-                   {customGrammars.map(g => (
+-                      <div key={g.id} className="p-5 bg-white border border-slate-200 rounded-2xl flex justify-between items-center shadow-sm hover:border-emerald-300 transition-colors">
+-                         <div>
+-                           <div className="font-bold text-slate-800 text-lg mb-1.5">{g.name}</div>
+-                           <div className="text-sm text-slate-500 flex items-center gap-2">
+-                              ?亦?嚗?span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md font-medium border border-slate-200">{verbForms.find(f=>f.id===g.baseForm)?.label}</span>
+-                              {g.removeStr && <span className="text-red-400 font-bold">-?g.removeStr}??/span>}
+-                              <span className="text-emerald-500 font-bold">+?g.appendStr}??/span>
+-                           </div>
+-                         </div>
+-                         <button onClick={() => {if(window.confirm('蝣箏??芷嚗?)) setCustomGrammars(customGrammars.filter(x=>x.id!==g.id))}} className="p-3 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"><Trash2 className="w-5 h-5"/></button>
+-                      </div>
+-                   ))}
+-                 </div>
+-                 <div className="bg-emerald-50 p-8 rounded-3xl border border-emerald-100 h-fit">
+-                    <h3 className="font-bold text-emerald-800 mb-6 flex items-center gap-2 text-lg"><Plus className="w-6 h-6"/> ?啣????砍?</h3>
+-                    <div className="space-y-5">
+-                      <div><label className="block text-sm font-bold text-emerald-700 mb-1.5">???迂 (?內隤?</label><input type="text" value={newGrammar.name} onChange={e => setNewGrammar(p => ({...p, name: e.target.value}))} placeholder="靘?隢?閬?.. (??????)" className="w-full p-4 rounded-xl border border-emerald-200 outline-none focus:border-emerald-500"/></div>
+-                      <div className="grid grid-cols-2 gap-4">
+-                        <div><label className="block text-sm font-bold text-emerald-700 mb-1.5">?亦??箇?敶?/label><select value={newGrammar.baseForm} onChange={e => setNewGrammar(p => ({...p, baseForm: e.target.value}))} className="w-full p-4 rounded-xl border border-emerald-200 outline-none focus:border-emerald-500 bg-white">{verbForms.map(opt => <option key={opt.id} value={opt.id}>{opt.label}</option>)}</select></div>
+-                        <div><label className="block text-sm font-bold text-emerald-700 mb-1.5">??摮偏</label><input type="text" value={newGrammar.appendStr} onChange={e => setNewGrammar(p => ({...p, appendStr: e.target.value}))} placeholder="靘??扼????? className="w-full p-4 rounded-xl border border-emerald-200 outline-none focus:border-emerald-500"/></div>
+-                      </div>
+-                      <button onClick={handleAddGrammar} className="w-full py-4 mt-4 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition-colors shadow-sm text-lg">?脣??唳?瘜?/button>
+-                    </div>
+-                 </div>
+-              </div>
+-           </div>
+-        </div>
+-      )}
+ 
+       {appState === 'verb_manage' && (
+         <div className="max-w-5xl mx-auto mt-4 animate-in fade-in">
+@@ -2023,12 +2407,48 @@ return parsed;
+                    <textarea value={verbImportText} onChange={e => setVerbImportText(e.target.value)} placeholder="?舀蝢斤?璅惜???伐?靘?嚗?#10;?洵銝憿?閰?#10;憌涵?孫?&#10;??#10;? 瘞氬?憌脯???#10;&#10;?洵鈭?????#10;憌??嫘?&#10;?? className="w-full p-4 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 text-sm h-32 resize-y placeholder:text-slate-400 leading-relaxed"/>
+                    <button onClick={handleVerbSmartImport} className="mt-3 w-full py-3 bg-indigo-100 text-indigo-800 rounded-xl font-bold hover:bg-indigo-200 transition-colors flex items-center justify-center gap-2">閫????銝西???????摮?</button>
+                  </div>
++                                  {batchVerbInputs.length > 0 && (
++                 <div className="bg-white p-6 rounded-3xl border border-indigo-100 shadow-sm mt-4">
++                   <div className="flex justify-between items-center mb-4">
++                      <h4 className="font-bold text-slate-800 flex items-center gap-2"><ListChecks className="w-5 h-5 text-indigo-500"/> 蝣箄??楊頛臬? ({batchVerbInputs.length} ??</h4>
++                      <button onClick={() => {if(window.confirm('蝣箏?閬?蝛箸??楊頛臬??摰孵?嚗?)) setBatchVerbInputs([]);}} className="text-xs text-slate-400 hover:text-red-500 underline">皜征?券</button>
++                   </div>
++                   <div className="space-y-3 max-h-[60vh] overflow-y-auto p-2 bg-slate-50 rounded-2xl border border-slate-100">
++                     {batchVerbInputs.map((item, idx) => (
++                       <div key={idx} className="bg-white p-4 rounded-xl border border-slate-200 flex flex-col gap-3 shadow-sm relative group">
++                         <button onClick={() => setBatchVerbInputs(batchVerbInputs.filter((_, i) => i !== idx))} className="absolute top-2 right-2 p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><Trash2 className="w-4 h-4"/></button>
++                         <div className="flex flex-wrap gap-2 items-center pr-8">
++                             <div className="flex items-center gap-2">
++                                <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded">憿?</span>
++                                <select value={item.type} onChange={e => {const n=[...batchVerbInputs]; n[idx].type=e.target.value; setBatchVerbInputs(n);}} className="p-1.5 text-sm rounded border border-slate-200 outline-none focus:border-indigo-500"><option value="verb">??</option><option value="adj_i">?耦摰寡?</option><option value="adj_na">?芸耦摰寡?</option></select>
++                             </div>
++                             <div className="flex items-center gap-2">
++                                <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded">蝢斤?</span>
++                                <select value={item.group} onChange={e => {const n=[...batchVerbInputs]; n[idx].group=e.target.value; setBatchVerbInputs(n);}} className="p-1.5 text-sm rounded border border-slate-200 outline-none focus:border-indigo-500"><option value="1">1憿?/option><option value="2">2憿?/option><option value="3">3憿?/option><option value="i">i敶?/option><option value="na">na敶?/option></select>
++                             </div>
++                             <div className="flex items-center gap-2">
++                                <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded">璅惜</span>
++                                <input type="text" value={item.tag || ''} onChange={e => {const n=[...batchVerbInputs]; n[idx].tag=e.target.value; setBatchVerbInputs(n);}} className="p-1.5 text-sm rounded border border-slate-200 outline-none w-24"/>
++                             </div>
++                         </div>
++                         <div className="grid grid-cols-2 gap-2">
++                            <div><label className="text-xs text-slate-500">颲剜敶?/label><input type="text" value={item.jisho} onChange={e => {const n=[...batchVerbInputs]; n[idx].jisho=e.target.value; setBatchVerbInputs(n);}} className="w-full p-2 text-sm rounded border border-slate-200 outline-none"/></div>
++                            <div><label className="text-xs text-slate-500">銝剜???/label><input type="text" value={item.meaning} onChange={e => {const n=[...batchVerbInputs]; n[idx].meaning=e.target.value; setBatchVerbInputs(n);}} className={"w-full p-2 text-sm rounded border outline-none " + (item.meaning==='(?芣?靘葉??' ? 'border-amber-400 bg-amber-50 text-amber-700' : 'border-slate-200')}/></div>
++                         </div>
++                         <div><label className="text-xs text-slate-500">靘</label><input type="text" value={item.example || ''} onChange={e => {const n=[...batchVerbInputs]; n[idx].example=e.target.value; setBatchVerbInputs(n);}} className="w-full p-2 text-sm rounded border border-slate-200 outline-none"/></div>
++                       </div>
++                     ))}
++                   </div>
++                   <button onClick={handleBatchSaveVerb} className="mt-4 w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold text-lg shadow-md hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2"><Save className="w-5 h-5"/> ?啣??唾??嗅澈</button>
++                 </div>
++                 )}
+                  <div className="border-t border-indigo-200 pt-6 mt-6 mb-4">
+                    <h4 className="font-bold text-indigo-800 mb-4">???桃??啣?</h4>
+-                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
++                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-4">
+                    <div><label className="block text-sm font-bold text-indigo-700 mb-1">憿?</label><select value={verbInputs.type} onChange={e=>handleVerbInputChange('type', e.target.value)} className="w-full p-3 rounded-xl border border-indigo-200"><option value="verb">?? (verb)</option><option value="adj_i">?耦摰寡? (adj_i)</option><option value="adj_na">?芸耦摰寡? (adj_na)</option></select></div>
+                    <div><label className="block text-sm font-bold text-indigo-700 mb-1">蝢斤?/??</label><select value={verbInputs.group} onChange={e=>handleVerbInputChange('group', e.target.value)} className="w-full p-3 rounded-xl border border-indigo-200"><option value="1">蝚砌?憿?閰?(1)</option><option value="2">蝚砌?憿?閰?(2)</option><option value="3">蝚砌?憿?閰?(3)</option><option value="i">?耦摰寡? (i)</option><option value="na">?芸耦摰寡? (na)</option></select></div>
+                    <div><label className="block text-sm font-bold text-indigo-700 mb-1">???摨?/label><select value={verbInputs.difficulty} onChange={e=>handleVerbInputChange('difficulty', e.target.value)} className="w-full p-3 rounded-xl border border-indigo-200"><option value="n5">N5</option><option value="n4">N4</option><option value="n3">N3</option><option value="n2">N2</option><option value="n1">N1</option></select></div>
++                   <div><label className="block text-sm font-bold text-indigo-700 mb-1">銝駁?璅惜</label><input type="text" value={verbInputs.tag} onChange={e=>handleVerbInputChange('tag', e.target.value)} placeholder="靘??瑕" className="w-full p-3 rounded-xl border border-indigo-200"/></div>
+                    <div><label className="block text-sm font-bold text-indigo-700 mb-1">銝剜???/label><input type="text" value={verbInputs.meaning} onChange={e=>handleVerbInputChange('meaning', e.target.value)} placeholder="靘??? className="w-full p-3 rounded-xl border border-indigo-200"/></div>
+                  </div>
+                  <div className="mb-4">
+@@ -2038,7 +2458,13 @@ return parsed;
+                  <div className="flex justify-between items-center mb-4 mt-6"><h4 className="font-bold text-indigo-800">????閮剖?</h4><button onClick={() => {if (!verbInputs.jisho) return alert('隢?憛怠神?桅耦(颲剜敶?撣賊?)嚗?); const forms = autoConjugate(verbInputs.jisho, verbInputs.group); if (Object.keys(forms).length > 0) { setVerbInputs(prev => ({ ...prev, ...forms })); } else { alert('?⊥??芸??Ｙ?嚗?蝣箄??澆??臬甇?Ⅱ嚗?); } }} className="text-sm text-indigo-700 bg-indigo-100 px-4 py-2 rounded-xl font-bold hover:bg-indigo-200 flex items-center gap-1 transition-colors"><Sparkles className="w-4 h-4"/> ?芸??Ｙ?霈???/button></div><div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-4">
+                    <div><label className="block text-sm font-bold text-indigo-700 mb-1">?整?敶?(?舀瞍Ｗ?[??])</label><input type="text" value={verbInputs.masu || ''} onChange={e=>handleVerbInputChange('masu', e.target.value)} placeholder="靘?銵???? className="w-full p-3 rounded-xl border border-indigo-200"/></div>
+                    {verbForms.map(f => (
+-                       <div key={f.id}><label className="block text-sm font-bold text-indigo-700 mb-1">{f.label}</label><input type="text" value={verbInputs[f.id] || ''} onChange={e=>handleVerbInputChange(f.id, e.target.value)} className="w-full p-3 rounded-xl border border-indigo-200"/></div>
++                       <div key={f.id}>
++                          <div className="flex justify-between items-end mb-1">
++                             <label className="block text-sm font-bold text-indigo-700">{f.label}</label>
++                             <button onClick={() => { if(window.confirm('蝣箏?閬?斗迨霈???雿?嚗?)) setVerbForms(prev => prev.filter(x => x.id !== f.id)); }} className="text-xs text-red-500 hover:bg-red-50 px-2 py-0.5 rounded transition-colors"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trash-2 w-3 h-3 inline-block"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg> ?芷</button>
++                          </div>
++                          <input type="text" value={verbInputs[f.id] || ''} onChange={e=>handleVerbInputChange(f.id, e.target.value)} className="w-full p-3 rounded-xl border border-indigo-200"/>
++                       </div>
+                    ))}
+                  </div>
+ 
+@@ -2147,6 +2573,11 @@ return parsed;
+                           {parseExample(currentVocab.example).readingOnly}
+                        </div>
+                      </>
++                 ) : vocabTestMode === 'reverse' ? (
++                     <>
++                       <div className="text-sm text-slate-500 mb-2">隢???交??葉???嚗?/div>
++                       <div className="text-4xl sm:text-5xl font-black text-slate-800 tracking-wide mb-8 py-6">{currentVocab.word || currentVocab.reading || currentVocab.example}</div>
++                     </>
+                  ) : (
+                      <>
+                        <div className="text-sm text-slate-500 mb-2">隢??葉????撟喳???單嚗?/div>
+@@ -2169,6 +2600,8 @@ return parsed;
+                     if (appState === 'vocab_playing') {
+                         if (vocabTestMode === 'sentence') {
+                             isPlainMatch = opt === (parseExample(currentVocab.example).translation || currentVocab.meaning);
++                        } else if (vocabTestMode === 'reverse') {
++                            isPlainMatch = opt === currentVocab.meaning;
+                         } else {
+                             isPlainMatch = opt === currentVocab.reading;
+                         }
+@@ -2241,3 +2674,4 @@ return parsed;
+     </div>
+   );
+ }
++
