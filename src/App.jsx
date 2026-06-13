@@ -1278,6 +1278,7 @@ return parsed;
   };
 
   const handleImportObsidian = () => {
+    createVocabBackup();
       if (obsidianScannedWords.length === 0 && obsidianScannedGrammar.length === 0) return;
       if (obsidianScannedWords.length > 0) setVocabDB(prev => [...prev, ...obsidianScannedWords]);
       if (obsidianScannedGrammar.length > 0) setCustomGrammars(prev => [...prev, ...obsidianScannedGrammar]);
@@ -1288,6 +1289,7 @@ return parsed;
   };
 
   const handleBatchSave = () => {
+    createVocabBackup();
     const newVocabs = batchInputs
       .filter(v => (v.word.trim() || v.reading.trim() || v.example.trim()) && v.meaning.trim())
       .map((v, i) => ({
@@ -1307,6 +1309,7 @@ return parsed;
   };
 
   const handleSmartImport = () => {
+    createVocabBackup();
     if (!importText.trim()) return;
     const lines = importText.split('\n');
     const newItems = [];
@@ -1549,6 +1552,24 @@ return parsed;
   // 在 Theme Select 中取得有效主題清單
   const availableThemes = Array.from(new Set(vocabDB.map(v => v.tag))).filter(t => t && t !== '自訂' && t !== '未分類');
 
+  const createVocabBackup = () => {
+    localStorage.setItem('verbApp_vocabDB_backup', JSON.stringify(vocabDB));
+  };
+
+  const handleRestoreBackup = () => {
+    const backup = localStorage.getItem('verbApp_vocabDB_backup');
+    if (!backup) return alert('沒有找到前一次的操作備份喔！');
+    if (window.confirm('確定要還原到前一次的狀態嗎？這會覆蓋目前的單字庫！')) {
+      try {
+        const parsed = JSON.parse(backup);
+        setVocabDB(parsed);
+        alert('還原成功！');
+      } catch (e) {
+        alert('還原失敗：檔案格式錯誤');
+      }
+    }
+  };
+
   const handleExportData = () => {
     const data = {
       vocabDB,
@@ -1567,6 +1588,7 @@ return parsed;
 
   const fileInputRef = React.useRef(null);
   const handleImportData = (e) => {
+    createVocabBackup();
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
@@ -2311,7 +2333,10 @@ return parsed;
              </div>
 
              <div className="bg-amber-50 p-6 rounded-3xl border border-amber-100 mb-8">
-                <div className="flex justify-between items-center mb-4"><h3 className="font-bold text-amber-800 text-lg">批次新增單字/例句</h3></div>
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="font-bold text-amber-800 text-lg">批次新增單字/例句</h3>
+                  <button onClick={handleRestoreBackup} className="px-3 py-1.5 bg-white border border-amber-200 hover:bg-amber-100 text-amber-800 font-bold rounded-lg transition-colors shadow-sm text-xs">⏮️ 還原前一次操作</button>
+                </div>
                 <div className="mb-6 bg-white p-5 rounded-2xl border border-amber-200 shadow-sm">
                   <div className="flex items-center gap-2 mb-3 text-sm font-bold text-amber-700"><Sparkles className="w-5 h-5"/> 快速貼上區 (智能過濾 Emoji)</div>
                   <textarea value={importText} onChange={e => setImportText(e.target.value)} placeholder="支援加上主題標籤與例句！例如：&#10;【交通與地點】&#10;くるま（車）&#10;➜ 汽車&#10;💬 新しい車を買いました。（買了新車。）" className="w-full p-4 rounded-xl border border-slate-200 outline-none focus:border-amber-500 text-sm h-32 resize-y placeholder:text-slate-400 leading-relaxed"/>
@@ -2409,7 +2434,7 @@ return parsed;
                           </td>
                           <td className="p-4 text-slate-500 font-medium">{getAddedDate(v.id)}</td>
                           <td className="p-4 text-slate-500 font-medium">{v.interval === 0 ? '今天' : `${v.interval} 天後`}</td>
-                          <td className="p-4"><button onClick={()=>{if(window.confirm('確定刪除？')) setVocabDB(vocabDB.filter(x=>x.id!==v.id))}} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><Trash2 className="w-4 h-4"/></button></td>
+                          <td className="p-4"><button onClick={()=>{if(window.confirm('確定刪除？')){createVocabBackup(); setVocabDB(vocabDB.filter(x=>x.id!==v.id));}}} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><Trash2 className="w-4 h-4"/></button></td>
                        </tr>
                     ))}
                  </tbody>
