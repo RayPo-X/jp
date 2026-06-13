@@ -1259,14 +1259,30 @@ return parsed;
   };
 
   const handleImportObsidian = () => {
-    createVocabBackup();
       if (obsidianScannedWords.length === 0 && obsidianScannedGrammar.length === 0) return;
-      if (obsidianScannedWords.length > 0) setVocabDB(prev => [...prev, ...obsidianScannedWords]);
-      if (obsidianScannedGrammar.length > 0) setCustomGrammars(prev => [...prev, ...obsidianScannedGrammar]);
+      
+      if (obsidianScannedWords.length > 0) {
+          const newBatchItems = obsidianScannedWords.map(w => ({
+              word: w.word,
+              reading: w.reading !== w.word ? w.reading : '',
+              meaning: w.meaning,
+              tag: w.tag || 'Obsidian',
+              example: w.example || ''
+          }));
+          setBatchInputs(prev => {
+              const filtered = prev.filter(v => v.word.trim() || v.reading.trim() || v.meaning.trim() || v.example.trim());
+              return [...filtered, ...newBatchItems];
+          });
+      }
+      
+      if (obsidianScannedGrammar.length > 0) {
+          createVocabBackup();
+          setCustomGrammars(prev => [...prev, ...obsidianScannedGrammar]);
+      }
       
       setObsidianScannedWords([]);
       setObsidianScannedGrammar([]);
-      alert('匯入成功！資料已同步。');
+      alert('單字已放入「確認與編輯區」，請往下捲動查看並點擊「批次儲存」。\n（若有文法規則，已直接匯入系統）');
   };
 
   const handleBatchSave = () => {
@@ -2329,7 +2345,7 @@ return parsed;
                            ))}
                         </div>
                         <div className="flex gap-3 mt-4">
-                           <button onClick={handleImportObsidian} className="flex-1 py-3 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 transition-colors">📥 一鍵匯入全部</button>
+                           <button onClick={handleImportObsidian} className="flex-1 py-3 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 transition-colors">📥 匯入至確認與編輯區</button>
                            <button onClick={() => {setObsidianScannedWords([]); setObsidianScannedGrammar([]);}} className="py-3 px-6 bg-slate-600 text-white rounded-xl font-bold hover:bg-slate-500 transition-colors">取消</button>
                         </div>
                       </div>
