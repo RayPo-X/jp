@@ -627,6 +627,7 @@ return parsed;
       let aVal, bVal;
       switch (vocabSortConfig.key) {
         case 'tag': aVal = a.tag || ''; bVal = b.tag || ''; break;
+        case 'type': aVal = a.isSentence ? 1 : 0; bVal = b.isSentence ? 1 : 0; break;
         case 'word': aVal = a.word || a.reading || ''; bVal = b.word || b.reading || ''; break;
         case 'meaning': aVal = a.meaning || ''; bVal = b.meaning || ''; break;
         case 'status': aVal = a.repetitions || 0; bVal = b.repetitions || 0; break;
@@ -2407,6 +2408,7 @@ return parsed;
                <table className="w-full text-left text-sm">
                  <thead className="bg-slate-50 text-slate-600"><tr>
                     <th className="p-4 rounded-tl-xl cursor-pointer hover:bg-slate-100 transition-colors select-none" onClick={() => handleSort('tag')}>主題標籤{renderSortIcon('tag')}</th>
+                    <th className="p-4 cursor-pointer hover:bg-slate-100 transition-colors select-none" onClick={() => handleSort('type')}>類型{renderSortIcon('type')}</th>
                     <th className="p-4 cursor-pointer hover:bg-slate-100 transition-colors select-none" onClick={() => handleSort('word')}>單字 (平假名){renderSortIcon('word')}</th>
                     <th className="p-4 cursor-pointer hover:bg-slate-100 transition-colors select-none" onClick={() => handleSort('meaning')}>中文 / 例句{renderSortIcon('meaning')}</th>
                     <th className="p-4 cursor-pointer hover:bg-slate-100 transition-colors select-none" onClick={() => handleSort('status')}>熟練度{renderSortIcon('status')}</th>
@@ -2445,9 +2447,11 @@ return parsed;
                                    title="點擊編輯主題標籤"
                                  >{v.tag}</span>
                                )}
-                               {v.isSentence && <span className="inline-block px-2.5 py-1 bg-fuchsia-100 text-fuchsia-700 rounded-lg text-xs font-bold whitespace-nowrap" title="這是一句例句">📝 例句</span>}
                                <button onClick={() => handleRematchDbTheme(v.id, v.meaning)} title="根據中文重新自動配對主題" className="p-1 text-slate-300 hover:text-amber-500 transition-colors"><Sparkles className="w-4 h-4"/></button>
                              </div>
+                          </td>
+                          <td className="p-4">
+                            {v.isSentence ? <span className="inline-block px-2.5 py-1 bg-fuchsia-100 text-fuchsia-700 rounded-lg text-xs font-bold whitespace-nowrap" title="這是一句例句">📝 例句</span> : <span className="inline-block px-2.5 py-1 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold whitespace-nowrap">單字</span>}
                           </td>
                           <td className="p-4"><div className="font-bold text-slate-800 text-base">{v.word || v.reading}</div>{v.word && <div className="text-slate-500 text-xs mt-0.5">{v.reading}</div>}</td>
                           <td className="p-4"><div className="font-bold text-slate-700">{v.meaning}</div>{v.example && <div className="text-slate-500 text-xs mt-1 bg-slate-100 p-1.5 rounded inline-block">{renderRuby(v.example)}</div>}</td>
