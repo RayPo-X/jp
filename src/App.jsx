@@ -350,7 +350,7 @@ const generateSentenceDistractors = (correctVocab, allVocabs) => {
     const correctTrans = parseExample(correctVocab.example || correctVocab.word).translation || correctVocab.meaning;
     optionsMap.set(correctTrans, correctTrans);
     
-    let pool = allVocabs.filter(v => ((v.example && v.example.trim().length > 0) || v.tag === '例句') && v.id !== correctVocab.id);
+    let pool = allVocabs.filter(v => ((v.example && v.example.trim().length > 0) || v.isSentence) && v.id !== correctVocab.id);
     if (pool.length < 3) pool = allVocabs.filter(v => v.id !== correctVocab.id);
     
     const shuffled = pool.sort(() => Math.random() - 0.5);
@@ -735,7 +735,7 @@ return parsed;
     else if (mode === 'today_extra') queue = [...reviewedTodayQueue];
     else if (mode === 'mistakes') queue = Object.values(vocabMistakes);
     else if (mode === 'sentence') {
-      queue = vocabDB.filter(v => (v.example && v.example.trim().length > 0) || v.tag === '例句');
+      queue = vocabDB.filter(v => (v.example && v.example.trim().length > 0) || v.isSentence);
       if (queue.length === 0) { alert('目前沒有包含例句的單字喔！'); return; }
     }
     else if (mode === 'theme' && themeId) {
@@ -1061,7 +1061,7 @@ return parsed;
     return id;
   };
 
-  const [batchInputs, setBatchInputs] = useState(Array.from({ length: 5 }, () => ({ word: '', reading: '', meaning: '', tag: '自訂', example: '' })));
+  const [batchInputs, setBatchInputs] = useState(Array.from({ length: 5 }, () => ({ word: '', reading: '', meaning: '', tag: '自訂', example: '', isSentence: false })));
   const [autoUnlock, setAutoUnlock] = useState(false);
   const obsidianFileRef = React.useRef(null);
   const [obsidianScannedWords, setObsidianScannedWords] = useState([]);
@@ -1139,7 +1139,6 @@ return parsed;
 
          if (line.startsWith('#### 📝 例句')) {
              currentMode = 'sentence';
-             currentTag = '例句'; 
              continue;
          }
 
@@ -1158,14 +1157,14 @@ return parsed;
                  }
                  currentVocab = {
                     id: 'obs_' + Date.now() + '_' + Math.random().toString(36).substring(2,9),
-                    word, reading, meaning: '', tag: currentTag, example: '',
+                    word, reading, meaning: '', tag: currentTag, example: '', isSentence: false,
                     ef: 2.5, interval: 0, repetitions: 0, nextReview: Date.now(), status: 'learning'
                  };
              } else if (currentMode === 'sentence') {
                  if (currentVocab) vocabResults.push({...currentVocab});
                  currentVocab = {
                     id: 'obs_' + Date.now() + '_' + Math.random().toString(36).substring(2,9),
-                    word: rawContent, reading: rawContent, meaning: '', tag: currentTag, example: '',
+                    word: rawContent, reading: rawContent, meaning: '', tag: currentTag, example: '', isSentence: true,
                     ef: 2.5, interval: 0, repetitions: 0, nextReview: Date.now(), status: 'learning'
                  };
              }
@@ -1272,7 +1271,7 @@ return parsed;
     }));
     if (newVocabs.length > 0) {
         setVocabDB(prev => [...prev, ...newVocabs]);
-        setBatchInputs(Array.from({ length: 5 }, () => ({ word: '', reading: '', meaning: '', tag: '自訂', example: '' })));
+        setBatchInputs(Array.from({ length: 5 }, () => ({ word: '', reading: '', meaning: '', tag: '自訂', example: '', isSentence: false })));
         alert(`成功加入 ${newVocabs.length} 個單字/例句到學習序列！`);
     } else alert('沒有找到可儲存的內容，請確認至少填寫「中文」與「平假名」或「例句」。');
   };
@@ -1879,7 +1878,7 @@ return parsed;
                   <span className="text-xl">🎮</span>主題單字闖關
                 </button>
                 <button onClick={() => startVocabSession('sentence')}
-                  disabled={vocabDB.filter(v => (v.example && v.example.trim().length > 0) || v.tag === '例句').length === 0}
+                  disabled={vocabDB.filter(v => (v.example && v.example.trim().length > 0) || v.isSentence).length === 0}
                   className="py-4 bg-fuchsia-50 border border-fuchsia-100 text-fuchsia-700 rounded-2xl font-bold hover:bg-fuchsia-500 hover:text-white hover:border-fuchsia-500 transition-all text-sm flex flex-col items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed">
                   <MessageSquareQuote className="w-5 h-5"/>例句翻譯特訓
                 </button>
@@ -2362,8 +2361,8 @@ return parsed;
                 <div className="flex justify-between items-center mb-4 mt-8 border-t border-amber-200 pt-6">
                   <h4 className="font-bold text-amber-800">確認與編輯區</h4>
                   <div className="flex gap-2">
-                    <button onClick={() => { if(window.confirm('確定要清空確認與編輯區的所有內容嗎？')) setBatchInputs([{word:'', reading:'', meaning:'', tag: '自訂', example: ''}]) }} className="text-sm text-red-600 bg-red-50 px-4 py-2 rounded-xl font-bold hover:bg-red-100 flex items-center gap-1"><Trash2 className="w-4 h-4"/> 全部清空</button>
-                    <button onClick={() => setBatchInputs([...batchInputs, {word:'', reading:'', meaning:'', tag: '自訂', example: ''}])} className="text-sm text-amber-700 bg-amber-100 px-4 py-2 rounded-xl font-bold hover:bg-amber-200 flex items-center gap-1"><Plus className="w-4 h-4"/> 新增一列</button>
+                    <button onClick={() => { if(window.confirm('確定要清空確認與編輯區的所有內容嗎？')) setBatchInputs([{word:'', reading:'', meaning:'', tag: '自訂', example: '', isSentence: false}]) }} className="text-sm text-red-600 bg-red-50 px-4 py-2 rounded-xl font-bold hover:bg-red-100 flex items-center gap-1"><Trash2 className="w-4 h-4"/> 全部清空</button>
+                    <button onClick={() => setBatchInputs([...batchInputs, {word:'', reading:'', meaning:'', tag: '自訂', example: '', isSentence: false}])} className="text-sm text-amber-700 bg-amber-100 px-4 py-2 rounded-xl font-bold hover:bg-amber-200 flex items-center gap-1"><Plus className="w-4 h-4"/> 新增一列</button>
                   </div>
                 </div>
                 <datalist id="theme-suggestions">{Array.from(new Set(vocabDB.map(v => v.tag))).filter(Boolean).map(tag => <option key={tag} value={tag} />)}</datalist>
@@ -2384,6 +2383,12 @@ return parsed;
                         <div className="flex items-center gap-2 relative">
                           <MessageSquareQuote className="w-5 h-5 text-amber-400 absolute left-3" />
                           <input type="text" placeholder="附加例句 (選填，支援「漢字[假名]」注音格式。例如: 水[みず]を飲[の]みます。)" value={item.example} onChange={e => {const n=[...batchInputs]; n[idx].example=e.target.value; setBatchInputs(n);}} className="w-full pl-10 pr-3 py-2.5 bg-slate-50 rounded-xl border border-slate-200 outline-none focus:border-amber-500 focus:bg-white text-sm text-slate-600"/>
+                        </div>
+                        <div className="flex items-center gap-4 px-2 mt-1">
+                          <label className="flex items-center gap-2 cursor-pointer text-sm font-bold text-slate-600 hover:text-fuchsia-600 transition-colors">
+                            <input type="checkbox" checked={!!item.isSentence} onChange={e => {const n=[...batchInputs]; n[idx].isSentence=e.target.checked; setBatchInputs(n);}} className="w-4 h-4 accent-fuchsia-600"/>
+                            <span>✅ 這是一句完整例句（啟用例句特訓與專屬標記）</span>
+                          </label>
                         </div>
                       </div>
                    ))}
@@ -2440,6 +2445,7 @@ return parsed;
                                    title="點擊編輯主題標籤"
                                  >{v.tag}</span>
                                )}
+                               {v.isSentence && <span className="inline-block px-2.5 py-1 bg-fuchsia-100 text-fuchsia-700 rounded-lg text-xs font-bold whitespace-nowrap" title="這是一句例句">📝 例句</span>}
                                <button onClick={() => handleRematchDbTheme(v.id, v.meaning)} title="根據中文重新自動配對主題" className="p-1 text-slate-300 hover:text-amber-500 transition-colors"><Sparkles className="w-4 h-4"/></button>
                              </div>
                           </td>
