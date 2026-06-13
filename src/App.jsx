@@ -347,16 +347,16 @@ const generateVocabDistractors = (correctVocab, allVocabs) => {
 
 const generateSentenceDistractors = (correctVocab, allVocabs) => {
     const optionsMap = new Map();
-    const correctTrans = parseExample(correctVocab.example).translation || correctVocab.meaning;
+    const correctTrans = parseExample(correctVocab.example || correctVocab.word).translation || correctVocab.meaning;
     optionsMap.set(correctTrans, correctTrans);
     
-    let pool = allVocabs.filter(v => v.example && v.id !== correctVocab.id);
+    let pool = allVocabs.filter(v => ((v.example && v.example.trim().length > 0) || v.tag === '例句') && v.id !== correctVocab.id);
     if (pool.length < 3) pool = allVocabs.filter(v => v.id !== correctVocab.id);
     
     const shuffled = pool.sort(() => Math.random() - 0.5);
     for (const v of shuffled) {
         if (optionsMap.size >= 4) break;
-        const trans = parseExample(v.example).translation || v.meaning;
+        const trans = parseExample(v.example || v.word).translation || v.meaning;
         if(trans && !optionsMap.has(trans)) optionsMap.set(trans, trans);
     }
     
@@ -735,7 +735,7 @@ return parsed;
     else if (mode === 'today_extra') queue = [...reviewedTodayQueue];
     else if (mode === 'mistakes') queue = Object.values(vocabMistakes);
     else if (mode === 'sentence') {
-      queue = vocabDB.filter(v => v.example && v.example.trim().length > 0);
+      queue = vocabDB.filter(v => (v.example && v.example.trim().length > 0) || v.tag === '例句');
       if (queue.length === 0) { alert('目前沒有包含例句的單字喔！'); return; }
     }
     else if (mode === 'theme' && themeId) {
@@ -795,7 +795,7 @@ return parsed;
 
     let correctAnswerStr = '';
     if (vocabTestMode === 'sentence') {
-        correctAnswerStr = parseExample(currentVocab.example).translation || currentVocab.meaning;
+        correctAnswerStr = parseExample(currentVocab.example || currentVocab.word).translation || currentVocab.meaning;
     } else {
         correctAnswerStr = currentVocab.reading;
     }
@@ -816,7 +816,7 @@ return parsed;
     }
 
     setRoundHistory(prev => [...prev, {
-      question: vocabTestMode === 'sentence' ? (parseExample(currentVocab.example).plainSentence || currentVocab.word) : currentVocab.meaning,
+      question: vocabTestMode === 'sentence' ? (parseExample(currentVocab.example || currentVocab.word).plainSentence || currentVocab.word) : currentVocab.meaning,
       userAnswer: finalAnswer,
       correctAnswer: correctAnswerStr,
       userIsCorrect: isCorrect,
@@ -1879,7 +1879,7 @@ return parsed;
                   <span className="text-xl">🎮</span>主題單字闖關
                 </button>
                 <button onClick={() => startVocabSession('sentence')}
-                  disabled={vocabDB.filter(v => v.example).length === 0}
+                  disabled={vocabDB.filter(v => (v.example && v.example.trim().length > 0) || v.tag === '例句').length === 0}
                   className="py-4 bg-fuchsia-50 border border-fuchsia-100 text-fuchsia-700 rounded-2xl font-bold hover:bg-fuchsia-500 hover:text-white hover:border-fuchsia-500 transition-all text-sm flex flex-col items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed">
                   <MessageSquareQuote className="w-5 h-5"/>例句翻譯特訓
                 </button>
@@ -2663,7 +2663,7 @@ return parsed;
                      <>
                        <div className="text-sm text-slate-500 mb-2">請翻譯以下例句（不顯示漢字以訓練聽力/閱讀）：</div>
                        <div className="text-2xl sm:text-3xl font-black text-slate-800 tracking-wide mb-8 py-8 px-4 bg-slate-50 rounded-2xl border border-slate-200">
-                          {parseExample(currentVocab.example).readingOnly}
+                          {parseExample(currentVocab.example || currentVocab.word).readingOnly}
                        </div>
                      </>
                  ) : (
