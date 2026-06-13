@@ -836,11 +836,11 @@ return parsed;
                if (quality >= 3) {
                    ef = ef + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
                    if (ef < 1.3) ef = 1.3;
-                   if (reps === 0) interval = 0;
-                   else if (reps === 1) interval = 1;
-                   else if (reps === 2) interval = 2;
-                   else if (reps === 3) interval = 4;
-                   else if (reps === 4) interval = 7;
+                   if (reps === 0) interval = 1;
+                   else if (reps === 1) interval = 2;
+                   else if (reps === 2) interval = 4;
+                   else if (reps === 3) interval = 7;
+                   else if (reps === 4) interval = 14;
                    else interval = Math.round(interval * ef);
                    reps++;
                    if (reps >= 5) status = 'mastered';
