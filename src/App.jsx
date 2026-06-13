@@ -533,6 +533,15 @@ return parsed;
        }
     }
   }, [vocabDB, verbDB]);
+
+  // One-time auto reset all vocab to today
+  useEffect(() => {
+    const hasReset = localStorage.getItem('auto_reset_vocab_today');
+    if (!hasReset && vocabDB.length > 0) {
+      setVocabDB(prev => prev.map(v => ({ ...v, status: 'learning', interval: 0, repetitions: 0, nextReview: Date.now() })));
+      localStorage.setItem('auto_reset_vocab_today', 'true');
+    }
+  }, [vocabDB]);
   useEffect(() => { localStorage.setItem('verbApp_gistId', gistId); }, [gistId]);
 
   // 計算今日文法待複習佇列
