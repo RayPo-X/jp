@@ -2033,11 +2033,18 @@ return parsed;
               
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-1">選擇主題</label>
-                  <select value={unlockTheme} onChange={(e)=>setUnlockTheme(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-indigo-400">
-                    <option value="random">🎲 隨機為我挑選</option>
-                    {getAvailableThemes().map(t => <option key={t} value={t}>{t}</option>)}
-                  </select>
+                  <label className="block text-sm font-bold text-slate-700 mb-1">選擇主題 (可輸入或從選單挑選)</label>
+                  <input
+                    type="text"
+                    list="unlock-theme-options"
+                    value={unlockTheme === 'random' ? '' : unlockTheme}
+                    onChange={(e) => setUnlockTheme(e.target.value || 'random')}
+                    placeholder="留空代表 🎲 隨機為我挑選..."
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-indigo-400"
+                  />
+                  <datalist id="unlock-theme-options">
+                    {getAvailableThemes().map(t => <option key={t} value={t} />)}
+                  </datalist>
                 </div>
                 <div>
                   <label className="block text-sm font-bold text-slate-700 mb-1">解鎖數量</label>
