@@ -539,7 +539,7 @@ return parsed;
         case 'nextReview': aVal = a.nextReview || 0; bVal = b.nextReview || 0; break;
         case 'dateAdded':
         default:
-          const getTs = (id) => { const p = String(id||'').split('_'); return (p.length >= 3 && !isNaN(Number(p[p.length-1]))) ? Number(p[p.length-1]) : 0; };
+          const getTs = (id) => { const p = String(id||'').split('_'); for (const x of p) { const n = Number(x); if (!isNaN(n) && n > 1000000000000) return n; } return 0; };
           aVal = getTs(a.id); bVal = getTs(b.id); break;
       }
       if (aVal < bVal) return vocabSortConfig.direction === 'asc' ? -1 : 1;
@@ -576,7 +576,7 @@ return parsed;
         case 'difficulty': aVal = a.difficulty || 'easy'; bVal = b.difficulty || 'easy'; break;
         case 'dateAdded':
         default:
-          const getTs = (id) => { const p = String(id||'').split('_'); return (p.length >= 3 && !isNaN(Number(p[p.length-1]))) ? Number(p[p.length-1]) : 0; };
+          const getTs = (id) => { const p = String(id||'').split('_'); for (const x of p) { const n = Number(x); if (!isNaN(n) && n > 1000000000000) return n; } return 0; };
           aVal = getTs(a.id); bVal = getTs(b.id); break;
       }
       if (aVal < bVal) return verbSortConfig.direction === 'asc' ? -1 : 1;
@@ -1206,7 +1206,7 @@ return parsed;
     }));
     if (newVocabs.length > 0) {
         setVocabDB(prev => [...prev, ...newVocabs]);
-        setBatchInputs(Array(5).fill({ word: '', reading: '', meaning: '', tag: '自訂', example: '' }));
+        setBatchInputs(Array.from({ length: 5 }, () => ({ word: '', reading: '', meaning: '', tag: '自訂', example: '' })));
         alert(`成功加入 ${newVocabs.length} 個單字/例句到學習序列！`);
     } else alert('沒有找到可儲存的內容，請確認至少填寫「中文」與「平假名」或「例句」。');
   };
@@ -1279,7 +1279,7 @@ return parsed;
         }
     });
 
-    const validNewItems = newItems.filter(item => (item.reading || item.example) && item.meaning);
+    const validNewItems = newItems.filter(item => (item.word || item.reading || item.example) && item.meaning);
     if (validNewItems.length > 0) {
         validNewItems.forEach(item => {
             if (item.tag === '自訂') {
@@ -1288,7 +1288,7 @@ return parsed;
         });
         const existingFilled = batchInputs.filter(v => (v.word.trim() || v.reading.trim() || v.example.trim()) && v.meaning.trim());
         let updatedList = [...existingFilled, ...validNewItems];
-        if (updatedList.length < 5) updatedList = [...updatedList, ...Array(5 - updatedList.length).fill({ word: '', reading: '', meaning: '', tag: '自訂', example: '' })];
+        if (updatedList.length < 5) updatedList = [...updatedList, ...Array.from({ length: 5 - updatedList.length }, () => ({ word: '', reading: '', meaning: '', tag: '自訂', example: '' }))];
         setBatchInputs(updatedList);
         setImportText(''); 
     }
@@ -2393,11 +2393,26 @@ return parsed;
                     {sortedVerbDB.map(v => (
                        <tr key={v.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
                           <td className="p-4"><span className="bg-indigo-50 text-indigo-700 px-2 py-1 rounded font-bold whitespace-nowrap">{v.type === 'verb' ? '動詞' : v.type === 'adj_i' ? 'i形' : 'na形'} ({v.group})</span></td>
-                          <td className="p-4"><span className="bg-slate-100 text-slate-600 px-2 py-1 rounded text-xs font-bold">{v.tag || '無'}</span></td>
+                          <td className="p-4">
+  {editingTagId === v.id ? (
+    <select autoFocus onBlur={() => setEditingTagId(null)} onChange={(e) => {
+      const newTag = e.target.value;
+      setVerbDB(verbDB.map(x => x.id === v.id ? { ...x, tag: newTag } : x));
+      setEditingTagId(null);
+    }} className="bg-white border border-slate-200 rounded px-2 py-1 outline-none text-xs">
+      <option value="">選擇主題</option>
+      {getAvailableThemes().map(t => <option key={t} value={t}>{t}</option>)}
+    </select>
+  ) : (
+    <span onClick={() => setEditingTagId(v.id)} className="bg-slate-100 text-slate-600 px-2 py-1 rounded text-xs font-bold cursor-pointer hover:bg-indigo-100 hover:text-indigo-700 transition-colors">
+      {v.tag || '無'}
+    </span>
+  )}
+</td>
                           <td className="p-4 font-bold text-slate-800">{renderRuby(v.masu)}</td>
                           <td className="p-4 text-slate-600">{renderRuby(v.jisho)} / {renderRuby(v.te)}</td>
                           <td className="p-4 font-bold text-slate-700">{v.meaning}</td>
-                          <td className="p-4 text-xs text-slate-400 whitespace-nowrap">{(() => { const p = (v.id||'').split('_'); const ts = (p.length >= 3 && !isNaN(Number(p[p.length-1]))) ? Number(p[p.length-1]) : 0; return ts ? new Date(ts).toLocaleDateString() : '系統內建'; })()}</td>
+                          <td className="p-4 text-xs text-slate-400 whitespace-nowrap">{getAddedDate(v.id)}</td>
                           <td className="p-4"><button onClick={()=>{if(window.confirm('確定刪除？')) setVerbDB(verbDB.filter(x=>x.id!==v.id))}} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><Trash2 className="w-4 h-4"/></button></td>
                        </tr>
                     ))}
