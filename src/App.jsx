@@ -347,7 +347,7 @@ const generateVocabDistractors = (correctVocab, allVocabs) => {
 
 const generateSentenceDistractors = (correctVocab, allVocabs) => {
     const optionsMap = new Map();
-    const correctTrans = parseExample(correctVocab.example || correctVocab.word).translation || correctVocab.meaning;
+    const correctTrans = parseExample(correctVocab.example || correctVocab.word || correctVocab.reading).translation || correctVocab.meaning;
     optionsMap.set(correctTrans, correctTrans);
     
     let pool = allVocabs.filter(v => ((v.example && v.example.trim().length > 0) || v.isSentence) && v.id !== correctVocab.id);
@@ -356,7 +356,7 @@ const generateSentenceDistractors = (correctVocab, allVocabs) => {
     const shuffled = pool.sort(() => Math.random() - 0.5);
     for (const v of shuffled) {
         if (optionsMap.size >= 4) break;
-        const trans = parseExample(v.example || v.word).translation || v.meaning;
+        const trans = parseExample(v.example || v.word || v.reading).translation || v.meaning;
         if(trans && !optionsMap.has(trans)) optionsMap.set(trans, trans);
     }
     
@@ -796,7 +796,7 @@ return parsed;
 
     let correctAnswerStr = '';
     if (vocabTestMode === 'sentence') {
-        correctAnswerStr = parseExample(currentVocab.example || currentVocab.word).translation || currentVocab.meaning;
+        correctAnswerStr = parseExample(currentVocab.example || currentVocab.word || currentVocab.reading).translation || currentVocab.meaning;
     } else {
         correctAnswerStr = currentVocab.reading;
     }
@@ -817,7 +817,7 @@ return parsed;
     }
 
     setRoundHistory(prev => [...prev, {
-      question: vocabTestMode === 'sentence' ? (parseExample(currentVocab.example || currentVocab.word).plainSentence || currentVocab.word) : currentVocab.meaning,
+      question: vocabTestMode === 'sentence' ? (parseExample(currentVocab.example || currentVocab.word || currentVocab.reading).plainSentence || currentVocab.word || currentVocab.reading) : currentVocab.meaning,
       userAnswer: finalAnswer,
       correctAnswer: correctAnswerStr,
       userIsCorrect: isCorrect,
@@ -2675,7 +2675,7 @@ return parsed;
                      <>
                        <div className="text-sm text-slate-500 mb-2">請翻譯以下例句（不顯示漢字以訓練聽力/閱讀）：</div>
                        <div className="text-2xl sm:text-3xl font-black text-slate-800 tracking-wide mb-8 py-8 px-4 bg-slate-50 rounded-2xl border border-slate-200">
-                          {parseExample(currentVocab.example || currentVocab.word).readingOnly}
+                          {parseExample(currentVocab.example || currentVocab.word || currentVocab.reading).readingOnly}
                        </div>
                      </>
                  ) : (
