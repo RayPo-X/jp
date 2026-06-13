@@ -524,6 +524,77 @@ return parsed;
   // 管理頁面：正在編輯的標籤 ID
   const [editingTagId, setEditingTagId] = useState(null);
 
+  const [vocabSortConfig, setVocabSortConfig] = useState({ key: 'dateAdded', direction: 'desc' });
+  const sortedVocabDB = useMemo(() => {
+    let sorted = [...vocabDB];
+    sorted.sort((a, b) => {
+      let aVal, bVal;
+      switch (vocabSortConfig.key) {
+        case 'tag': aVal = a.tag || ''; bVal = b.tag || ''; break;
+        case 'word': aVal = a.word || a.reading || ''; bVal = b.word || b.reading || ''; break;
+        case 'meaning': aVal = a.meaning || ''; bVal = b.meaning || ''; break;
+        case 'status': aVal = a.repetitions || 0; bVal = b.repetitions || 0; break;
+        case 'nextReview': aVal = a.nextReview || 0; bVal = b.nextReview || 0; break;
+        case 'dateAdded':
+        default:
+          const getTs = (id) => { const p = (id||'').split('_'); return (p.length >= 3 && !isNaN(Number(p[p.length-1]))) ? Number(p[p.length-1]) : 0; };
+          aVal = getTs(a.id); bVal = getTs(b.id); break;
+      }
+      if (aVal < bVal) return vocabSortConfig.direction === 'asc' ? -1 : 1;
+      if (aVal > bVal) return vocabSortConfig.direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+    return sorted;
+  }, [vocabDB, vocabSortConfig]);
+
+  const handleSort = (key) => {
+    setVocabSortConfig(prev => ({
+      key,
+      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
+    }));
+  };
+
+  const renderSortIcon = (key) => {
+    if (vocabSortConfig.key !== key) return null;
+    return <span className="ml-1 text-amber-500">{vocabSortConfig.direction === 'asc' ? '↑' : '↓'}</span>;
+  };
+
+  const [verbSortConfig, setVerbSortConfig] = useState({ key: 'dateAdded', direction: 'desc' });
+  const sortedVerbDB = useMemo(() => {
+    let sorted = [...verbDB];
+    sorted.sort((a, b) => {
+      let aVal, bVal;
+      switch (verbSortConfig.key) {
+        case 'tag': aVal = a.tag || ''; bVal = b.tag || ''; break;
+        case 'type': aVal = a.type + a.group; bVal = b.type + b.group; break;
+        case 'word': aVal = a.jisho || ''; bVal = b.jisho || ''; break;
+        case 'meaning': aVal = a.meaning || ''; bVal = b.meaning || ''; break;
+        case 'difficulty': aVal = a.difficulty || 'easy'; bVal = b.difficulty || 'easy'; break;
+        case 'dateAdded':
+        default:
+          const getTs = (id) => { const p = (id||'').split('_'); return (p.length >= 3 && !isNaN(Number(p[p.length-1]))) ? Number(p[p.length-1]) : 0; };
+          aVal = getTs(a.id); bVal = getTs(b.id); break;
+      }
+      if (aVal < bVal) return verbSortConfig.direction === 'asc' ? -1 : 1;
+      if (aVal > bVal) return verbSortConfig.direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+    return sorted;
+  }, [verbDB, verbSortConfig]);
+
+  const handleVerbSort = (key) => {
+    setVerbSortConfig(prev => ({
+      key,
+      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
+    }));
+  };
+
+  const renderVerbSortIcon = (key) => {
+    if (verbSortConfig.key !== key) return null;
+    return <span className="ml-1 text-indigo-500">{verbSortConfig.direction === 'asc' ? '↑' : '↓'}</span>;
+  };
+
+
   const [currentVerb, setCurrentVerb] = useState(null);
   const [currentTarget, setCurrentTarget] = useState('');
   const [currentGrammarDef, setCurrentGrammarDef] = useState(null); 
@@ -893,6 +964,9 @@ return parsed;
   };
 
   const [batchInputs, setBatchInputs] = useState(Array.from({ length: 5 }, () => ({ word: '', reading: '', meaning: '', tag: '自訂', example: '' })));
+  const [obsidianDirHandle, setObsidianDirHandle] = useState(null);
+  const [obsidianScannedWords, setObsidianScannedWords] = useState([]);
+  const [isScanningObsidian, setIsScanningObsidian] = useState(false);
   const [importText, setImportText] = useState('');
   const [verbImportText, setVerbImportText] = useState(''); 
   const [addToReviewNow, setAddToReviewNow] = useState(true);
@@ -911,6 +985,207 @@ return parsed;
     const otherVocabs = vocabDB.filter(v => v.id !== id);
     const newTag = guessThemeByMeaning(meaning, otherVocabs);
     setVocabDB(prev => prev.map(v => v.id === id ? { ...v, tag: newTag } : v));
+  };
+
+
+  const [obsidianScannedGrammar, setObsidianScannedGrammar] = useState([]);
+
+  const parseObsidianNotes = (text) => {
+    const vocabResults = [];
+    const grammarResults = [];
+
+    let currentMode = 'vocab'; 
+    let currentTag = '自訂';
+    let currentGrammarName = '';
+    
+    let currentVocab = null;
+
+    const lines = text.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+         const line = lines[i].trim();
+         if (!line) continue;
+
+         if (line.includes('💬 對話') || line.includes('3️⃣ 💬')) {
+             currentMode = 'skip';
+             continue;
+         }
+
+         if (line.startsWith('### ')) {
+             const rawHeader = line.replace(/^###\s+/, '').trim();
+             if (rawHeader.includes('[[') && rawHeader.includes(']]')) {
+                 currentMode = 'grammar_desc';
+                 currentGrammarName = rawHeader.replace(/\[\[|\]\]/g, '').trim(); 
+             } else {
+                 currentMode = 'vocab';
+                 currentTag = rawHeader.replace(/^[\s\S]*?(?=[a-zA-Z\u4e00-\u9fa5\u3040-\u309F\u30A0-\u30FF])/, '').trim() || rawHeader;
+             }
+             continue;
+         }
+
+         if (currentMode === 'skip') {
+             if (line.startsWith('### ') || line.startsWith('## ')) {
+             } else {
+                 continue;
+             }
+         }
+
+         if (currentMode === 'grammar_desc' && line.startsWith('👉 ')) {
+             currentGrammarName = line.replace(/^👉\s*/, '').trim();
+             continue;
+         }
+
+         if (line.startsWith('#### 🧩 結構')) {
+             currentMode = 'grammar_struct';
+             continue;
+         }
+
+         if (line.startsWith('#### 📝 例句')) {
+             currentMode = 'sentence';
+             currentTag = currentGrammarName || '例句'; 
+             continue;
+         }
+
+         if (line.startsWith('- ')) {
+             const rawContent = line.substring(2).trim();
+             
+             if (currentMode === 'grammar_struct') {
+                 const parts = rawContent.split('+').map(s => s.trim());
+                 if (parts.length >= 2 && parts[0].includes('動詞')) {
+                     let baseForm = 'dic'; 
+                     if (parts[0].includes('辭書形') || parts[0].includes('辞書形')) baseForm = 'dic';
+                     else if (parts[0].includes('た形')) baseForm = 'ta';
+                     else if (parts[0].includes('て形')) baseForm = 'te';
+                     else if (parts[0].includes('ない形')) baseForm = 'nai';
+                     
+                     let appendStr = parts.slice(1).join('').replace(/～/g, ''); 
+                     grammarResults.push({
+                         id: 'g_obs_' + Date.now() + '_' + Math.random().toString(36).substring(2,9),
+                         name: currentGrammarName || appendStr,
+                         baseForm: baseForm,
+                         removeStr: '',
+                         appendStr: appendStr,
+                         appliesTo: ['verb']
+                     });
+                 }
+             } else if (currentMode === 'vocab') {
+                 if (currentVocab) vocabResults.push({...currentVocab});
+                 
+                 let word = rawContent;
+                 let reading = rawContent;
+                 const bracketMatch = rawContent.match(/^(.+?)（(.+?)）$/) || rawContent.match(/^(.+?)\((.+?)\)$/);
+                 if (bracketMatch) {
+                     word = bracketMatch[2].trim() + '[' + bracketMatch[1].trim() + ']';
+                     reading = bracketMatch[1].trim();
+                 }
+                 currentVocab = {
+                    id: 'obs_' + Date.now() + '_' + Math.random().toString(36).substring(2,9),
+                    word, reading, meaning: '', tag: currentTag, example: '',
+                    ef: 2.5, interval: 0, repetitions: 0, nextReview: Date.now(), status: 'learning'
+                 };
+             } else if (currentMode === 'sentence') {
+                 if (currentVocab) vocabResults.push({...currentVocab});
+                 currentVocab = {
+                    id: 'obs_' + Date.now() + '_' + Math.random().toString(36).substring(2,9),
+                    word: rawContent, reading: rawContent, meaning: '', tag: currentTag, example: '',
+                    ef: 2.5, interval: 0, repetitions: 0, nextReview: Date.now(), status: 'learning'
+                 };
+             }
+             continue;
+         }
+
+         if (currentVocab && (line.startsWith('➜ ') || line.startsWith('-> ') || line.startsWith('=> ') || line.startsWith('👉 '))) {
+             currentVocab.meaning = line.replace(/^(➜|->|=>|👉)\s*/, '').trim();
+             vocabResults.push({...currentVocab});
+             currentVocab = null;
+         }
+    }
+    if (currentVocab) vocabResults.push(currentVocab);
+
+    return { vocabResults, grammarResults };
+  };
+
+  const handleScanObsidian = async () => {
+      try {
+          setIsScanningObsidian(true);
+          let dirHandle = obsidianDirHandle;
+          if (!dirHandle) {
+              dirHandle = await window.showDirectoryPicker({ mode: 'read' });
+              setObsidianDirHandle(dirHandle);
+          } else {
+             const permission = await dirHandle.queryPermission({ mode: 'read' });
+             if (permission !== 'granted') {
+                 const newPermission = await dirHandle.requestPermission({ mode: 'read' });
+                 if (newPermission !== 'granted') throw new Error('Permission denied');
+             }
+          }
+          const allVocabs = [];
+          const allGrammars = [];
+          
+          async function scanDirectory(handle) {
+              for await (const entry of handle.values()) {
+                  if (entry.kind === 'file' && entry.name.endsWith('.md')) {
+                      const file = await entry.getFile();
+                      const text = await file.text();
+                      const { vocabResults, grammarResults } = parseObsidianNotes(text);
+                      allVocabs.push(...vocabResults);
+                      allGrammars.push(...grammarResults);
+                  } else if (entry.kind === 'directory' && !entry.name.startsWith('.')) {
+                      await scanDirectory(entry);
+                  }
+              }
+          }
+          await scanDirectory(dirHandle);
+          
+          // Deduplicate Vocabs
+          const existingWords = new Set(vocabDB.map(v => v.word));
+          const newWords = allVocabs.filter(v => !existingWords.has(v.word));
+          const uniqueNewWords = [];
+          const seen = new Set();
+          for (const w of newWords) {
+              if (!seen.has(w.word) && w.meaning.trim() !== '') {
+                  seen.add(w.word);
+                  uniqueNewWords.push(w);
+              }
+          }
+
+          // Deduplicate Grammars
+          const existingGrammars = new Set(customGrammars.map(g => g.name + '_' + g.appendStr));
+          const newGrammarsList = allGrammars.filter(g => !existingGrammars.has(g.name + '_' + g.appendStr));
+          const uniqueNewGrammars = [];
+          const seenGrammar = new Set();
+          for (const g of newGrammarsList) {
+              const key = g.name + '_' + g.appendStr;
+              if (!seenGrammar.has(key)) {
+                  seenGrammar.add(key);
+                  uniqueNewGrammars.push(g);
+              }
+          }
+
+          setObsidianScannedWords(uniqueNewWords);
+          setObsidianScannedGrammar(uniqueNewGrammars);
+          
+          if (uniqueNewWords.length === 0 && uniqueNewGrammars.length === 0) {
+              alert('掃描完成！沒有找到新單字與文法，或均已在字庫中。');
+          } else {
+              alert('掃描完成！共找到 ' + uniqueNewWords.length + ' 個新單字/例句，' + uniqueNewGrammars.length + ' 條新文法規則！');
+          }
+      } catch (err) {
+          console.error(err);
+          alert('掃描失敗或已取消授權。');
+          setObsidianDirHandle(null);
+      } finally {
+          setIsScanningObsidian(false);
+      }
+  };
+
+  const handleImportObsidian = () => {
+      if (obsidianScannedWords.length === 0 && obsidianScannedGrammar.length === 0) return;
+      if (obsidianScannedWords.length > 0) setVocabDB(prev => [...prev, ...obsidianScannedWords]);
+      if (obsidianScannedGrammar.length > 0) setCustomGrammars(prev => [...prev, ...obsidianScannedGrammar]);
+      
+      setObsidianScannedWords([]);
+      setObsidianScannedGrammar([]);
+      alert('匯入成功！資料已同步。');
   };
 
   const handleBatchSave = () => {
@@ -1872,6 +2147,36 @@ return parsed;
            <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-100">
              <div className="flex justify-between items-center mb-6"><h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2"><BookType className="w-6 h-6 text-amber-500"/> 管理單字記憶庫</h2></div>
              
+             
+             <div className="bg-slate-800 p-6 rounded-3xl border border-slate-700 mb-8 shadow-lg">
+                <div className="flex justify-between items-center mb-4"><h3 className="font-bold text-white text-lg flex items-center gap-2"><Sparkles className="w-5 h-5 text-purple-400"/> Obsidian 智慧同步 (支援文法與例句)</h3></div>
+                <div className="bg-slate-700/50 p-5 rounded-2xl border border-slate-600">
+                  <p className="text-slate-300 text-sm mb-4 leading-relaxed">一鍵掃描資料夾，系統會自動轉換 🟡【單字】、#### 📝 例句 與 #### 🧩 結構，並過濾重複項目直接匯入。</p>
+                  
+                  {(obsidianScannedWords.length > 0 || obsidianScannedGrammar.length > 0) ? (
+                      <div className="mb-4">
+                        <div className="text-green-400 font-bold mb-2">🎉 找到 {obsidianScannedWords.length} 個新單字/例句，{obsidianScannedGrammar.length} 條新文法規則！</div>
+                        <div className="max-h-48 overflow-y-auto bg-slate-800 rounded-xl p-3 border border-slate-600 text-sm text-slate-300 space-y-1">
+                           {obsidianScannedGrammar.map((g, i) => (
+                              <div key={'g'+i} className="flex justify-between text-amber-300"><span>🧩 {g.name}</span><span className="text-slate-400">({g.baseForm} + {g.appendStr})</span></div>
+                           ))}
+                           {obsidianScannedWords.map((w, i) => (
+                              <div key={'w'+i} className="flex justify-between"><span>{w.word} {w.reading !== w.word && '('+w.reading+')'}</span><span className="text-slate-400">{w.meaning} [{w.tag}]</span></div>
+                           ))}
+                        </div>
+                        <div className="flex gap-3 mt-4">
+                           <button onClick={handleImportObsidian} className="flex-1 py-3 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 transition-colors">📥 一鍵匯入全部</button>
+                           <button onClick={() => {setObsidianScannedWords([]); setObsidianScannedGrammar([]);}} className="py-3 px-6 bg-slate-600 text-white rounded-xl font-bold hover:bg-slate-500 transition-colors">取消</button>
+                        </div>
+                      </div>
+                  ) : (
+                      <button onClick={handleScanObsidian} disabled={isScanningObsidian} className="w-full py-4 bg-purple-600 text-white rounded-xl font-bold text-lg hover:bg-purple-700 transition-colors flex justify-center items-center gap-2 disabled:opacity-50">
+                        {isScanningObsidian ? '掃描中...' : (obsidianDirHandle ? '🔄 重新掃描 Obsidian 資料夾' : '📁 授權並掃描 Obsidian 資料夾')}
+                      </button>
+                  )}
+                </div>
+             </div>
+
              <div className="bg-amber-50 p-6 rounded-3xl border border-amber-100 mb-8">
                 <div className="flex justify-between items-center mb-4"><h3 className="font-bold text-amber-800 text-lg">批次新增單字/例句</h3></div>
                 <div className="mb-6 bg-white p-5 rounded-2xl border border-amber-200 shadow-sm">
@@ -1918,9 +2223,17 @@ return parsed;
              <datalist id="db-theme-suggestions">{Array.from(new Set(vocabDB.map(v => v.tag))).filter(Boolean).map(tag => <option key={tag} value={tag} />)}</datalist>
              <div className="overflow-x-auto">
                <table className="w-full text-left text-sm">
-                 <thead className="bg-slate-50 text-slate-600"><tr><th className="p-4 rounded-tl-xl">主題標籤</th><th className="p-4">單字 (平假名)</th><th className="p-4">中文 / 例句</th><th className="p-4">熟練度</th><th className="p-4">加入日期</th><th className="p-4">下次複習</th><th className="p-4 rounded-tr-xl">操作</th></tr></thead>
+                 <thead className="bg-slate-50 text-slate-600"><tr>
+                    <th className="p-4 rounded-tl-xl cursor-pointer hover:bg-slate-100 transition-colors select-none" onClick={() => handleSort('tag')}>主題標籤{renderSortIcon('tag')}</th>
+                    <th className="p-4 cursor-pointer hover:bg-slate-100 transition-colors select-none" onClick={() => handleSort('word')}>單字 (平假名){renderSortIcon('word')}</th>
+                    <th className="p-4 cursor-pointer hover:bg-slate-100 transition-colors select-none" onClick={() => handleSort('meaning')}>中文 / 例句{renderSortIcon('meaning')}</th>
+                    <th className="p-4 cursor-pointer hover:bg-slate-100 transition-colors select-none" onClick={() => handleSort('status')}>熟練度{renderSortIcon('status')}</th>
+                    <th className="p-4 cursor-pointer hover:bg-slate-100 transition-colors select-none" onClick={() => handleSort('dateAdded')}>加入日期{renderSortIcon('dateAdded')}</th>
+                    <th className="p-4 cursor-pointer hover:bg-slate-100 transition-colors select-none" onClick={() => handleSort('nextReview')}>下次複習{renderSortIcon('nextReview')}</th>
+                    <th className="p-4 rounded-tr-xl">操作</th>
+                 </tr></thead>
                  <tbody>
-                    {vocabDB.map(v => (
+                    {sortedVocabDB.map(v => (
                        <tr key={v.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
                           <td className="p-4">
                              <div className="flex items-center gap-1.5">
@@ -2063,15 +2376,24 @@ return parsed;
 
               <div className="overflow-x-auto">
                <table className="w-full text-left text-sm">
-                 <thead className="bg-slate-50 text-slate-600"><tr><th className="p-4 rounded-tl-xl">類型/群組</th><th className="p-4">ます形</th><th className="p-4">辭書/て形</th><th className="p-4">中文意思</th><th className="p-4">難易度</th><th className="p-4 rounded-tr-xl">操作</th></tr></thead>
+                 <thead className="bg-slate-50 text-slate-600"><tr>
+                    <th className="p-4 rounded-tl-xl cursor-pointer hover:bg-slate-100 transition-colors select-none" onClick={() => handleVerbSort('type')}>類型/群組{renderVerbSortIcon('type')}</th>
+                    <th className="p-4 cursor-pointer hover:bg-slate-100 transition-colors select-none" onClick={() => handleVerbSort('tag')}>標籤/主題{renderVerbSortIcon('tag')}</th>
+                    <th className="p-4">ます形</th>
+                    <th className="p-4 cursor-pointer hover:bg-slate-100 transition-colors select-none" onClick={() => handleVerbSort('word')}>辭書/て形{renderVerbSortIcon('word')}</th>
+                    <th className="p-4 cursor-pointer hover:bg-slate-100 transition-colors select-none" onClick={() => handleVerbSort('meaning')}>中文意思{renderVerbSortIcon('meaning')}</th>
+                    <th className="p-4 cursor-pointer hover:bg-slate-100 transition-colors select-none" onClick={() => handleVerbSort('dateAdded')}>加入日期{renderVerbSortIcon('dateAdded')}</th>
+                    <th className="p-4 rounded-tr-xl">操作</th>
+                 </tr></thead>
                  <tbody>
-                    {verbDB.map(v => (
+                    {sortedVerbDB.map(v => (
                        <tr key={v.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
-                          <td className="p-4"><span className="bg-indigo-50 text-indigo-700 px-2 py-1 rounded font-bold whitespace-nowrap">{v.type} ({v.group})</span></td>
+                          <td className="p-4"><span className="bg-indigo-50 text-indigo-700 px-2 py-1 rounded font-bold whitespace-nowrap">{v.type === 'verb' ? '動詞' : v.type === 'adj_i' ? 'i形' : 'na形'} ({v.group})</span></td>
+                          <td className="p-4"><span className="bg-slate-100 text-slate-600 px-2 py-1 rounded text-xs font-bold">{v.tag || '無'}</span></td>
                           <td className="p-4 font-bold text-slate-800">{renderRuby(v.masu)}</td>
                           <td className="p-4 text-slate-600">{renderRuby(v.jisho)} / {renderRuby(v.te)}</td>
                           <td className="p-4 font-bold text-slate-700">{v.meaning}</td>
-                          <td className="p-4"><span className="bg-slate-100 px-2 py-1 rounded text-xs font-bold text-slate-500 uppercase">{v.difficulty}</span></td>
+                          <td className="p-4 text-xs text-slate-400 whitespace-nowrap">{(() => { const p = (v.id||'').split('_'); const ts = (p.length >= 3 && !isNaN(Number(p[p.length-1]))) ? Number(p[p.length-1]) : 0; return ts ? new Date(ts).toLocaleDateString() : '系統內建'; })()}</td>
                           <td className="p-4"><button onClick={()=>{if(window.confirm('確定刪除？')) setVerbDB(verbDB.filter(x=>x.id!==v.id))}} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><Trash2 className="w-4 h-4"/></button></td>
                        </tr>
                     ))}
