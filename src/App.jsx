@@ -578,8 +578,13 @@ return parsed;
   const getAddedDate = (id) => {
     if (!id) return '-';
     const parts = String(id).split('_');
-    if (parts.length >= 3 && !isNaN(Number(parts[parts.length-1]))) {
-      const date = new Date(Number(parts[parts.length-1]));
+    let ts = 0;
+    for (const p of parts) {
+      const num = Number(p);
+      if (!isNaN(num) && num > 1000000000000) { ts = num; break; }
+    }
+    if (ts > 0) {
+      const date = new Date(ts);
       return `${date.getMonth() + 1}/${date.getDate()}`;
     }
     return '內建';
