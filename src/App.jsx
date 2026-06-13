@@ -1069,6 +1069,27 @@ return parsed;
   const [importText, setImportText] = useState('');
   const [verbImportText, setVerbImportText] = useState(''); 
   const [addToReviewNow, setAddToReviewNow] = useState(true);
+  const [showObsidianHelp, setShowObsidianHelp] = useState(false);
+
+  const obsidianTemplate = `### 🚗 交通工具 (這個會變成標籤)
+- くるま（車）
+➜ 汽車
+- じてんしゃ（自転車）
+➜ 腳踏車
+
+#### 📝 例句
+- 毎日バスで学校へ行きます。
+➜ 每天搭公車去學校。
+
+### [[許可表達]] (雙括號代表文法名稱)
+#### 🧩 結構
+- 動詞て形 + もいいですか
+- 動詞ない形 + なくてもいいです`;
+
+  const handleCopyTemplate = () => {
+    navigator.clipboard.writeText(obsidianTemplate);
+    alert('模板已複製！');
+  };
 
   const handleRematchBatchTheme = (idx) => {
     const n = [...batchInputs];
@@ -2352,9 +2373,31 @@ return parsed;
                   ) : (
                       <>
                         <input type="file" ref={obsidianFileRef} accept=".md,.txt" onChange={handleScanObsidian} className="hidden" />
-                        <button onClick={() => obsidianFileRef.current.click()} disabled={isScanningObsidian} className="w-full py-4 bg-purple-600 text-white rounded-xl font-bold text-lg hover:bg-purple-700 transition-colors flex justify-center items-center gap-2 disabled:opacity-50">
+                        <button onClick={() => obsidianFileRef.current.click()} disabled={isScanningObsidian} className="w-full py-4 bg-purple-600 text-white rounded-xl font-bold text-lg hover:bg-purple-700 transition-colors flex justify-center items-center gap-2 disabled:opacity-50 mb-3">
                           {isScanningObsidian ? '掃描中...' : '📄 選擇並掃描單一筆記檔案'}
                         </button>
+                        
+                        <div className="text-center">
+                          <button onClick={() => setShowObsidianHelp(!showObsidianHelp)} className="text-sm font-bold text-slate-400 hover:text-purple-400 transition-colors">
+                            {showObsidianHelp ? '🔼 隱藏 Markdown 筆記格式範例' : '❓ 點我看支援的 Markdown 筆記格式範例'}
+                          </button>
+                        </div>
+                        
+                        {showObsidianHelp && (
+                          <div className="mt-4 p-4 bg-slate-800 rounded-xl border border-slate-700 text-left">
+                            <div className="flex justify-between items-center mb-2">
+                              <span className="text-sm font-bold text-slate-300">Markdown 筆記格式範例</span>
+                              <button onClick={handleCopyTemplate} className="text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white px-3 py-1.5 rounded-lg transition-colors">📋 一鍵複製模板</button>
+                            </div>
+                            <pre className="text-xs text-slate-400 bg-slate-900 p-3 rounded-lg overflow-x-auto border border-slate-700 font-mono whitespace-pre-wrap">{obsidianTemplate}</pre>
+                            <div className="mt-3 text-xs text-slate-500 space-y-1">
+                              <p>💡 提示：</p>
+                              <p>1. <span className="text-purple-400">### </span> 代表主題標籤。</p>
+                              <p>2. 單字用 <span className="text-purple-400">- </span> 開頭，支援括號標示漢字（如 <span className="text-purple-400">假名(漢字)</span>）。</p>
+                              <p>3. 意思必須在下一行用 <span className="text-purple-400">➜ </span> 開頭。</p>
+                            </div>
+                          </div>
+                        )}
                       </>
                   )}
                 </div>
