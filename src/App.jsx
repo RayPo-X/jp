@@ -968,6 +968,7 @@ return parsed;
   };
 
   const [batchInputs, setBatchInputs] = useState(Array.from({ length: 5 }, () => ({ word: '', reading: '', meaning: '', tag: '自訂', example: '' })));
+  const [autoUnlock, setAutoUnlock] = useState(false);
   const [obsidianDirHandle, setObsidianDirHandle] = useState(null);
   const [obsidianScannedWords, setObsidianScannedWords] = useState([]);
   const [isScanningObsidian, setIsScanningObsidian] = useState(false);
@@ -2149,7 +2150,18 @@ return parsed;
       {appState === 'vocab_manage' && (
         <div className="max-w-5xl mx-auto mt-4 animate-in fade-in">
            <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-100">
-             <div className="flex justify-between items-center mb-6"><h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2"><BookType className="w-6 h-6 text-amber-500"/> 管理單字記憶庫</h2></div>
+             <div className="flex justify-between items-center mb-6">
+  <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2"><BookType className="w-6 h-6 text-amber-500"/> 管理單字記憶庫</h2>
+  <button onClick={() => {
+    if(window.confirm('確定要將所有單字的複習進度重置為今天嗎？這將會讓所有單字出現在今日待複習清單中！')) {
+      setVocabDB(vocabDB.map(v => (v.status === 'learning' || v.status === 'mastered') ? { ...v, status: 'learning', interval: 0, repetitions: 0, nextReview: Date.now() } : v));
+      alert('已重置所有單字複習進度！請回首頁開始複習。');
+      setAppState('home');
+    }
+  }} className="px-4 py-2 bg-red-50 text-red-600 rounded-xl font-bold hover:bg-red-500 hover:text-white transition-colors flex items-center gap-2 text-sm shadow-sm">
+    <RefreshCcw className="w-4 h-4"/> 從今天重新計算
+  </button>
+</div>
              
              
              <div className="bg-slate-800 p-6 rounded-3xl border border-slate-700 mb-8 shadow-lg">
