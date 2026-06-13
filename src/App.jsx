@@ -398,6 +398,25 @@ return parsed;
   // ==== 每日解鎖與主題抽卡 State ====
   const [unlockAmount, setUnlockAmount] = useState(5);
   const [unlockTheme, setUnlockTheme] = useState('random');
+  const [themeSuggestionSeed, setThemeSuggestionSeed] = useState(Date.now());
+  
+  const currentThemeSuggestions = useMemo(() => {
+    const all = getAvailableThemes();
+    const shuffled = [...all].sort(() => 0.5 - Math.random());
+    const THEME_GRADIENTS = [
+      'bg-gradient-to-r from-teal-400 to-emerald-400',
+      'bg-gradient-to-r from-orange-400 to-rose-400',
+      'bg-gradient-to-r from-violet-500 to-fuchsia-500',
+      'bg-gradient-to-r from-blue-400 to-indigo-500',
+      'bg-gradient-to-r from-pink-400 to-rose-500',
+      'bg-gradient-to-r from-amber-400 to-orange-500',
+      'bg-gradient-to-r from-cyan-400 to-blue-500'
+    ];
+    return shuffled.slice(0, 5).map((t, i) => ({
+      name: t,
+      color: THEME_GRADIENTS[i % THEME_GRADIENTS.length]
+    }));
+  }, [vocabDB, themeSuggestionSeed]);
   const [flashcardQueue, setFlashcardQueue] = useState([]);
   const [currentFlashcardIndex, setCurrentFlashcardIndex] = useState(0);
   
@@ -2033,18 +2052,34 @@ return parsed;
               
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-1">選擇主題 (可輸入或從選單挑選)</label>
+                  <div className="flex justify-between items-end mb-2">
+                    <label className="block text-sm font-bold text-slate-700">選擇主題 (可輸入或點擊按鈕)</label>
+                    <button onClick={() => setThemeSuggestionSeed(Date.now())} className="text-xs font-bold text-indigo-500 hover:text-indigo-700 flex items-center gap-1 bg-indigo-50 px-2 py-1 rounded-md transition-colors"><RefreshCcw className="w-3 h-3" /> 換一批</button>
+                  </div>
                   <input
                     type="text"
-                    list="unlock-theme-options"
                     value={unlockTheme === 'random' ? '' : unlockTheme}
                     onChange={(e) => setUnlockTheme(e.target.value || 'random')}
                     placeholder="留空代表 🎲 隨機為我挑選..."
-                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-indigo-400"
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-indigo-400 mb-3"
                   />
-                  <datalist id="unlock-theme-options">
-                    {getAvailableThemes().map(t => <option key={t} value={t} />)}
-                  </datalist>
+                  <div className="flex flex-wrap gap-2">
+                    {currentThemeSuggestions.map(theme => (
+                      <button
+                        key={theme.name}
+                        onClick={() => setUnlockTheme(theme.name)}
+                        className={`px-4 py-1.5 rounded-full text-white font-bold text-sm shadow-sm hover:opacity-90 hover:scale-105 transition-all ${theme.color}`}
+                      >
+                        {theme.name}
+                      </button>
+                    ))}
+                    <button
+                        onClick={() => setUnlockTheme('random')}
+                        className={`px-4 py-1.5 rounded-full text-slate-700 font-bold text-sm shadow-sm border border-slate-200 bg-white hover:bg-slate-50 hover:scale-105 transition-all`}
+                    >
+                        🎲 隨機挑選
+                    </button>
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-bold text-slate-700 mb-1">解鎖數量</label>
