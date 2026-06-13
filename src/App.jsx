@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { autoConjugate } from './conjugator';
 import { BUILT_IN_DICTIONARY, getAvailableThemes, getWordsByTheme } from './dictionary';
 import { 
@@ -528,6 +528,7 @@ return parsed;
   const sortedVocabDB = useMemo(() => {
     let sorted = [...vocabDB];
     sorted.sort((a, b) => {
+      if (!a) return 1; if (!b) return -1;
       let aVal, bVal;
       switch (vocabSortConfig.key) {
         case 'tag': aVal = a.tag || ''; bVal = b.tag || ''; break;
@@ -537,7 +538,7 @@ return parsed;
         case 'nextReview': aVal = a.nextReview || 0; bVal = b.nextReview || 0; break;
         case 'dateAdded':
         default:
-          const getTs = (id) => { const p = (id||'').split('_'); return (p.length >= 3 && !isNaN(Number(p[p.length-1]))) ? Number(p[p.length-1]) : 0; };
+          const getTs = (id) => { const p = String(id||'').split('_'); return (p.length >= 3 && !isNaN(Number(p[p.length-1]))) ? Number(p[p.length-1]) : 0; };
           aVal = getTs(a.id); bVal = getTs(b.id); break;
       }
       if (aVal < bVal) return vocabSortConfig.direction === 'asc' ? -1 : 1;
@@ -563,16 +564,17 @@ return parsed;
   const sortedVerbDB = useMemo(() => {
     let sorted = [...verbDB];
     sorted.sort((a, b) => {
+      if (!a) return 1; if (!b) return -1;
       let aVal, bVal;
       switch (verbSortConfig.key) {
         case 'tag': aVal = a.tag || ''; bVal = b.tag || ''; break;
-        case 'type': aVal = a.type + a.group; bVal = b.type + b.group; break;
+        case 'type': aVal = (a.type || '') + (a.group || ''); bVal = (b.type || '') + (b.group || ''); break;
         case 'word': aVal = a.jisho || ''; bVal = b.jisho || ''; break;
         case 'meaning': aVal = a.meaning || ''; bVal = b.meaning || ''; break;
         case 'difficulty': aVal = a.difficulty || 'easy'; bVal = b.difficulty || 'easy'; break;
         case 'dateAdded':
         default:
-          const getTs = (id) => { const p = (id||'').split('_'); return (p.length >= 3 && !isNaN(Number(p[p.length-1]))) ? Number(p[p.length-1]) : 0; };
+          const getTs = (id) => { const p = String(id||'').split('_'); return (p.length >= 3 && !isNaN(Number(p[p.length-1]))) ? Number(p[p.length-1]) : 0; };
           aVal = getTs(a.id); bVal = getTs(b.id); break;
       }
       if (aVal < bVal) return verbSortConfig.direction === 'asc' ? -1 : 1;
