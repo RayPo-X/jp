@@ -485,13 +485,15 @@ return parsed;
       const saved = localStorage.getItem('verbApp_customGrammars');
       if (saved) {
         let parsed = JSON.parse(saved);
-        parsed = parsed.map(g => {
-            if (g.name && g.name.includes('〜')) {
-                return { ...g, name: g.name.replace(/〜/g, ' ＿') };
-            }
-            return g;
-        });
-        return parsed;
+        if (Array.isArray(parsed)) {
+            parsed = parsed.map(g => {
+                if (g && g.name && g.name.includes('〜')) {
+                    return { ...g, name: g.name.replace(/〜/g, ' ＿') };
+                }
+                return g;
+            });
+            return parsed;
+        }
       }
       return DEFAULT_GRAMMARS;
     } catch { return DEFAULT_GRAMMARS; }
