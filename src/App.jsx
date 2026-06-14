@@ -2823,18 +2823,19 @@ return parsed;
                        <tr key={'edit-'+v.id} className="border-b border-indigo-200 bg-indigo-50">
                           <td colSpan={7} className="p-4">
                              <div className="flex flex-col gap-2">
-                               <div className="flex gap-2">
-                                 <input type="text" value={verbEditForm.masu} onChange={e=>setVerbEditForm({...verbEditForm, masu: e.target.value})} placeholder="ます形" className="flex-1 p-2 border border-slate-300 rounded-lg outline-none focus:border-indigo-500 font-bold text-sm"/>
-                                 <input type="text" value={verbEditForm.jisho} onChange={e=>setVerbEditForm({...verbEditForm, jisho: e.target.value})} placeholder="辭書形" className="flex-1 p-2 border border-slate-300 rounded-lg outline-none focus:border-indigo-500 font-bold text-sm"/>
-                                 <input type="text" value={verbEditForm.te} onChange={e=>setVerbEditForm({...verbEditForm, te: e.target.value})} placeholder="て形" className="flex-1 p-2 border border-slate-300 rounded-lg outline-none focus:border-indigo-500 font-bold text-sm"/>
+                               <div className="flex flex-wrap gap-2">
+                                 <input type="text" value={verbEditForm.masu || ''} onChange={e=>setVerbEditForm({...verbEditForm, masu: e.target.value})} placeholder="ます形" className="flex-1 min-w-[120px] p-2 border border-slate-300 rounded-lg outline-none focus:border-indigo-500 font-bold text-sm"/>
+                                 {verbForms.map(f => (
+                                   <input key={f.id} type="text" value={verbEditForm[f.id] || ''} onChange={e=>setVerbEditForm({...verbEditForm, [f.id]: e.target.value})} placeholder={f.label} className="flex-1 min-w-[120px] p-2 border border-slate-300 rounded-lg outline-none focus:border-indigo-500 font-bold text-sm"/>
+                                 ))}
+                                 <input type="text" value={verbEditForm.meaning || ''} onChange={e=>setVerbEditForm({...verbEditForm, meaning: e.target.value})} placeholder="中文意思" className="flex-1 min-w-[120px] p-2 border border-slate-300 rounded-lg outline-none focus:border-indigo-500 text-sm"/>
                                </div>
-                               <div className="flex gap-2">
-                                 <input type="text" value={verbEditForm.meaning} onChange={e=>setVerbEditForm({...verbEditForm, meaning: e.target.value})} placeholder="中文意思" className="flex-1 p-2 border border-slate-300 rounded-lg outline-none focus:border-indigo-500 text-sm"/>
+                               <div className="flex justify-end gap-2 mt-1">
                                  <button onClick={()=>{
                                      setVerbDB(prev => prev.map(x => x.id === v.id ? { ...x, ...verbEditForm } : x));
                                      setEditingVerbId(null);
-                                 }} className="px-4 py-2 bg-indigo-500 text-white rounded-lg font-bold text-sm hover:bg-indigo-600 transition-colors flex items-center gap-1"><Save className="w-4 h-4"/> 儲存</button>
-                                 <button onClick={()=>setEditingVerbId(null)} className="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg font-bold text-sm hover:bg-slate-300 transition-colors">取消</button>
+                                 }} className="px-5 py-2 bg-indigo-500 text-white rounded-lg font-bold text-sm hover:bg-indigo-600 transition-colors flex items-center gap-1"><Save className="w-4 h-4"/> 儲存</button>
+                                 <button onClick={()=>setEditingVerbId(null)} className="px-5 py-2 bg-slate-200 text-slate-700 rounded-lg font-bold text-sm hover:bg-slate-300 transition-colors">取消</button>
                                </div>
                              </div>
                           </td>
@@ -2866,7 +2867,7 @@ return parsed;
                           <td className="p-4 font-bold text-slate-700">{v.meaning}</td>
                           <td className="p-4 text-xs text-slate-400 whitespace-nowrap">{getAddedDate(v.id)}</td>
                           <td className="p-4 flex gap-1">
-                             <button onClick={()=>{setEditingVerbId(v.id); setVerbEditForm({masu: v.masu||'', jisho: v.jisho||'', te: v.te||'', meaning: v.meaning||''});}} className="p-2 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 rounded-lg transition-colors" title="編輯"><Edit3 className="w-4 h-4"/></button>
+                             <button onClick={()=>{setEditingVerbId(v.id); setVerbEditForm({ ...v });}} className="p-2 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 rounded-lg transition-colors" title="編輯"><Edit3 className="w-4 h-4"/></button>
                              <button onClick={()=>{if(window.confirm('確定刪除？')) setVerbDB(verbDB.filter(x=>x.id!==v.id))}} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="刪除"><Trash2 className="w-4 h-4"/></button>
                            </td>
                        </tr>
