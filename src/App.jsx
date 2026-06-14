@@ -2624,8 +2624,37 @@ return parsed;
                            </div>
                            <div className="text-sm text-slate-500 flex items-center gap-2 mb-2 flex-wrap">
                               接在前面：<span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md font-medium border border-slate-200">{verbForms.find(f=>f.id===g.baseForm)?.label}</span>
-                              {g.removeStr && <span className="text-red-400 font-bold">-「{g.removeStr}」</span>}
-                              <span className="text-emerald-500 font-bold">+「{g.appendStr}」</span>
+                               <span className="ml-1 text-slate-600 font-bold flex items-center flex-wrap gap-1 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100 shadow-sm">
+                                  {(() => {
+                                      const mockVerbs = { masu: '食べます', te: '食べて', ta: '食べた', nai: '食べない', nakatta: '食べなかった', ba: '食べれば', volitional: '食べよう', jisho: '食べる', potential: '食べられる', passive: '食べられる', causative: '食べさせる', causative_passive: '食べさせられる' };
+                                      const baseWord = mockVerbs[g.baseForm] || '〇〇';
+                                      let displayStr = baseWord;
+                                      let resultStr = baseWord;
+                                      if (g.removeStr) {
+                                          if (baseWord.endsWith(g.removeStr)) {
+                                              displayStr = baseWord.slice(0, -g.removeStr.length) + `~~${g.removeStr}~~`;
+                                              resultStr = baseWord.slice(0, -g.removeStr.length);
+                                          } else {
+                                              displayStr = baseWord + `~~${g.removeStr}~~`;
+                                          }
+                                      }
+                                      resultStr += (g.appendStr || '');
+                                      return (
+                                        <>
+                                          <span className="text-slate-400 text-[13px] font-normal mr-0.5">例如</span>
+                                          <span>{renderTextWithStrikethrough(displayStr)}</span>
+                                          {g.appendStr && (
+                                            <>
+                                              <span className="text-emerald-500 font-black px-0.5">+</span>
+                                              <span className="text-emerald-600 font-bold">{g.appendStr}</span>
+                                            </>
+                                          )}
+                                          <ArrowRight className="w-3.5 h-3.5 text-slate-400 mx-0.5" />
+                                          <span className="text-indigo-600 font-bold">{resultStr}</span>
+                                        </>
+                                      );
+                                  })()}
+                               </span>
                            </div>
                            {g.example && (
                               <div className="text-[15px] bg-blue-50/80 border border-blue-100 text-blue-900 px-4 py-2.5 rounded-xl font-bold tracking-wide mt-2">
