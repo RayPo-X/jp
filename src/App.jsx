@@ -2617,7 +2617,7 @@ return parsed;
                          className="p-1.5 rounded-lg border border-slate-200 outline-none focus:border-emerald-500 bg-slate-50 text-sm font-medium text-slate-700 max-w-[150px]"
                        >
                          {verbDB.map(v => (
-                           <option key={v.id} value={v.id}>{stripRuby(v.jisho)}</option>
+                           <option key={v.jisho} value={v.jisho}>{stripRuby(v.jisho)}</option>
                          ))}
                        </select>
                      </div>
@@ -2641,8 +2641,8 @@ return parsed;
                               接在前面：{verbForms.find(f=>f.id===g.baseForm)?.label && <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md font-medium border border-slate-200">{verbForms.find(f=>f.id===g.baseForm)?.label}</span>}
                                <span className="ml-1 text-slate-600 font-bold flex items-center flex-wrap gap-1 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100 shadow-sm">
                                   {(() => {
-                                      const mockVerbs = { masu: '食べます', te: '食べて', ta: '食べた', nai: '食べない', nakatta: '食べなかった', ba: '食べれば', volitional: '食べよう', jisho: '食べる', potential: '食べられる', passive: '食べられる', causative: '食べさせる', causative_passive: '食べさせられる' };
-                                      const baseWord = mockVerbs[g.baseForm] || '〇〇';
+                                      const selectedVerb = verbDB.find(v => v.jisho === exampleVerbId) || verbDB[0];
+                                      const baseWord = selectedVerb && selectedVerb[g.baseForm] ? stripRuby(selectedVerb[g.baseForm]) : '〇〇';
                                       let displayStr = baseWord;
                                       let resultStr = baseWord;
                                       if (g.removeStr) {
