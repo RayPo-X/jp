@@ -1572,7 +1572,7 @@ return parsed;
   };
 
   const handleAddGrammar = () => {
-    if (!newGrammar.name || !newGrammar.appendStr) { alert('請填寫文法名稱與加上字尾！'); return; }
+    if (!newGrammar.name) { alert('請填寫文法名稱！'); return; }
     
     if (editingGrammarId) {
         setCustomGrammars(prev => prev.map(g => g.id === editingGrammarId ? { ...g, ...newGrammar } : g));
@@ -2736,7 +2736,7 @@ return parsed;
                       </div>
                    ))}
                  </div>
-                 <div className="bg-emerald-50 p-8 rounded-3xl border border-emerald-100 h-fit">
+                 <div className="bg-emerald-50 p-8 rounded-3xl border border-emerald-100 h-fit sticky top-6">
                     <h3 className="font-bold text-emerald-800 mb-6 flex items-center gap-2 text-lg">
                         {editingGrammarId ? <Pencil className="w-6 h-6"/> : <Plus className="w-6 h-6"/>} 
                         {editingGrammarId ? '編輯文法公式' : '新增文法公式'}
@@ -2746,7 +2746,7 @@ return parsed;
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <div><label className="block text-sm font-bold text-emerald-700 mb-1.5">接續基礎形</label><select value={newGrammar.baseForm} onChange={e => setNewGrammar(p => ({...p, baseForm: e.target.value}))} className="w-full p-4 rounded-xl border border-emerald-200 outline-none focus:border-emerald-500 bg-white">{verbForms.map(opt => <option key={opt.id} value={opt.id}>{opt.label}</option>)}</select></div>
                         <div><label className="block text-sm font-bold text-emerald-700 mb-1.5">刪除字尾 (選填)</label><input type="text" value={newGrammar.removeStr || ''} onChange={e => setNewGrammar(p => ({...p, removeStr: e.target.value}))} placeholder="例：ます" className="w-full p-4 rounded-xl border border-emerald-200 outline-none focus:border-emerald-500"/></div>
-                        <div><label className="block text-sm font-bold text-emerald-700 mb-1.5">加上字尾</label><input type="text" value={newGrammar.appendStr || ''} onChange={e => setNewGrammar(p => ({...p, appendStr: e.target.value}))} placeholder="例：でください" className="w-full p-4 rounded-xl border border-emerald-200 outline-none focus:border-emerald-500"/></div>
+                        <div><label className="block text-sm font-bold text-emerald-700 mb-1.5">加上字尾 (選填)</label><input type="text" value={newGrammar.appendStr || ''} onChange={e => setNewGrammar(p => ({...p, appendStr: e.target.value}))} placeholder="例：でください" className="w-full p-4 rounded-xl border border-emerald-200 outline-none focus:border-emerald-500"/></div>
                       </div>
                       <div><label className="block text-sm font-bold text-emerald-700 mb-1.5">變化筆記 (選填)</label><input type="text" value={newGrammar.processExample || ''} onChange={e => setNewGrammar(p => ({...p, processExample: e.target.value}))} placeholder="自由輸入，例如：飲む ➔ 飲んで ➔ 飲んでください" className="w-full p-4 rounded-xl border border-emerald-200 outline-none focus:border-emerald-500"/></div>
                       <div><label className="block text-sm font-bold text-emerald-700 mb-1.5">分類標籤 (選填)</label><input type="text" value={newGrammar.tag || ''} onChange={e => setNewGrammar(p => ({...p, tag: e.target.value}))} placeholder="例：N5、接續詞" className="w-full p-4 rounded-xl border border-emerald-200 outline-none focus:border-emerald-500" list="grammar-tags-list"/></div>
