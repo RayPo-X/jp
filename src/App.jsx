@@ -10,6 +10,17 @@ import {
   MessageSquareQuote, PenTool, RefreshCcw, Save, Pencil
 } from 'lucide-react';
 
+const renderTextWithStrikethrough = (text) => {
+  if (!text) return null;
+  const parts = text.split(/(~~.*?~~)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith('~~') && part.endsWith('~~')) {
+      return <span key={i} className="line-through text-slate-400 font-normal">{part.slice(2, -2)}</span>;
+    }
+    return <span key={i}>{part}</span>;
+  });
+};
+
 const INITIAL_VERB_DB = [
   { group: 1, type: 'verb', masu: '行[い]きます', jisho: '行[い]く', te: '行[い]って', ta: '行[い]った', nai: '行[い]かない', nakatta: '行[い]かなかった', ba: '行[い]けば', volitional: '行[い]こう', potential: '行[い]ける', passive: '行[い]かれる', causative: '行[い]かせる', causative_passive: '行[い]かされる', meaning: '去', difficulty: 'n5' },
   { group: 1, type: 'verb', masu: '買[か]います', jisho: '買[か]う', te: '買[か]って', ta: '買[か]った', nai: '買[か]わない', nakatta: '買[か]わなかった', ba: '買[か]えば', volitional: '買[か]おう', potential: '買[か]える', passive: '買[か]われる', causative: '買[か]わせる', causative_passive: '買[か]わされる', meaning: '買', difficulty: 'n5' },
@@ -2618,7 +2629,7 @@ return parsed;
                            </div>
                            {g.example && (
                               <div className="text-[15px] bg-blue-50/80 border border-blue-100 text-blue-900 px-4 py-2.5 rounded-xl font-bold tracking-wide mt-2">
-                                💬 例句：{g.example}
+                                💬 例句：{renderTextWithStrikethrough(g.example)}
                               </div>
                            )}
                          </div>
@@ -2636,9 +2647,10 @@ return parsed;
                     </h3>
                     <div className="space-y-5">
                       <div><label className="block text-sm font-bold text-emerald-700 mb-1.5">文法名稱 (提示語)</label><input type="text" value={newGrammar.name} onChange={e => setNewGrammar(p => ({...p, name: e.target.value}))} placeholder="例：請不要... ( ＿ないでください)" className="w-full p-4 rounded-xl border border-emerald-200 outline-none focus:border-emerald-500"/></div>
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <div><label className="block text-sm font-bold text-emerald-700 mb-1.5">接續基礎形</label><select value={newGrammar.baseForm} onChange={e => setNewGrammar(p => ({...p, baseForm: e.target.value}))} className="w-full p-4 rounded-xl border border-emerald-200 outline-none focus:border-emerald-500 bg-white">{verbForms.map(opt => <option key={opt.id} value={opt.id}>{opt.label}</option>)}</select></div>
-                        <div><label className="block text-sm font-bold text-emerald-700 mb-1.5">加上字尾</label><input type="text" value={newGrammar.appendStr} onChange={e => setNewGrammar(p => ({...p, appendStr: e.target.value}))} placeholder="例：でください" className="w-full p-4 rounded-xl border border-emerald-200 outline-none focus:border-emerald-500"/></div>
+                        <div><label className="block text-sm font-bold text-emerald-700 mb-1.5">刪除字尾 (選填)</label><input type="text" value={newGrammar.removeStr || ''} onChange={e => setNewGrammar(p => ({...p, removeStr: e.target.value}))} placeholder="例：ます" className="w-full p-4 rounded-xl border border-emerald-200 outline-none focus:border-emerald-500"/></div>
+                        <div><label className="block text-sm font-bold text-emerald-700 mb-1.5">加上字尾</label><input type="text" value={newGrammar.appendStr || ''} onChange={e => setNewGrammar(p => ({...p, appendStr: e.target.value}))} placeholder="例：でください" className="w-full p-4 rounded-xl border border-emerald-200 outline-none focus:border-emerald-500"/></div>
                       </div>
                       <div><label className="block text-sm font-bold text-emerald-700 mb-1.5">例句 (選填)</label><input type="text" value={newGrammar.example} onChange={e => setNewGrammar(p => ({...p, example: e.target.value}))} placeholder="例：ここでタバコを吸わないでください" className="w-full p-4 rounded-xl border border-emerald-200 outline-none focus:border-emerald-500"/></div>
                       <div className="flex gap-4 mt-4">
