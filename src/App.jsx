@@ -1137,6 +1137,12 @@ return parsed;
     setVocabDB(prev => prev.map(v => v.id === id ? { ...v, tag: newTag } : v));
   };
 
+  const handleRematchVerbDbTheme = (id, meaning) => {
+    if (!meaning) return;
+    const newTag = guessThemeByMeaning(meaning, vocabDB);
+    setVerbDB(prev => prev.map(v => v.id === id ? { ...v, tag: newTag } : v));
+  };
+
 
   const [obsidianScannedGrammar, setObsidianScannedGrammar] = useState([]);
 
@@ -1540,7 +1546,7 @@ return parsed;
 
     const validVerbs = newVerbs.filter(v => v.jisho && v.meaning);
     if (validVerbs.length > 0) {
-        setVerbDB(prev => [...prev, ...validVerbs.map((v, i) => ({ ...v, id: v.type + '_custom_' + Date.now() + '_' + i }))]);
+        setVerbDB(prev => [...prev, ...validVerbs.map((v, i) => ({ ...v, tag: guessThemeByMeaning(v.meaning, vocabDB), id: v.type + '_custom_' + Date.now() + '_' + i }))]);
         setVerbImportText('');
         alert('成功匯入 ' + validVerbs.length + ' 個詞彙！');
     } else {
@@ -1550,7 +1556,8 @@ return parsed;
 
   const handleAddVerb = () => {
     if (!verbInputs.masu || !verbInputs.meaning) return alert('請填寫至少 masu, meaning');
-    setVerbDB(prev => [...prev, { ...verbInputs, id: `${verbInputs.type}_custom_${Date.now()}` }]);
+    const newTag = guessThemeByMeaning(verbInputs.meaning, vocabDB);
+    setVerbDB(prev => [...prev, { ...verbInputs, tag: newTag, id: `${verbInputs.type}_custom_${Date.now()}` }]);
     setVerbInputs(getInitialVerbInputs());
   };
 
@@ -2624,21 +2631,24 @@ return parsed;
                        <tr key={v.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
                           <td className="p-4"><span className="bg-indigo-50 text-indigo-700 px-2 py-1 rounded font-bold whitespace-nowrap">{v.type === 'verb' ? '動詞' : v.type === 'adj_i' ? 'i形' : 'na形'} ({v.group})</span></td>
                           <td className="p-4">
-  {editingTagId === v.id ? (
-    <select autoFocus onBlur={() => setEditingTagId(null)} onChange={(e) => {
-      const newTag = e.target.value;
-      setVerbDB(verbDB.map(x => x.id === v.id ? { ...x, tag: newTag } : x));
-      setEditingTagId(null);
-    }} className="bg-white border border-slate-200 rounded px-2 py-1 outline-none text-xs">
-      <option value="">選擇主題</option>
-      {getAvailableThemes().map(t => <option key={t} value={t}>{t}</option>)}
-    </select>
-  ) : (
-    <span onClick={() => setEditingTagId(v.id)} className="bg-slate-100 text-slate-600 px-2 py-1 rounded text-xs font-bold cursor-pointer hover:bg-indigo-100 hover:text-indigo-700 transition-colors">
-      {v.tag || '無'}
-    </span>
-  )}
-</td>
+                            <div className="flex items-center gap-2">
+                              {editingTagId === v.id ? (
+                                <select autoFocus onBlur={() => setEditingTagId(null)} onChange={(e) => {
+                                  const newTag = e.target.value;
+                                  setVerbDB(verbDB.map(x => x.id === v.id ? { ...x, tag: newTag } : x));
+                                  setEditingTagId(null);
+                                }} className="bg-white border border-slate-200 rounded px-2 py-1 outline-none text-xs">
+                                  <option value="">選擇主題</option>
+                                  {getAvailableThemes().map(t => <option key={t} value={t}>{t}</option>)}
+                                </select>
+                              ) : (
+                                <span onClick={() => setEditingTagId(v.id)} className="bg-slate-100 text-slate-600 px-2 py-1 rounded text-xs font-bold cursor-pointer hover:bg-indigo-100 hover:text-indigo-700 transition-colors">
+                                  {v.tag || '無'}
+                                </span>
+                              )}
+                              <button onClick={() => handleRematchVerbDbTheme(v.id, v.meaning)} title="自動配對主題" className="p-1 text-slate-300 hover:text-indigo-500 transition-colors"><Sparkles className="w-4 h-4"/></button>
+                            </div>
+                          </td>
                           <td className="p-4 font-bold text-slate-800">{renderRuby(v.masu)}</td>
                           <td className="p-4 text-slate-600">{renderRuby(v.jisho)} / {renderRuby(v.te)}</td>
                           <td className="p-4 font-bold text-slate-700">{v.meaning}</td>
