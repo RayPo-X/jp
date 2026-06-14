@@ -618,10 +618,11 @@ return parsed;
   };
 
   const formatVerbType = (type, group) => {
+    const gStr = String(group);
     if (type === 'verb') {
-        if (group === '1') return '第一類動詞（五段動詞）';
-        if (group === '2') return '第二類動詞（一段動詞）';
-        if (group === '3') return '第3類（不規則）';
+        if (gStr === '1') return '第一類動詞（五段動詞）';
+        if (gStr === '2') return '第二類動詞（一段動詞）';
+        if (gStr === '3') return '第3類（不規則）';
         return `動詞 (${group})`;
     } else if (type === 'adj_i') {
         return 'い形容詞';
