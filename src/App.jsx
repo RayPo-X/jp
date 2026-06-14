@@ -2590,16 +2590,16 @@ return parsed;
       )}
 
       {appState === 'grammar_manage' && (
-        <div className="max-w-5xl mx-auto mt-4 animate-in fade-in">
+        <div className="max-w-6xl mx-auto mt-4 animate-in fade-in">
            <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-100">
               <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2 mb-8"><Puzzle className="w-6 h-6 text-emerald-600"/> 管理自訂文法公式庫</h2>
-              <div className="grid lg:grid-cols-2 gap-8">
+              <div className="grid lg:grid-cols-[1.2fr_1fr] gap-8">
                  <div className="space-y-4">
                    <h3 className="font-bold text-slate-700 mb-4 text-lg">已儲存的公式</h3>
                    {customGrammars.map(g => (
                       <div key={g.id} className="p-5 bg-white border border-slate-200 rounded-2xl flex justify-between items-center shadow-sm hover:border-emerald-300 transition-colors">
                          <div>
-                           <div className="flex items-center gap-2 mb-1.5 flex-nowrap overflow-x-auto">
+                           <div className="flex items-center gap-2 mb-1.5 flex-nowrap">
                                <div className="font-bold text-slate-800 text-lg whitespace-nowrap">{g.name}</div>
                                {g.id.startsWith('g_custom_') && !isNaN(parseInt(g.id.replace('g_custom_', ''))) ? (
                                   <div className="text-[11px] text-slate-400 font-medium bg-slate-50 px-2 py-0.5 rounded-full border border-slate-100 flex items-center gap-1 shrink-0">
