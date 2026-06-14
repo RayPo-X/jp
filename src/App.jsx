@@ -134,8 +134,8 @@ const autoConjugateVerb = (masuStr, group) => {
 };
 
 const DEFAULT_GRAMMARS = [
-  { id: 'g_tai', name: '想要 (〜たい)', baseForm: 'masu', removeStr: 'ます', appendStr: 'たい', appliesTo: ['verb'] },
-  { id: 'g_nakereba', name: '必須 (〜なければなりません)', baseForm: 'nai', removeStr: 'い', appendStr: 'ければなりません', appliesTo: ['verb'] }
+  { id: 'g_tai', name: '想要 ( ＿たい)', baseForm: 'masu', removeStr: 'ます', appendStr: 'たい', appliesTo: ['verb'], example: '私は日本へ行きたいです' },
+  { id: 'g_nakereba', name: '必須 ( ＿なければなりません)', baseForm: 'nai', removeStr: 'い', appendStr: 'ければなりません', appliesTo: ['verb'], example: '明日早く起きなければなりません' }
 ];
 
 const getTagStyle = (tag) => {
@@ -483,7 +483,17 @@ return parsed;
   const [customGrammars, setCustomGrammars] = useState(() => {
     try {
       const saved = localStorage.getItem('verbApp_customGrammars');
-      return saved ? JSON.parse(saved) : DEFAULT_GRAMMARS;
+      if (saved) {
+        let parsed = JSON.parse(saved);
+        parsed = parsed.map(g => {
+            if (g.name && g.name.includes('〜')) {
+                return { ...g, name: g.name.replace(/〜/g, ' ＿') };
+            }
+            return g;
+        });
+        return parsed;
+      }
+      return DEFAULT_GRAMMARS;
     } catch { return DEFAULT_GRAMMARS; }
   });
   useEffect(() => { localStorage.setItem('verbApp_customGrammars', JSON.stringify(customGrammars)); }, [customGrammars]);
@@ -1501,11 +1511,31 @@ return parsed;
     alert(`太棒了！您已經解鎖並預習了 ${flashcardQueue.length} 個新單字！它們已被正式加入您的學習清單中。`);
   };
 
-  const [newGrammar, setNewGrammar] = useState({ name: '', baseForm: 'te', removeStr: '', appendStr: '', appliesTo: ['verb'] });
+  const [editingGrammarId, setEditingGrammarId] = useState(null);
+  const [newGrammar, setNewGrammar] = useState({ name: '', baseForm: 'te', removeStr: '', appendStr: '', appliesTo: ['verb'], example: '' });
+  
+  const handleEditGrammar = (g) => {
+    setEditingGrammarId(g.id);
+    setNewGrammar({
+      name: g.name || '',
+      baseForm: g.baseForm || 'te',
+      removeStr: g.removeStr || '',
+      appendStr: g.appendStr || '',
+      appliesTo: g.appliesTo || ['verb'],
+      example: g.example || ''
+    });
+  };
+
   const handleAddGrammar = () => {
     if (!newGrammar.name || !newGrammar.appendStr) { alert('請填寫文法名稱與加上字尾！'); return; }
-    setCustomGrammars(prev => [...prev, { ...newGrammar, id: `g_custom_${Date.now()}` }]);
-    setNewGrammar({ name: '', baseForm: 'te', removeStr: '', appendStr: '', appliesTo: ['verb'] });
+    
+    if (editingGrammarId) {
+        setCustomGrammars(prev => prev.map(g => g.id === editingGrammarId ? { ...g, ...newGrammar } : g));
+        setEditingGrammarId(null);
+    } else {
+        setCustomGrammars(prev => [...prev, { ...newGrammar, id: `g_custom_${Date.now()}` }]);
+    }
+    setNewGrammar({ name: '', baseForm: 'te', removeStr: '', appendStr: '', appliesTo: ['verb'], example: '' });
   };
 
   const getInitialVerbInputs = () => {
@@ -2579,14 +2609,21 @@ return parsed;
                    ))}
                  </div>
                  <div className="bg-emerald-50 p-8 rounded-3xl border border-emerald-100 h-fit">
-                    <h3 className="font-bold text-emerald-800 mb-6 flex items-center gap-2 text-lg"><Plus className="w-6 h-6"/> 新增文法公式</h3>
+                    <h3 className="font-bold text-emerald-800 mb-6 flex items-center gap-2 text-lg">
+                        {editingGrammarId ? <Pencil className="w-6 h-6"/> : <Plus className="w-6 h-6"/>} 
+                        {editingGrammarId ? '編輯文法公式' : '新增文法公式'}
+                    </h3>
                     <div className="space-y-5">
-                      <div><label className="block text-sm font-bold text-emerald-700 mb-1.5">文法名稱 (提示語)</label><input type="text" value={newGrammar.name} onChange={e => setNewGrammar(p => ({...p, name: e.target.value}))} placeholder="例：請不要... (〜ないでください)" className="w-full p-4 rounded-xl border border-emerald-200 outline-none focus:border-emerald-500"/></div>
+                      <div><label className="block text-sm font-bold text-emerald-700 mb-1.5">文法名稱 (提示語)</label><input type="text" value={newGrammar.name} onChange={e => setNewGrammar(p => ({...p, name: e.target.value}))} placeholder="例：請不要... ( ＿ないでください)" className="w-full p-4 rounded-xl border border-emerald-200 outline-none focus:border-emerald-500"/></div>
                       <div className="grid grid-cols-2 gap-4">
                         <div><label className="block text-sm font-bold text-emerald-700 mb-1.5">接續基礎形</label><select value={newGrammar.baseForm} onChange={e => setNewGrammar(p => ({...p, baseForm: e.target.value}))} className="w-full p-4 rounded-xl border border-emerald-200 outline-none focus:border-emerald-500 bg-white">{verbForms.map(opt => <option key={opt.id} value={opt.id}>{opt.label}</option>)}</select></div>
                         <div><label className="block text-sm font-bold text-emerald-700 mb-1.5">加上字尾</label><input type="text" value={newGrammar.appendStr} onChange={e => setNewGrammar(p => ({...p, appendStr: e.target.value}))} placeholder="例：でください" className="w-full p-4 rounded-xl border border-emerald-200 outline-none focus:border-emerald-500"/></div>
                       </div>
-                      <button onClick={handleAddGrammar} className="w-full py-4 mt-4 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition-colors shadow-sm text-lg">儲存新文法</button>
+                      <div><label className="block text-sm font-bold text-emerald-700 mb-1.5">例句 (選填)</label><input type="text" value={newGrammar.example} onChange={e => setNewGrammar(p => ({...p, example: e.target.value}))} placeholder="例：ここでタバコを吸わないでください" className="w-full p-4 rounded-xl border border-emerald-200 outline-none focus:border-emerald-500"/></div>
+                      <div className="flex gap-4 mt-4">
+                          <button onClick={handleAddGrammar} className="flex-1 py-4 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition-colors shadow-sm text-lg">{editingGrammarId ? '儲存編輯' : '儲存新文法'}</button>
+                          {editingGrammarId && <button onClick={() => { setEditingGrammarId(null); setNewGrammar({ name: '', baseForm: 'te', removeStr: '', appendStr: '', appliesTo: ['verb'], example: '' }); }} className="py-4 px-6 bg-slate-200 text-slate-700 font-bold rounded-xl hover:bg-slate-300 transition-colors shadow-sm text-lg">取消</button>}
+                      </div>
                     </div>
                  </div>
               </div>
