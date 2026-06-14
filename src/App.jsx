@@ -2685,7 +2685,7 @@ return parsed;
                    </div>
                    {customGrammars.map(g => (
                       <div key={g.id} className="p-5 bg-white border border-slate-200 rounded-2xl flex justify-between items-center shadow-sm hover:border-emerald-300 transition-colors">
-                         <div>
+                         <div className="flex-1 min-w-0 pr-4">
                            <div className="flex items-center gap-2 mb-1.5 flex-nowrap">
                                <div className="font-bold text-slate-800 text-lg whitespace-nowrap">{g.name}</div>
                                {g.id.startsWith('g_custom_') && !isNaN(parseInt(g.id.replace('g_custom_', ''))) ? (
@@ -2743,7 +2743,7 @@ return parsed;
                                 </div>
                            </div>
                            {g.example && (
-                              <div className="text-[15px] bg-blue-50/80 border border-blue-100 text-blue-900 px-4 py-2.5 rounded-xl font-bold tracking-wide mt-2">
+                              <div className="w-full text-[15px] bg-blue-50/80 border border-blue-100 text-blue-900 px-4 py-2.5 rounded-xl font-bold tracking-wide mt-2">
                                 💬 例句：{renderTextWithStrikethrough(g.example)}
                               </div>
                            )}
