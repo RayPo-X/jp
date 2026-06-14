@@ -1161,7 +1161,7 @@ return parsed;
   const [obsidianScannedWords, setObsidianScannedWords] = useState([]);
   const [isScanningObsidian, setIsScanningObsidian] = useState(false);
   const [importText, setImportText] = useState('');
-  const [isFetchingKanji, setIsFetchingKanji] = useState({});
+
   const [verbImportText, setVerbImportText] = useState(''); 
   const [addToReviewNow, setAddToReviewNow] = useState(true);
   const [showObsidianHelp, setShowObsidianHelp] = useState(false);
@@ -1380,42 +1380,7 @@ return parsed;
   };
 
   
-  const handleFetchKanji = async (idx) => {
-      const reading = batchInputs[idx].reading.trim();
-      if (!reading) {
-          alert('請先輸入平假名讀音！');
-          return;
-      }
-      setIsFetchingKanji(prev => ({ ...prev, [idx]: true }));
-      try {
-          const res = await fetch('https://jotoba.de/api/search/words', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ query: reading, language: 'English' })
-          });
-          const data = await res.json();
-          
-          if (data && data.words && data.words.length > 0) {
-              const bestMatch = data.words[0];
-              const kanji = bestMatch.reading && bestMatch.reading.kanji ? bestMatch.reading.kanji : '';
-              const meaning = bestMatch.senses && bestMatch.senses[0] && bestMatch.senses[0].glosses ? bestMatch.senses[0].glosses.join(', ') : '';
-              
-              const newInputs = [...batchInputs];
-              if (kanji && !newInputs[idx].word) newInputs[idx].word = kanji;
-              if (meaning && !newInputs[idx].meaning) newInputs[idx].meaning = meaning;
-              
-              setBatchInputs(newInputs);
-              if (!kanji) alert('辭典中找不到對應的漢字，可能該單字只有假名形式。');
-          } else {
-              alert('找不到此單字！');
-          }
-      } catch (err) {
-          console.error(err);
-          alert('查詢失敗，請檢查網路連線或稍後再試。');
-      } finally {
-          setIsFetchingKanji(prev => ({ ...prev, [idx]: false }));
-      }
-  };
+
 
   const handleSmartImport = () => {
     createVocabBackup();
@@ -2557,12 +2522,7 @@ return parsed;
                               <button onClick={() => handleRematchBatchTheme(idx)} title="自動重配主題" className="absolute right-2 p-1 text-slate-400 hover:text-amber-500 transition-colors"><Sparkles className="w-4 h-4"/></button>
                           </div>
                           <input type="text" placeholder="漢字/原形 (留空即純假名)" value={item.word} onChange={e => {const n=[...batchInputs]; n[idx].word=e.target.value; setBatchInputs(n);}} className="flex-1 p-3 rounded-xl border border-slate-200 outline-none focus:border-amber-500 text-sm font-bold"/>
-                          <div className="flex-1 relative flex items-center">
-                              <input type="text" placeholder="平假名 (例: たべる)" value={item.reading} onChange={e => {const n=[...batchInputs]; n[idx].reading=e.target.value; setBatchInputs(n);}} className="w-full p-3 pr-10 rounded-xl border border-slate-200 outline-none focus:border-amber-500 text-sm font-bold"/>
-                              <button onClick={() => handleFetchKanji(idx)} disabled={isFetchingKanji[idx]} title="自動查漢字" className={`absolute right-2 p-1.5 rounded-lg transition-colors ${isFetchingKanji[idx] ? 'text-slate-300' : 'text-slate-400 hover:text-indigo-600 hover:bg-indigo-50'}`}>
-                                  <Search className={`w-4 h-4 ${isFetchingKanji[idx] ? 'animate-spin' : ''}`}/>
-                              </button>
-                          </div>
+                          <input type="text" placeholder="平假名 (例: たべる)" value={item.reading} onChange={e => {const n=[...batchInputs]; n[idx].reading=e.target.value; setBatchInputs(n);}} className="flex-1 p-3 rounded-xl border border-slate-200 outline-none focus:border-amber-500 text-sm font-bold"/>
                           <input type="text" placeholder="中文 (例: 吃)" value={item.meaning} onChange={e => {const n=[...batchInputs]; n[idx].meaning=e.target.value; setBatchInputs(n);}} className="flex-1 p-3 rounded-xl border border-slate-200 outline-none focus:border-amber-500 text-sm font-bold"/>
                           <button onClick={() => setBatchInputs(batchInputs.filter((_, i) => i !== idx))} className="shrink-0 px-3 py-2 text-sm font-bold text-red-500 hover:text-white hover:bg-red-500 bg-red-50 rounded-xl transition-colors flex items-center gap-1"><Trash2 className="w-4 h-4"/> 刪除</button>
                         </div>
