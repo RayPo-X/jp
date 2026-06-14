@@ -7,7 +7,7 @@ import {
   Pause, SlidersHorizontal, Layers, FolderHeart, ShieldAlert, Trash2, Award, Medal,
   Heart, Swords, Skull, Flame, Home, Puzzle, Plus, Edit3, 
   Map as MapIcon, Library, BookType, Sparkles, Coffee, Car, Shirt, SmilePlus,
-  MessageSquareQuote, PenTool, RefreshCcw, Save, Pencil
+  MessageSquareQuote, PenTool, RefreshCcw, Save, Pencil, Search
 } from 'lucide-react';
 
 const renderTextWithStrikethrough = (text) => {
