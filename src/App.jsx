@@ -2606,8 +2606,8 @@ return parsed;
                               <span className="text-emerald-500 font-bold">+「{g.appendStr}」</span>
                            </div>
                            {g.example && (
-                              <div className="text-sm bg-slate-50 border border-slate-100 text-slate-600 px-3 py-2 rounded-lg italic">
-                                例句：{g.example}
+                              <div className="text-[15px] bg-blue-50/80 border border-blue-100 text-blue-900 px-4 py-2.5 rounded-xl font-medium tracking-wide mt-2">
+                                💬 例句：{g.example}
                               </div>
                            )}
                          </div>
