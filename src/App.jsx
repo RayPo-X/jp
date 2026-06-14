@@ -2104,7 +2104,7 @@ return parsed;
 
               <button onClick={() => setAppState('grammar_manage')}
                 className="w-full py-4 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-2xl font-bold hover:bg-emerald-500 hover:text-white hover:border-emerald-500 transition-all flex items-center justify-center gap-2 mb-2">
-                <Puzzle className="w-4 h-4"/>管理自訂文法公式庫
+                <Puzzle className="w-4 h-4"/>文法公式庫
               </button>
               <button onClick={() => setAppState('verb_manage')}
                 className="w-full py-4 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-2xl font-bold hover:bg-indigo-500 hover:text-white hover:border-indigo-500 transition-all flex items-center justify-center gap-2">
@@ -2603,7 +2603,7 @@ return parsed;
       {appState === 'grammar_manage' && (
         <div className="max-w-6xl mx-auto mt-4 animate-in fade-in">
            <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-100">
-              <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2 mb-8"><Puzzle className="w-6 h-6 text-emerald-600"/> 管理自訂文法公式庫</h2>
+              <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2 mb-8"><Puzzle className="w-6 h-6 text-emerald-600"/> 文法公式庫</h2>
               <div className="grid lg:grid-cols-[1.2fr_1fr] gap-8">
                  <div className="space-y-4">
                    <h3 className="font-bold text-slate-700 mb-4 text-lg">已儲存的公式</h3>
