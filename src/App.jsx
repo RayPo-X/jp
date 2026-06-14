@@ -2574,13 +2574,25 @@ return parsed;
                        <tr key={'edit-'+v.id} className="border-b border-amber-200 bg-amber-50">
                           <td colSpan={7} className="p-4">
                              <div className="flex flex-col gap-2">
-                               <div className="flex gap-2">
-                                 <input type="text" value={vocabEditForm.reading} onChange={e=>setVocabEditForm({...vocabEditForm, reading: e.target.value})} placeholder="平假名" className="flex-1 p-2 border border-slate-300 rounded-lg outline-none focus:border-amber-500 font-bold text-sm"/>
-                                 <input type="text" value={vocabEditForm.word} onChange={e=>setVocabEditForm({...vocabEditForm, word: e.target.value})} placeholder="漢字/原形" className="flex-1 p-2 border border-slate-300 rounded-lg outline-none focus:border-amber-500 font-bold text-sm"/>
-                                 <input type="text" value={vocabEditForm.meaning} onChange={e=>setVocabEditForm({...vocabEditForm, meaning: e.target.value})} placeholder="中文意思" className="flex-1 p-2 border border-slate-300 rounded-lg outline-none focus:border-amber-500 font-bold text-sm"/>
+                               <div className="flex gap-3">
+                                 <div className="flex-1">
+                                   <label className="block text-xs font-bold text-amber-600 mb-1 ml-1">平假名</label>
+                                   <input type="text" value={vocabEditForm.reading} onChange={e=>setVocabEditForm({...vocabEditForm, reading: e.target.value})} placeholder="平假名" className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:border-amber-500 font-bold text-sm"/>
+                                 </div>
+                                 <div className="flex-1">
+                                   <label className="block text-xs font-bold text-amber-600 mb-1 ml-1">漢字/原形</label>
+                                   <input type="text" value={vocabEditForm.word} onChange={e=>setVocabEditForm({...vocabEditForm, word: e.target.value})} placeholder="漢字/原形" className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:border-amber-500 font-bold text-sm"/>
+                                 </div>
+                                 <div className="flex-1">
+                                   <label className="block text-xs font-bold text-amber-600 mb-1 ml-1">中文意思</label>
+                                   <input type="text" value={vocabEditForm.meaning} onChange={e=>setVocabEditForm({...vocabEditForm, meaning: e.target.value})} placeholder="中文意思" className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:border-amber-500 font-bold text-sm"/>
+                                 </div>
                                </div>
-                               <div className="flex gap-2">
-                                 <input type="text" value={vocabEditForm.example} onChange={e=>setVocabEditForm({...vocabEditForm, example: e.target.value})} placeholder="例句" className="flex-1 p-2 border border-slate-300 rounded-lg outline-none focus:border-amber-500 text-sm"/>
+                               <div className="flex gap-3">
+                                 <div className="flex-1">
+                                   <label className="block text-xs font-bold text-amber-600 mb-1 ml-1">例句 (選填)</label>
+                                   <input type="text" value={vocabEditForm.example} onChange={e=>setVocabEditForm({...vocabEditForm, example: e.target.value})} placeholder="例句" className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:border-amber-500 text-sm"/>
+                                 </div>
                                  <button onClick={()=>{
                                      setVocabDB(prev => prev.map(x => x.id === v.id ? { ...x, ...vocabEditForm, isSentence: (vocabEditForm.example && vocabEditForm.example.trim().length > 0) || (vocabEditForm.reading && vocabEditForm.reading.includes('。')) } : x));
                                      setEditingVocabId(null);
@@ -2823,12 +2835,21 @@ return parsed;
                        <tr key={'edit-'+v.id} className="border-b border-indigo-200 bg-indigo-50">
                           <td colSpan={7} className="p-4">
                              <div className="flex flex-col gap-2">
-                               <div className="flex flex-wrap gap-2">
-                                 <input type="text" value={verbEditForm.masu || ''} onChange={e=>setVerbEditForm({...verbEditForm, masu: e.target.value})} placeholder="ます形" className="flex-1 min-w-[120px] p-2 border border-slate-300 rounded-lg outline-none focus:border-indigo-500 font-bold text-sm"/>
+                               <div className="flex flex-wrap gap-3">
+                                 <div className="flex-1 min-w-[120px]">
+                                   <label className="block text-xs font-bold text-indigo-600 mb-1 ml-1">ます形</label>
+                                   <input type="text" value={verbEditForm.masu || ''} onChange={e=>setVerbEditForm({...verbEditForm, masu: e.target.value})} placeholder="ます形" className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:border-indigo-500 font-bold text-sm"/>
+                                 </div>
                                  {verbForms.map(f => (
-                                   <input key={f.id} type="text" value={verbEditForm[f.id] || ''} onChange={e=>setVerbEditForm({...verbEditForm, [f.id]: e.target.value})} placeholder={f.label} className="flex-1 min-w-[120px] p-2 border border-slate-300 rounded-lg outline-none focus:border-indigo-500 font-bold text-sm"/>
+                                   <div key={f.id} className="flex-1 min-w-[120px]">
+                                     <label className="block text-xs font-bold text-indigo-600 mb-1 ml-1">{f.label}</label>
+                                     <input type="text" value={verbEditForm[f.id] || ''} onChange={e=>setVerbEditForm({...verbEditForm, [f.id]: e.target.value})} placeholder={f.label} className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:border-indigo-500 font-bold text-sm"/>
+                                   </div>
                                  ))}
-                                 <input type="text" value={verbEditForm.meaning || ''} onChange={e=>setVerbEditForm({...verbEditForm, meaning: e.target.value})} placeholder="中文意思" className="flex-1 min-w-[120px] p-2 border border-slate-300 rounded-lg outline-none focus:border-indigo-500 text-sm"/>
+                                 <div className="flex-1 min-w-[120px]">
+                                   <label className="block text-xs font-bold text-slate-500 mb-1 ml-1">中文意思</label>
+                                   <input type="text" value={verbEditForm.meaning || ''} onChange={e=>setVerbEditForm({...verbEditForm, meaning: e.target.value})} placeholder="中文意思" className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:border-indigo-500 text-sm"/>
+                                 </div>
                                </div>
                                <div className="flex justify-end gap-2 mt-1">
                                  <button onClick={()=>{
