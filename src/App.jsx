@@ -617,6 +617,20 @@ return parsed;
     return { emoji: '🏆', label: '精通' };
   };
 
+  const formatVerbType = (type, group) => {
+    if (type === 'verb') {
+        if (group === '1') return '第一類動詞（五段動詞）';
+        if (group === '2') return '第二類動詞（一段動詞）';
+        if (group === '3') return '第3類（不規則）';
+        return `動詞 (${group})`;
+    } else if (type === 'adj_i') {
+        return 'い形容詞';
+    } else if (type === 'adj_na') {
+        return 'な形容詞';
+    }
+    return `${type} (${group})`;
+  };
+
   // 單字建立日期
   const getAddedDate = (id) => {
     if (!id) return '-';
@@ -2629,7 +2643,7 @@ return parsed;
                  <tbody>
                     {sortedVerbDB.map(v => (
                        <tr key={v.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
-                          <td className="p-4"><span className="bg-indigo-50 text-indigo-700 px-2 py-1 rounded font-bold whitespace-nowrap">{v.type === 'verb' ? '動詞' : v.type === 'adj_i' ? 'i形' : 'na形'} ({v.group})</span></td>
+                          <td className="p-4"><span className="bg-indigo-50 text-indigo-700 px-2 py-1 rounded font-bold whitespace-nowrap">{formatVerbType(v.type, v.group)}</span></td>
                           <td className="p-4">
                             <div className="flex items-center gap-2">
                               {editingTagId === v.id ? (
