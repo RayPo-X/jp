@@ -473,6 +473,24 @@ return parsed;
   });
   useEffect(() => { localStorage.setItem('verbApp_verbDB', JSON.stringify(verbDB)); }, [verbDB]);
 
+  const [draggedFormIndex, setDraggedFormIndex] = useState(null);
+  const [dragOverFormIndex, setDragOverFormIndex] = useState(null);
+  const [verbForms, setVerbForms] = useState(() => {
+    try {
+      const saved = localStorage.getItem('verbApp_verbForms');
+      if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) {
+             if (!parsed.find(f => f.id === 'masu')) {
+                parsed.unshift({ id: 'masu', label: 'ます形' });
+             }
+             return parsed;
+          }
+      }
+      return DEFAULT_FORM_OPTIONS;
+    } catch { return DEFAULT_FORM_OPTIONS; }
+  });
+  useEffect(() => { localStorage.setItem('verbApp_verbForms', JSON.stringify(verbForms)); }, [verbForms]);
   const [verbTableColumnOrder, setVerbTableColumnOrder] = useState(() => {
     try {
       const saved = localStorage.getItem('verbApp_verbTableColumnOrder');
@@ -523,24 +541,6 @@ return parsed;
     'actions': { label: '操作', sortable: false }
   };
 
-  const [draggedFormIndex, setDraggedFormIndex] = useState(null);
-  const [dragOverFormIndex, setDragOverFormIndex] = useState(null);
-  const [verbForms, setVerbForms] = useState(() => {
-    try {
-      const saved = localStorage.getItem('verbApp_verbForms');
-      if (saved) {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed)) {
-             if (!parsed.find(f => f.id === 'masu')) {
-                parsed.unshift({ id: 'masu', label: 'ます形' });
-             }
-             return parsed;
-          }
-      }
-      return DEFAULT_FORM_OPTIONS;
-    } catch { return DEFAULT_FORM_OPTIONS; }
-  });
-  useEffect(() => { localStorage.setItem('verbApp_verbForms', JSON.stringify(verbForms)); }, [verbForms]);
 
   const [sourceForm, setSourceForm] = useState('masu'); 
   const [targetForms, setTargetForms] = useState(['te', 'ta', 'nai', 'jisho']); 
@@ -2619,44 +2619,19 @@ return parsed;
              <div className="overflow-x-auto">
                <table className="w-full text-left text-sm">
                  <thead className="bg-slate-50 text-slate-600"><tr>
-    {verbTableColumnOrder.map((colId, idx) => {
-        const isBuiltIn = colDefinitions[colId];
-        const isVerbForm = verbForms.find(f => f.id === colId);
-        if (!isBuiltIn && !isVerbForm) return null;
-        
-        const label = isBuiltIn ? isBuiltIn.label : isVerbForm.label;
-        const sortable = isBuiltIn ? isBuiltIn.sortable : false;
-        
-        return (
-            <th key={colId} 
-                draggable
-                onDragStart={(e) => { setDragTableColIdx(idx); e.dataTransfer.effectAllowed = 'move'; }}
-                onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverTableColIdx(idx); }}
-                onDragEnd={() => {
-                    if (dragTableColIdx !== null && dragOverTableColIdx !== null && dragTableColIdx !== dragOverTableColIdx) {
-                        const newOrder = [...verbTableColumnOrder];
-                        const item = newOrder.splice(dragTableColIdx, 1)[0];
-                        newOrder.splice(dragOverTableColIdx, 0, item);
-                        setVerbTableColumnOrder(newOrder);
-                    }
-                    setDragTableColIdx(null);
-                    setDragOverTableColIdx(null);
-                }}
-                className={`p-4 whitespace-nowrap cursor-grab active:cursor-grabbing hover:bg-slate-100 transition-colors select-none ${dragTableColIdx === idx ? 'opacity-30' : ''} ${dragOverTableColIdx === idx && dragTableColIdx !== idx ? (dragTableColIdx < dragOverTableColIdx ? 'border-r-4 border-r-indigo-500' : 'border-l-4 border-l-indigo-500') : ''}`}
-                onClick={() => sortable && handleVerbSort(colId)}
-            >
-                <div className="flex items-center gap-1">
-                   <GripHorizontal className="w-3 h-3 text-slate-300 shrink-0"/>
-                   {label}{sortable && renderVerbSortIcon(colId)}
-                </div>
-            </th>
-        );
-    })}
-</tr></thead>
+                    <th className="p-4 rounded-tl-xl cursor-pointer hover:bg-slate-100 transition-colors select-none" onClick={() => handleSort('tag')}>主題標籤{renderSortIcon('tag')}</th>
+                    <th className="p-4 cursor-pointer hover:bg-slate-100 transition-colors select-none" onClick={() => handleSort('type')}>類型{renderSortIcon('type')}</th>
+                    <th className="p-4 cursor-pointer hover:bg-slate-100 transition-colors select-none" onClick={() => handleSort('word')}>單字 (平假名){renderSortIcon('word')}</th>
+                    <th className="p-4 cursor-pointer hover:bg-slate-100 transition-colors select-none" onClick={() => handleSort('meaning')}>中文 / 例句{renderSortIcon('meaning')}</th>
+                    <th className="p-4 cursor-pointer hover:bg-slate-100 transition-colors select-none" onClick={() => handleSort('status')}>熟練度{renderSortIcon('status')}</th>
+                    <th className="p-4 cursor-pointer hover:bg-slate-100 transition-colors select-none" onClick={() => handleSort('dateAdded')}>加入日期{renderSortIcon('dateAdded')}</th>
+                    <th className="p-4 cursor-pointer hover:bg-slate-100 transition-colors select-none" onClick={() => handleSort('nextReview')}>下次複習{renderSortIcon('nextReview')}</th>
+                    <th className="p-4 rounded-tr-xl">操作</th>
+                 </tr></thead>
                  <tbody>
                     {sortedVocabDB.map(v => editingVocabId === v.id ? (
                        <tr key={'edit-'+v.id} className="border-b border-amber-200 bg-amber-50">
-                          <td colSpan={verbTableColumnOrder.length} className="p-4">
+                          <td colSpan={5 + verbForms.length} className="p-4">
                              <div className="flex flex-col gap-2">
                                <div className="flex gap-3">
                                  <div className="flex-1">
@@ -2915,17 +2890,44 @@ return parsed;
               <div className="overflow-x-auto">
                <table className="w-full text-left text-sm">
                  <thead className="bg-slate-50 text-slate-600"><tr>
-                    <th className="p-4 rounded-tl-xl cursor-pointer hover:bg-slate-100 transition-colors select-none" onClick={() => handleVerbSort('type')}>類型/群組{renderVerbSortIcon('type')}</th>
-                    <th className="p-4 cursor-pointer hover:bg-slate-100 transition-colors select-none" onClick={() => handleVerbSort('tag')}>標籤/主題{renderVerbSortIcon('tag')}</th>
-                    {verbForms.map(f => <th key={f.id} className="p-4 whitespace-nowrap">{f.label}</th>)}
-                    <th className="p-4 cursor-pointer hover:bg-slate-100 transition-colors select-none" onClick={() => handleVerbSort('meaning')}>中文意思{renderVerbSortIcon('meaning')}</th>
-                    <th className="p-4 cursor-pointer hover:bg-slate-100 transition-colors select-none" onClick={() => handleVerbSort('dateAdded')}>加入日期{renderVerbSortIcon('dateAdded')}</th>
-                    <th className="p-4 rounded-tr-xl">操作</th>
+                    {verbTableColumnOrder.map((colId, idx) => {
+        const isBuiltIn = colDefinitions[colId];
+        const isVerbForm = verbForms.find(f => f.id === colId);
+        if (!isBuiltIn && !isVerbForm) return null;
+        
+        const label = isBuiltIn ? isBuiltIn.label : isVerbForm.label;
+        const sortable = isBuiltIn ? isBuiltIn.sortable : false;
+        
+        return (
+            <th key={colId} 
+                draggable
+                onDragStart={(e) => { setDragTableColIdx(idx); e.dataTransfer.effectAllowed = 'move'; }}
+                onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverTableColIdx(idx); }}
+                onDragEnd={() => {
+                    if (dragTableColIdx !== null && dragOverTableColIdx !== null && dragTableColIdx !== dragOverTableColIdx) {
+                        const newOrder = [...verbTableColumnOrder];
+                        const item = newOrder.splice(dragTableColIdx, 1)[0];
+                        newOrder.splice(dragOverTableColIdx, 0, item);
+                        setVerbTableColumnOrder(newOrder);
+                    }
+                    setDragTableColIdx(null);
+                    setDragOverTableColIdx(null);
+                }}
+                className={`p-4 whitespace-nowrap cursor-grab active:cursor-grabbing hover:bg-slate-100 transition-colors select-none ${dragTableColIdx === idx ? 'opacity-30' : ''} ${dragOverTableColIdx === idx && dragTableColIdx !== idx ? (dragTableColIdx < dragOverTableColIdx ? 'border-r-4 border-r-indigo-500' : 'border-l-4 border-l-indigo-500') : ''}`}
+                onClick={() => sortable && handleVerbSort(colId)}
+            >
+                <div className="flex items-center gap-1">
+                   <GripHorizontal className="w-3 h-3 text-slate-300 shrink-0"/>
+                   {label}{sortable && renderVerbSortIcon(colId)}
+                </div>
+            </th>
+        );
+    })}
                  </tr></thead>
                  <tbody>
                     {sortedVerbDB.map(v => editingVerbId === v.id ? (
                        <tr key={'edit-'+v.id} className="border-b border-indigo-200 bg-indigo-50">
-                          <td colSpan={verbTableColumnOrder.length} className="p-4">
+                          <td colSpan={5 + verbForms.length} className="p-4">
                              <div className="flex flex-col gap-2">
                                <div className="flex flex-wrap gap-3">
                                  
