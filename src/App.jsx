@@ -2623,7 +2623,7 @@ return parsed;
                                )}
                            </div>
                            <div className="text-sm text-slate-500 flex items-center gap-2 mb-2 flex-wrap">
-                              接在前面：<span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md font-medium border border-slate-200">{verbForms.find(f=>f.id===g.baseForm)?.label}</span>
+                              {verbForms.find(f=>f.id===g.baseForm)?.label && <>接在前面：<span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md font-medium border border-slate-200">{verbForms.find(f=>f.id===g.baseForm)?.label}</span></>}
                                <span className="ml-1 text-slate-600 font-bold flex items-center flex-wrap gap-1 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100 shadow-sm">
                                   {(() => {
                                       const mockVerbs = { masu: '食べます', te: '食べて', ta: '食べた', nai: '食べない', nakatta: '食べなかった', ba: '食べれば', volitional: '食べよう', jisho: '食べる', potential: '食べられる', passive: '食べられる', causative: '食べさせる', causative_passive: '食べさせられる' };
