@@ -621,15 +621,30 @@ return parsed;
     const gStr = String(group);
     if (type === 'verb') {
         if (gStr === '1') return '第一類動詞（五段動詞）';
-        if (gStr === '2') return '第二類動詞（一段動詞）';
+        if (gStr === '2') return '第二類動詞 ( 一段動詞 )';
         if (gStr === '3') return '第3類（不規則）';
         return `動詞 (${group})`;
     } else if (type === 'adj_i') {
-        return 'い形容詞';
+        return ' い形容詞';
     } else if (type === 'adj_na') {
-        return 'な形容詞';
+        return ' な形容詞';
     }
     return `${type} (${group})`;
+  };
+
+  const getVerbTypeStyle = (type, group) => {
+    const gStr = String(group);
+    if (type === 'verb') {
+        if (gStr === '1') return 'bg-sky-50 text-sky-700 border border-sky-200';
+        if (gStr === '2') return 'bg-indigo-50 text-indigo-700 border border-indigo-200';
+        if (gStr === '3') return 'bg-purple-50 text-purple-700 border border-purple-200';
+        return 'bg-slate-50 text-slate-700 border border-slate-200';
+    } else if (type === 'adj_i') {
+        return 'bg-emerald-50 text-emerald-700 border border-emerald-200';
+    } else if (type === 'adj_na') {
+        return 'bg-amber-50 text-amber-700 border border-amber-200';
+    }
+    return 'bg-slate-50 text-slate-700 border border-slate-200';
   };
 
   // 單字建立日期
@@ -2644,7 +2659,7 @@ return parsed;
                  <tbody>
                     {sortedVerbDB.map(v => (
                        <tr key={v.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
-                          <td className="p-4"><span className="bg-indigo-50 text-indigo-700 px-2 py-1 rounded font-bold whitespace-nowrap">{formatVerbType(v.type, v.group)}</span></td>
+                          <td className="p-4"><span className={`px-2.5 py-1 rounded-lg font-bold text-xs whitespace-nowrap ${getVerbTypeStyle(v.type, v.group)}`}>{formatVerbType(v.type, v.group)}</span></td>
                           <td className="p-4">
                             <div className="flex items-center gap-2">
                               {editingTagId === v.id ? (
