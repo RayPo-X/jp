@@ -186,7 +186,7 @@ const THEME_KEYWORDS = {
     '工作與職場': /工|班|職|業|勤|休|假|會|議|辦|公|社|長|部|課|組|報|告|計|畫|案|客|戶|電話|郵|信|寄|收|打|印|複|掃|傳|真|上班|下班|加班|出差|薪|資|履歷|面試|同事|老闆|主管|員/,
     '娛樂與休閒': /玩|遊|樂|歌|休|唱|跑|游|泳|爬|山|海|旅|行|拍|照|影|畫|看|聽|電影|電視|音|漫|動|網|遊戲|運動|球|棒|籃|足|網球|釣|散步|野餐|露營|節|祭|派對|舞|跳|演|練/,
     '自然與天氣': /天|雨|雪|風|雲|晴|陰|霧|雷|暴|溫|熱|冷|涼|暖|春|夏|秋|冬|花|草|木|林|森|山|川|河|海|湖|島|石|土|星|月|日|空|地|水|火|光|暗|色|紅|藍|綠|黃|白|黑|動物|貓|狗|鳥|蟲/,
-    '時間與日期': /時|分|秒|點|年|月|日|週|曜|今|昨|明|後|前|早|晚|午|夜|朝|夕|間|期|始|終|久|短|長|快|慢|新|舊|古|先|次|每|常|常常|偶|總|已|還|才|剛|馬上|立刻|將|要|過去|未來|現在/,
+    '時間與日期': /時|分|秒|點|年|月|日|週|曜|今|昨|明|後|前|早|晚|午|夜|朝|夕|間|期|始|終|久|短|長|快|慢|新|舊|古|先|次|每|常|常常|偶|總|已|還|才|剛|馬上|立刻|將|要|過去|未來|現在|等|待/,
     '問候與社交': /你|我|他|她|們|人|名|姓|歲|男|女|子|父|母|兄|弟|姐|妹|友|家人|親|戚|夫|妻|孩|老|少|先生|小姐|同|伴|見面|打招呼|介紹|謝|歉|拜託|請|好|再見|歡迎|祝|福|禮|邀|約|聚/
 };
 
@@ -2642,7 +2642,7 @@ return parsed;
                                   {getAvailableThemes().map(t => <option key={t} value={t}>{t}</option>)}
                                 </select>
                               ) : (
-                                <span onClick={() => setEditingTagId(v.id)} className="bg-slate-100 text-slate-600 px-2 py-1 rounded text-xs font-bold cursor-pointer hover:bg-indigo-100 hover:text-indigo-700 transition-colors">
+                                <span onClick={() => setEditingTagId(v.id)} className={`inline-block px-2.5 py-1 text-xs font-bold rounded-lg border whitespace-nowrap cursor-pointer hover:ring-2 hover:ring-indigo-300 transition-all ${getTagStyle(v.tag)}`}>
                                   {v.tag || '無'}
                                 </span>
                               )}
