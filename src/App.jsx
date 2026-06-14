@@ -635,16 +635,16 @@ return parsed;
   const getVerbTypeStyle = (type, group) => {
     const gStr = String(group);
     if (type === 'verb') {
-        if (gStr === '1') return 'bg-sky-50 text-sky-700 border border-sky-200';
-        if (gStr === '2') return 'bg-indigo-50 text-indigo-700 border border-indigo-200';
-        if (gStr === '3') return 'bg-purple-50 text-purple-700 border border-purple-200';
-        return 'bg-slate-50 text-slate-700 border border-slate-200';
+        if (gStr === '1') return 'bg-orange-400 border-orange-700 text-orange-950';
+        if (gStr === '2') return 'bg-teal-400 border-teal-800 text-teal-950';
+        if (gStr === '3') return 'bg-pink-500 border-pink-900 text-white';
+        return 'bg-slate-300 border-slate-600 text-slate-800';
     } else if (type === 'adj_i') {
-        return 'bg-emerald-50 text-emerald-700 border border-emerald-200';
+        return 'bg-purple-500 border-purple-900 text-white';
     } else if (type === 'adj_na') {
-        return 'bg-amber-50 text-amber-700 border border-amber-200';
+        return 'bg-amber-100 border-amber-600 text-amber-950';
     }
-    return 'bg-slate-50 text-slate-700 border border-slate-200';
+    return 'bg-slate-300 border-slate-600 text-slate-800';
   };
 
   // 單字建立日期
@@ -2659,7 +2659,7 @@ return parsed;
                  <tbody>
                     {sortedVerbDB.map(v => (
                        <tr key={v.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
-                          <td className="p-4"><span className={`px-2.5 py-1 rounded-lg font-bold text-xs whitespace-nowrap ${getVerbTypeStyle(v.type, v.group)}`}>{formatVerbType(v.type, v.group)}</span></td>
+                          <td className="p-4"><span className={`inline-block px-2.5 py-1 text-xs font-black uppercase tracking-wider rounded border-2 border-b-4 transition-transform active:border-b-2 active:translate-y-[2px] whitespace-nowrap cursor-default ${getVerbTypeStyle(v.type, v.group)}`}>{formatVerbType(v.type, v.group)}</span></td>
                           <td className="p-4">
                             <div className="flex items-center gap-2">
                               {editingTagId === v.id ? (
