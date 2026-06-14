@@ -2598,13 +2598,21 @@ return parsed;
                       <div key={g.id} className="p-5 bg-white border border-slate-200 rounded-2xl flex justify-between items-center shadow-sm hover:border-emerald-300 transition-colors">
                          <div>
                            <div className="font-bold text-slate-800 text-lg mb-1.5">{g.name}</div>
-                           <div className="text-sm text-slate-500 flex items-center gap-2">
+                           <div className="text-sm text-slate-500 flex items-center gap-2 mb-2">
                               接續：<span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md font-medium border border-slate-200">{verbForms.find(f=>f.id===g.baseForm)?.label}</span>
                               {g.removeStr && <span className="text-red-400 font-bold">-「{g.removeStr}」</span>}
                               <span className="text-emerald-500 font-bold">+「{g.appendStr}」</span>
                            </div>
+                           {g.example && (
+                              <div className="text-sm bg-slate-50 border border-slate-100 text-slate-600 px-3 py-2 rounded-lg italic">
+                                例句：{g.example}
+                              </div>
+                           )}
                          </div>
-                         <button onClick={() => {if(window.confirm('確定刪除？')) setCustomGrammars(customGrammars.filter(x=>x.id!==g.id))}} className="p-3 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"><Trash2 className="w-5 h-5"/></button>
+                         <div className="flex items-center gap-2 shrink-0">
+                           <button onClick={() => handleEditGrammar(g)} className="p-3 text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-colors" title="編輯公式"><Pencil className="w-5 h-5"/></button>
+                           <button onClick={() => {if(window.confirm('確定刪除？')) setCustomGrammars(customGrammars.filter(x=>x.id!==g.id))}} className="p-3 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors" title="刪除公式"><Trash2 className="w-5 h-5"/></button>
+                         </div>
                       </div>
                    ))}
                  </div>
