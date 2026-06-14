@@ -1978,7 +1978,7 @@ return parsed;
                 </div>
                 <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-center">
                   <div className="text-3xl font-black text-slate-700 leading-none mb-1.5">{vocabDB.length}</div>
-                  <div className="text-xs font-bold text-slate-400">總單字數</div>
+                  <div className="text-xs font-bold text-slate-400">單字庫/例句 總共</div>
                 </div>
                 <div className="bg-red-50 border border-red-100 rounded-2xl p-4 text-center">
                   <div className="text-3xl font-black text-red-500 leading-none mb-1.5">{Object.keys(vocabMistakes).length}</div>
