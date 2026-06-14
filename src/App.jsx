@@ -2699,37 +2699,45 @@ return parsed;
                            </div>
                            <div className="text-sm text-slate-500 flex items-center gap-2 mb-2 flex-wrap">
                               接在前面：{verbForms.find(f=>f.id===g.baseForm)?.label && <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md font-medium border border-slate-200">{verbForms.find(f=>f.id===g.baseForm)?.label}</span>}
-                               <span className="ml-1 text-slate-600 font-bold flex items-center flex-wrap gap-1 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100 shadow-sm">
-                                  {(() => {
-                                      const selectedVerb = verbDB.find(v => v.jisho === exampleVerbId) || verbDB[0];
-                                      const baseWord = selectedVerb && selectedVerb[g.baseForm] ? stripRuby(selectedVerb[g.baseForm]) : '〇〇';
-                                      let displayStr = baseWord;
-                                      let resultStr = baseWord;
-                                      if (g.removeStr) {
-                                          if (baseWord.endsWith(g.removeStr)) {
-                                              displayStr = baseWord.slice(0, -g.removeStr.length) + `~~${g.removeStr}~~`;
-                                              resultStr = baseWord.slice(0, -g.removeStr.length);
-                                          } else {
-                                              displayStr = baseWord + `~~${g.removeStr}~~`;
-                                          }
-                                      }
-                                      resultStr += (g.appendStr || '');
-                                      return (
-                                        <>
-                                          <span className="text-slate-400 text-[13px] font-normal mr-0.5">例如</span>
-                                          <span>{renderTextWithStrikethrough(displayStr)}</span>
-                                          {g.appendStr && (
-                                            <>
-                                              <span className="text-emerald-500 font-black px-0.5">+</span>
-                                              <span className="text-emerald-600 font-bold">{g.appendStr}</span>
-                                            </>
-                                          )}
-                                          <ArrowRight className="w-3.5 h-3.5 text-slate-400 mx-0.5" />
-                                          <span className="text-indigo-600 font-bold">{resultStr}</span>
-                                        </>
-                                      );
-                                  })()}
-                               </span>
+                                <div className="ml-1 w-full mt-2 text-slate-600 font-bold flex flex-col gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200 shadow-sm">
+                                   <div className="text-[13px] text-slate-400 font-normal mb-1">變化過程範例：</div>
+                                   {(() => {
+                                       const selectedVerb = verbDB.find(v => v.jisho === exampleVerbId) || verbDB[0];
+                                       const baseWord = selectedVerb && selectedVerb[g.baseForm] ? stripRuby(selectedVerb[g.baseForm]) : '〇〇';
+                                       const jishoStr = selectedVerb && selectedVerb.jisho ? stripRuby(selectedVerb.jisho) : '〇〇';
+                                       const baseLabel = verbForms.find(f=>f.id===g.baseForm)?.label || '基礎';
+                                       
+                                       let displayStr = baseWord;
+                                       let resultStr = baseWord;
+                                       if (g.removeStr) {
+                                           if (baseWord.endsWith(g.removeStr)) {
+                                               displayStr = baseWord.slice(0, -g.removeStr.length) + `~~${g.removeStr}~~`;
+                                               resultStr = baseWord.slice(0, -g.removeStr.length);
+                                           } else {
+                                               displayStr = baseWord + `~~${g.removeStr}~~`;
+                                           }
+                                       }
+                                       resultStr += (g.appendStr || '');
+                                       return (
+                                         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                                           <div className="flex items-center gap-2">
+                                             <span className="text-slate-500 font-medium text-xs bg-slate-200 px-1.5 py-0.5 rounded">原形</span>
+                                             <span>{jishoStr}</span>
+                                           </div>
+                                           <ArrowRight className="w-4 h-4 text-slate-300 hidden sm:block mx-1" />
+                                           <div className="flex items-center gap-2">
+                                             <span className="text-slate-500 font-medium text-xs bg-slate-200 px-1.5 py-0.5 rounded">{baseLabel}</span>
+                                             <span>{renderTextWithStrikethrough(displayStr)}</span>
+                                           </div>
+                                           <ArrowRight className="w-4 h-4 text-emerald-300 hidden sm:block mx-1" />
+                                           <div className="flex items-center gap-2 bg-emerald-50 px-2.5 py-1.5 rounded-lg border border-emerald-100 shadow-sm">
+                                             <span className="text-emerald-600 font-black text-xs">完成</span>
+                                             <span className="text-emerald-700 font-black text-[15px]">{resultStr}</span>
+                                           </div>
+                                         </div>
+                                       );
+                                   })()}
+                                </div>
                            </div>
                            {g.example && (
                               <div className="text-[15px] bg-blue-50/80 border border-blue-100 text-blue-900 px-4 py-2.5 rounded-xl font-bold tracking-wide mt-2">
