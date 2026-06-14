@@ -2693,7 +2693,7 @@ return parsed;
                        </select>
                      </div>
                    </div>
-                   <datalist id="grammar-tags-list">{Array.from(new Set(customGrammars.map(g => g.tag))).filter(Boolean).map(tag => <option key={tag} value={tag} />)}</datalist>
+                   <datalist id="grammar-tags-list">{Array.from(new Set([...customGrammars.map(g => g.tag), ...vocabDB.map(v => v.tag)])).filter(Boolean).map(tag => <option key={tag} value={tag} />)}</datalist>
                     {customGrammars.filter(g => !grammarFilterTag || g.tag === grammarFilterTag).map(g => (
                       <div key={g.id} className="p-5 bg-white border border-slate-200 rounded-2xl flex justify-between items-center shadow-sm hover:border-emerald-300 transition-colors">
                          <div className="flex-1 min-w-0 pr-4">
