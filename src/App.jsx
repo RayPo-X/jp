@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { autoConjugate } from './conjugator';
 import { BUILT_IN_DICTIONARY, getAvailableThemes, getWordsByTheme } from './dictionary';
 import { 
@@ -1388,22 +1388,24 @@ return parsed;
       }
       setIsFetchingKanji(prev => ({ ...prev, [idx]: true }));
       try {
-          const res = await fetch('https://api.allorigins.win/get?url=' + encodeURIComponent('https://jisho.org/api/v1/search/words?keyword=' + reading));
+          const res = await fetch('https://jotoba.de/api/search/words', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ query: reading, language: 'English' })
+          });
           const data = await res.json();
-          const jishoData = JSON.parse(data.contents);
           
-          if (jishoData && jishoData.data && jishoData.data.length > 0) {
-              const bestMatch = jishoData.data[0];
-              const japanese = bestMatch.japanese[0];
-              const kanji = japanese.word || '';
-              const meaning = bestMatch.senses && bestMatch.senses[0] && bestMatch.senses[0].english_definitions ? bestMatch.senses[0].english_definitions.join(', ') : '';
+          if (data && data.words && data.words.length > 0) {
+              const bestMatch = data.words[0];
+              const kanji = bestMatch.reading && bestMatch.reading.kanji ? bestMatch.reading.kanji : '';
+              const meaning = bestMatch.senses && bestMatch.senses[0] && bestMatch.senses[0].glosses ? bestMatch.senses[0].glosses.join(', ') : '';
               
               const newInputs = [...batchInputs];
-              if (kanji) newInputs[idx].word = kanji;
-              if (!newInputs[idx].meaning && meaning) newInputs[idx].meaning = meaning;
+              if (kanji && !newInputs[idx].word) newInputs[idx].word = kanji;
+              if (meaning && !newInputs[idx].meaning) newInputs[idx].meaning = meaning;
               
               setBatchInputs(newInputs);
-              if (!kanji) alert('辭典中找不到對應的漢字。');
+              if (!kanji) alert('辭典中找不到對應的漢字，可能該單字只有假名形式。');
           } else {
               alert('找不到此單字！');
           }
