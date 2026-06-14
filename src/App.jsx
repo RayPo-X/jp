@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+﻿import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { autoConjugate } from './conjugator';
 import { BUILT_IN_DICTIONARY, getAvailableThemes, getWordsByTheme } from './dictionary';
 import { 
@@ -2108,7 +2108,7 @@ return parsed;
               </button>
               <button onClick={() => setAppState('verb_manage')}
                 className="w-full py-4 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-2xl font-bold hover:bg-indigo-500 hover:text-white hover:border-indigo-500 transition-all flex items-center justify-center gap-2">
-                <Library className="w-4 h-4"/>管理動詞與形容詞庫
+                <Library className="w-4 h-4"/>動詞與形容詞庫
               </button>
             </div>
 
@@ -2524,7 +2524,7 @@ return parsed;
                 <div className="mb-4 mt-2">
                    <label className="flex items-center gap-3 cursor-pointer p-4 bg-amber-50 rounded-xl text-amber-800 font-bold border border-amber-200 hover:bg-amber-100 transition-colors">
                      <input type="checkbox" checked={addToReviewNow} onChange={(e)=>setAddToReviewNow(e.target.checked)} className="w-5 h-5 accent-amber-600"/>
-                     <span>直接排入今日的「單字字卡測驗」 (若取消勾選，則需透過首頁的「每日新詞解鎖」手動啟用)</span>
+                     <span>直接排入今日的「單字測驗」 (若取消勾選，則需透過首頁的「每日新詞解鎖」手動啟用)</span>
                    </label>
                 </div>
                 <button onClick={handleBatchSave} className="w-full py-4 bg-amber-600 text-white rounded-2xl font-bold text-lg hover:bg-amber-700 transition-colors shadow-sm">批次儲存到資料庫</button>
@@ -2668,7 +2668,7 @@ return parsed;
         <div className="max-w-5xl mx-auto mt-4 animate-in fade-in">
            <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-100">
               <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2"><Library className="w-6 h-6 text-indigo-600"/> 管理動詞與形容詞庫</h2>
+                <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2"><Library className="w-6 h-6 text-indigo-600"/> 動詞與形容詞庫</h2>
               </div>
               <div className="bg-indigo-50 p-6 rounded-3xl border border-indigo-100 mb-8">
                                   <div className="flex justify-between items-center mb-4"><h3 className="font-bold text-indigo-800 text-lg">批次與單筆新增動詞/形容詞</h3></div>
