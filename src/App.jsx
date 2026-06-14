@@ -473,6 +473,8 @@ return parsed;
   });
   useEffect(() => { localStorage.setItem('verbApp_verbDB', JSON.stringify(verbDB)); }, [verbDB]);
 
+  const [draggedFormIndex, setDraggedFormIndex] = useState(null);
+  const [dragOverFormIndex, setDragOverFormIndex] = useState(null);
   const [verbForms, setVerbForms] = useState(() => {
     try {
       const saved = localStorage.getItem('verbApp_verbForms');
@@ -2790,9 +2792,30 @@ return parsed;
                  </div>
                  <div className="flex justify-between items-center mb-4 mt-6"><h4 className="font-bold text-indigo-800">各變化型設定</h4><button onClick={() => {if (!verbInputs.jisho) return alert('請先填寫普通形(辭書形/常體)！'); const forms = autoConjugate(verbInputs.jisho, verbInputs.group); if (Object.keys(forms).length > 0) { setVerbInputs(prev => ({ ...prev, ...forms })); } else { alert('無法自動產生，請確認格式是否正確！'); } }} className="text-sm text-indigo-700 bg-indigo-100 px-4 py-2 rounded-xl font-bold hover:bg-indigo-200 flex items-center gap-1 transition-colors"><Sparkles className="w-4 h-4"/> 自動產生變化型</button></div><div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-4">
                    
-                   {verbForms.map(f => (
-                       <div key={f.id}><label className="block text-sm font-bold text-indigo-700 mb-1">{f.label}</label><input type="text" value={verbInputs[f.id] || ''} onChange={e=>handleVerbInputChange(f.id, e.target.value)} className="w-full p-3 rounded-xl border border-indigo-200"/></div>
-                   ))}
+                   {verbForms.map((f, idx) => (
+                        <div key={f.id}
+                             draggable
+                             onDragStart={(e) => { setDraggedFormIndex(idx); e.dataTransfer.effectAllowed = 'move'; }}
+                             onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverFormIndex(idx); }}
+                             onDragEnd={() => {
+                                 if (draggedFormIndex !== null && dragOverFormIndex !== null && draggedFormIndex !== dragOverFormIndex) {
+                                     const newForms = [...verbForms];
+                                     const item = newForms.splice(draggedFormIndex, 1)[0];
+                                     newForms.splice(dragOverFormIndex, 0, item);
+                                     setVerbForms(newForms);
+                                 }
+                                 setDraggedFormIndex(null);
+                                 setDragOverFormIndex(null);
+                             }}
+                             className={`transition-all duration-200 ${draggedFormIndex === idx ? 'opacity-50 scale-95' : ''} ${dragOverFormIndex === idx && draggedFormIndex !== idx ? (draggedFormIndex < dragOverFormIndex ? 'border-r-4 border-r-indigo-500' : 'border-l-4 border-l-indigo-500') : ''} p-2 -m-2 rounded-xl border border-transparent cursor-grab active:cursor-grabbing hover:bg-indigo-50/50`}
+                        >
+                          <label className="block text-sm font-bold text-indigo-700 mb-1 flex items-center gap-1 cursor-grab" title="拖曳以排序">
+                             <GripHorizontal className="w-4 h-4 text-indigo-400" />
+                             {f.label}
+                          </label>
+                          <input draggable="true" onDragStart={e => { e.preventDefault(); e.stopPropagation(); }} type="text" value={verbInputs[f.id] || ''} onChange={e=>handleVerbInputChange(f.id, e.target.value)} className="w-full p-3 rounded-xl border border-indigo-200 bg-white/80 focus:bg-white transition-colors outline-none focus:border-indigo-500 pointer-events-auto cursor-text"/>
+                        </div>
+                    ))}
                  </div>
 
                  <div className="mt-6 border-t border-indigo-100 pt-6 pb-6">
