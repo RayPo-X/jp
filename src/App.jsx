@@ -1556,7 +1556,7 @@ return parsed;
   };
 
   const [editingGrammarId, setEditingGrammarId] = useState(null);
-  const [newGrammar, setNewGrammar] = useState({ name: '', baseForm: 'te', removeStr: '', appendStr: '', appliesTo: ['verb'], example: '' });
+  const [newGrammar, setNewGrammar] = useState({ name: '', baseForm: 'te', removeStr: '', appendStr: '', appliesTo: ['verb'], example: '', processExample: '' });
   
   const handleEditGrammar = (g) => {
     setEditingGrammarId(g.id);
@@ -1566,7 +1566,7 @@ return parsed;
       removeStr: g.removeStr || '',
       appendStr: g.appendStr || '',
       appliesTo: g.appliesTo || ['verb'],
-      example: g.example || ''
+      example: g.example || '', processExample: g.processExample || ''
     });
   };
 
@@ -1579,7 +1579,7 @@ return parsed;
     } else {
         setCustomGrammars(prev => [...prev, { ...newGrammar, id: `g_custom_${Date.now()}` }]);
     }
-    setNewGrammar({ name: '', baseForm: 'te', removeStr: '', appendStr: '', appliesTo: ['verb'], example: '' });
+    setNewGrammar({ name: '', baseForm: 'te', removeStr: '', appendStr: '', appliesTo: ['verb'], example: '', processExample: '' });
   };
 
   const getInitialVerbInputs = () => {
@@ -2731,6 +2731,7 @@ return parsed;
                         <div><label className="block text-sm font-bold text-emerald-700 mb-1.5">刪除字尾 (選填)</label><input type="text" value={newGrammar.removeStr || ''} onChange={e => setNewGrammar(p => ({...p, removeStr: e.target.value}))} placeholder="例：ます" className="w-full p-4 rounded-xl border border-emerald-200 outline-none focus:border-emerald-500"/></div>
                         <div><label className="block text-sm font-bold text-emerald-700 mb-1.5">加上字尾</label><input type="text" value={newGrammar.appendStr || ''} onChange={e => setNewGrammar(p => ({...p, appendStr: e.target.value}))} placeholder="例：でください" className="w-full p-4 rounded-xl border border-emerald-200 outline-none focus:border-emerald-500"/></div>
                       </div>
+                      <div><label className="block text-sm font-bold text-emerald-700 mb-1.5">變化筆記 (選填)</label><input type="text" value={newGrammar.processExample || ''} onChange={e => setNewGrammar(p => ({...p, processExample: e.target.value}))} placeholder="自由輸入，例如：飲む ➔ 飲んで ➔ 飲んでください" className="w-full p-4 rounded-xl border border-emerald-200 outline-none focus:border-emerald-500"/></div>
                       <div><label className="block text-sm font-bold text-emerald-700 mb-1.5">例句 (選填)</label><input type="text" value={newGrammar.example} onChange={e => setNewGrammar(p => ({...p, example: e.target.value}))} placeholder="例：ここでタバコを吸わないでください" className="w-full p-4 rounded-xl border border-emerald-200 outline-none focus:border-emerald-500"/></div>
                       <div className="flex gap-4 mt-4">
                           <button onClick={handleAddGrammar} className="flex-1 py-4 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition-colors shadow-sm text-lg">{editingGrammarId ? '儲存編輯' : '儲存新文法'}</button>
