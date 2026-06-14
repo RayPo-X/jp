@@ -821,6 +821,11 @@ return parsed;
       if(themeData) setCurrentThemeLabel(themeData.name);
     }
     
+    
+    if (inputMode === 'kanji') {
+      queue = queue.filter(v => v.word && v.word.trim() !== '' && v.word !== v.reading);
+      if (queue.length === 0) { alert('目前的單字範圍內沒有包含漢字的單字，無法進行漢字測驗！'); return; }
+    }
     if (queue.length === 0) { alert('這個模式目前沒有題目喔！'); return; }
     queue = queue.sort(() => Math.random() * 0.5);
     
@@ -905,7 +910,7 @@ return parsed;
     setRoundHistory(prev => [...prev, {
       question: (vocabTestMode === 'sentence_srs' || vocabTestMode === 'sentence_infinite') ? 
         (currentQuestionDirection === 'j2c' ? (parseExample(currentVocab.example || currentVocab.word || currentVocab.reading).plainSentence || currentVocab.word || currentVocab.reading) : (parseExample(currentVocab.example || currentVocab.word || currentVocab.reading).translation || currentVocab.meaning)) 
-        : currentVocab.meaning,
+        : (inputMode === 'kanji' ? `${currentVocab.reading} (${currentVocab.meaning})` : currentVocab.meaning),
       userAnswer: finalAnswer,
       correctAnswer: correctAnswerStr,
       userIsCorrect: isCorrect,
@@ -1156,6 +1161,7 @@ return parsed;
   const [obsidianScannedWords, setObsidianScannedWords] = useState([]);
   const [isScanningObsidian, setIsScanningObsidian] = useState(false);
   const [importText, setImportText] = useState('');
+  const [isFetchingKanji, setIsFetchingKanji] = useState({});
   const [verbImportText, setVerbImportText] = useState(''); 
   const [addToReviewNow, setAddToReviewNow] = useState(true);
   const [showObsidianHelp, setShowObsidianHelp] = useState(false);
@@ -1371,6 +1377,42 @@ return parsed;
         setBatchInputs(Array.from({ length: 5 }, () => ({ word: '', reading: '', meaning: '', tag: '自訂', example: '', isSentence: false })));
         alert(`成功加入 ${newVocabs.length} 個單字/例句到學習序列！`);
     } else alert('沒有找到可儲存的內容，請確認至少填寫「中文」與「平假名」或「例句」。');
+  };
+
+  
+  const handleFetchKanji = async (idx) => {
+      const reading = batchInputs[idx].reading.trim();
+      if (!reading) {
+          alert('請先輸入平假名讀音！');
+          return;
+      }
+      setIsFetchingKanji(prev => ({ ...prev, [idx]: true }));
+      try {
+          const res = await fetch('https://api.allorigins.win/get?url=' + encodeURIComponent('https://jisho.org/api/v1/search/words?keyword=' + reading));
+          const data = await res.json();
+          const jishoData = JSON.parse(data.contents);
+          
+          if (jishoData && jishoData.data && jishoData.data.length > 0) {
+              const bestMatch = jishoData.data[0];
+              const japanese = bestMatch.japanese[0];
+              const kanji = japanese.word || '';
+              const meaning = bestMatch.senses && bestMatch.senses[0] && bestMatch.senses[0].english_definitions ? bestMatch.senses[0].english_definitions.join(', ') : '';
+              
+              const newInputs = [...batchInputs];
+              if (kanji) newInputs[idx].word = kanji;
+              if (!newInputs[idx].meaning && meaning) newInputs[idx].meaning = meaning;
+              
+              setBatchInputs(newInputs);
+              if (!kanji) alert('辭典中找不到對應的漢字。');
+          } else {
+              alert('找不到此單字！');
+          }
+      } catch (err) {
+          console.error(err);
+          alert('查詢失敗，請檢查網路連線或稍後再試。');
+      } finally {
+          setIsFetchingKanji(prev => ({ ...prev, [idx]: false }));
+      }
   };
 
   const handleSmartImport = () => {
@@ -2513,7 +2555,12 @@ return parsed;
                               <button onClick={() => handleRematchBatchTheme(idx)} title="自動重配主題" className="absolute right-2 p-1 text-slate-400 hover:text-amber-500 transition-colors"><Sparkles className="w-4 h-4"/></button>
                           </div>
                           <input type="text" placeholder="漢字/原形 (留空即純假名)" value={item.word} onChange={e => {const n=[...batchInputs]; n[idx].word=e.target.value; setBatchInputs(n);}} className="flex-1 p-3 rounded-xl border border-slate-200 outline-none focus:border-amber-500 text-sm font-bold"/>
-                          <input type="text" placeholder="平假名 (例: たべる)" value={item.reading} onChange={e => {const n=[...batchInputs]; n[idx].reading=e.target.value; setBatchInputs(n);}} className="flex-1 p-3 rounded-xl border border-slate-200 outline-none focus:border-amber-500 text-sm font-bold"/>
+                          <div className="flex-1 relative flex items-center">
+                              <input type="text" placeholder="平假名 (例: たべる)" value={item.reading} onChange={e => {const n=[...batchInputs]; n[idx].reading=e.target.value; setBatchInputs(n);}} className="w-full p-3 pr-10 rounded-xl border border-slate-200 outline-none focus:border-amber-500 text-sm font-bold"/>
+                              <button onClick={() => handleFetchKanji(idx)} disabled={isFetchingKanji[idx]} title="自動查漢字" className={`absolute right-2 p-1.5 rounded-lg transition-colors ${isFetchingKanji[idx] ? 'text-slate-300' : 'text-slate-400 hover:text-indigo-600 hover:bg-indigo-50'}`}>
+                                  <Search className={`w-4 h-4 ${isFetchingKanji[idx] ? 'animate-spin' : ''}`}/>
+                              </button>
+                          </div>
                           <input type="text" placeholder="中文 (例: 吃)" value={item.meaning} onChange={e => {const n=[...batchInputs]; n[idx].meaning=e.target.value; setBatchInputs(n);}} className="flex-1 p-3 rounded-xl border border-slate-200 outline-none focus:border-amber-500 text-sm font-bold"/>
                           <button onClick={() => setBatchInputs(batchInputs.filter((_, i) => i !== idx))} className="shrink-0 px-3 py-2 text-sm font-bold text-red-500 hover:text-white hover:bg-red-500 bg-red-50 rounded-xl transition-colors flex items-center gap-1"><Trash2 className="w-4 h-4"/> 刪除</button>
                         </div>
@@ -2887,8 +2934,20 @@ return parsed;
                      </>
                  ) : (
                      <>
-                       <div className="text-sm text-slate-500 mb-2">請問這個中文意思的平假名發音是？</div>
-                       <div className="text-5xl font-black text-slate-800 tracking-wide mb-8 py-6">{currentVocab.meaning}</div>
+                       <>
+                       {inputMode === 'kanji' ? (
+                         <>
+                           <div className="text-sm text-slate-500 mb-2">請打出這個單字的日文漢字：</div>
+                           <div className="text-5xl font-black text-slate-800 tracking-wide mb-4 py-4">{currentVocab.reading}</div>
+                           <div className="text-xl font-bold text-amber-600 mb-8">{currentVocab.meaning}</div>
+                         </>
+                       ) : (
+                         <>
+                           <div className="text-sm text-slate-500 mb-2">請問這個中文意思的平假名發音是？</div>
+                           <div className="text-5xl font-black text-slate-800 tracking-wide mb-8 py-6">{currentVocab.meaning}</div>
+                         </>
+                       )}
+                     </>
                      </>
                  )}
                </>
