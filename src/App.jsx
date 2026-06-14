@@ -491,6 +491,7 @@ return parsed;
   const [mistakeBank, setMistakeBank] = useState({}); 
   const [customWordIds, setCustomWordIds] = useState([]);  
   
+  const [exampleVerbId, setExampleVerbId] = useState('');
   const [customGrammars, setCustomGrammars] = useState(() => {
     try {
       const saved = localStorage.getItem('verbApp_customGrammars');
@@ -2606,7 +2607,21 @@ return parsed;
               <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2 mb-8"><Puzzle className="w-6 h-6 text-emerald-600"/> 文法公式庫</h2>
               <div className="grid lg:grid-cols-[1.2fr_1fr] gap-8">
                  <div className="space-y-4">
-                   <h3 className="font-bold text-slate-700 mb-4 text-lg">已儲存的公式</h3>
+                   <div className="flex justify-between items-center mb-4">
+                     <h3 className="font-bold text-slate-700 text-lg">已儲存的公式</h3>
+                     <div className="flex items-center gap-2">
+                       <span className="text-sm font-bold text-slate-500">💡 選擇示範單字：</span>
+                       <select 
+                         value={exampleVerbId}
+                         onChange={e => setExampleVerbId(e.target.value)}
+                         className="p-1.5 rounded-lg border border-slate-200 outline-none focus:border-emerald-500 bg-slate-50 text-sm font-medium text-slate-700 max-w-[150px]"
+                       >
+                         {verbDB.map(v => (
+                           <option key={v.id} value={v.id}>{stripRuby(v.jisho)}</option>
+                         ))}
+                       </select>
+                     </div>
+                   </div>
                    {customGrammars.map(g => (
                       <div key={g.id} className="p-5 bg-white border border-slate-200 rounded-2xl flex justify-between items-center shadow-sm hover:border-emerald-300 transition-colors">
                          <div>
