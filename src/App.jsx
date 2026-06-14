@@ -1161,6 +1161,8 @@ return parsed;
   const [obsidianScannedWords, setObsidianScannedWords] = useState([]);
   const [isScanningObsidian, setIsScanningObsidian] = useState(false);
   const [importText, setImportText] = useState('');
+  const [editingVocabId, setEditingVocabId] = useState(null);
+  const [vocabEditForm, setVocabEditForm] = useState({ word: '', reading: '', meaning: '', example: '' });
 
   const [verbImportText, setVerbImportText] = useState(''); 
   const [addToReviewNow, setAddToReviewNow] = useState(true);
@@ -2566,7 +2568,27 @@ return parsed;
                     <th className="p-4 rounded-tr-xl">操作</th>
                  </tr></thead>
                  <tbody>
-                    {sortedVocabDB.map(v => (
+                    {sortedVocabDB.map(v => editingVocabId === v.id ? (
+                       <tr key={'edit-'+v.id} className="border-b border-amber-200 bg-amber-50">
+                          <td colSpan={7} className="p-4">
+                             <div className="flex flex-col gap-2">
+                               <div className="flex gap-2">
+                                 <input type="text" value={vocabEditForm.reading} onChange={e=>setVocabEditForm({...vocabEditForm, reading: e.target.value})} placeholder="平假名" className="flex-1 p-2 border border-slate-300 rounded-lg outline-none focus:border-amber-500 font-bold text-sm"/>
+                                 <input type="text" value={vocabEditForm.word} onChange={e=>setVocabEditForm({...vocabEditForm, word: e.target.value})} placeholder="漢字/原形" className="flex-1 p-2 border border-slate-300 rounded-lg outline-none focus:border-amber-500 font-bold text-sm"/>
+                                 <input type="text" value={vocabEditForm.meaning} onChange={e=>setVocabEditForm({...vocabEditForm, meaning: e.target.value})} placeholder="中文意思" className="flex-1 p-2 border border-slate-300 rounded-lg outline-none focus:border-amber-500 font-bold text-sm"/>
+                               </div>
+                               <div className="flex gap-2">
+                                 <input type="text" value={vocabEditForm.example} onChange={e=>setVocabEditForm({...vocabEditForm, example: e.target.value})} placeholder="例句" className="flex-1 p-2 border border-slate-300 rounded-lg outline-none focus:border-amber-500 text-sm"/>
+                                 <button onClick={()=>{
+                                     setVocabDB(prev => prev.map(x => x.id === v.id ? { ...x, ...vocabEditForm, isSentence: (vocabEditForm.example && vocabEditForm.example.trim().length > 0) || (vocabEditForm.reading && vocabEditForm.reading.includes('。')) } : x));
+                                     setEditingVocabId(null);
+                                 }} className="px-4 py-2 bg-amber-500 text-white rounded-lg font-bold text-sm hover:bg-amber-600 transition-colors flex items-center gap-1"><Save className="w-4 h-4"/> 儲存</button>
+                                 <button onClick={()=>setEditingVocabId(null)} className="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg font-bold text-sm hover:bg-slate-300 transition-colors">取消</button>
+                               </div>
+                             </div>
+                          </td>
+                       </tr>
+                     ) : (
                        <tr key={v.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
                           <td className="p-4">
                              <div className="flex items-center gap-1.5">
