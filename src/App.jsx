@@ -466,12 +466,7 @@ return parsed;
       const saved = localStorage.getItem('verbApp_verbDB');
       if (saved) {
           const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed)) {
-             if (!parsed.find(f => f.id === 'masu')) {
-                parsed.unshift({ id: 'masu', label: 'ます形' });
-             }
-             return parsed;
-          }
+          if (Array.isArray(parsed)) return parsed;
       }
       return INITIAL_VERB_DB;
     } catch { return INITIAL_VERB_DB; }
@@ -483,7 +478,12 @@ return parsed;
       const saved = localStorage.getItem('verbApp_verbForms');
       if (saved) {
           const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed)) return parsed;
+          if (Array.isArray(parsed)) {
+             if (!parsed.find(f => f.id === 'masu')) {
+                parsed.unshift({ id: 'masu', label: 'ます形' });
+             }
+             return parsed;
+          }
       }
       return DEFAULT_FORM_OPTIONS;
     } catch { return DEFAULT_FORM_OPTIONS; }
