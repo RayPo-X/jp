@@ -2617,7 +2617,7 @@ return parsed;
                          className="p-1.5 rounded-lg border border-slate-200 outline-none focus:border-emerald-500 bg-slate-50 text-sm font-medium text-slate-700 max-w-[150px]"
                        >
                          {verbDB.map(v => (
-                           <option key={v.jisho} value={v.jisho}>{stripRuby(v.jisho)}</option>
+                           <option key={v.jisho} value={v.jisho}>{v.type && v.type.includes("adj") ? "✨ " : "🏃 "}{stripRuby(v.jisho)}</option>
                          ))}
                        </select>
                      </div>
