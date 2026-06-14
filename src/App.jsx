@@ -2601,9 +2601,13 @@ return parsed;
                          <div>
                            <div className="flex items-center flex-wrap gap-3 mb-1.5">
                                <div className="font-bold text-slate-800 text-lg">{g.name}</div>
-                               {g.id.startsWith('g_custom_') && !isNaN(parseInt(g.id.replace('g_custom_', ''))) && (
+                               {g.id.startsWith('g_custom_') && !isNaN(parseInt(g.id.replace('g_custom_', ''))) ? (
                                   <div className="text-[11px] text-slate-400 font-medium bg-slate-50 px-2 py-0.5 rounded-full border border-slate-100 flex items-center gap-1">
                                      <Timer className="w-3 h-3"/>加入於 {new Date(parseInt(g.id.replace('g_custom_', ''))).toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                                  </div>
+                               ) : (
+                                  <div className="text-[11px] text-slate-400 font-medium bg-slate-50 px-2 py-0.5 rounded-full border border-slate-100 flex items-center gap-1">
+                                     <Library className="w-3 h-3"/>系統內建
                                   </div>
                                )}
                            </div>
