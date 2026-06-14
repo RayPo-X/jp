@@ -2599,20 +2599,20 @@ return parsed;
                    {customGrammars.map(g => (
                       <div key={g.id} className="p-5 bg-white border border-slate-200 rounded-2xl flex justify-between items-center shadow-sm hover:border-emerald-300 transition-colors">
                          <div>
-                           <div className="flex items-center flex-wrap gap-3 mb-1.5">
+                           <div className="flex items-center gap-2 mb-1.5">
                                <div className="font-bold text-slate-800 text-lg">{g.name}</div>
                                {g.id.startsWith('g_custom_') && !isNaN(parseInt(g.id.replace('g_custom_', ''))) ? (
-                                  <div className="text-[11px] text-slate-400 font-medium bg-slate-50 px-2 py-0.5 rounded-full border border-slate-100 flex items-center gap-1">
-                                     <Timer className="w-3 h-3"/>加入於 {new Date(parseInt(g.id.replace('g_custom_', ''))).toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                                  <div className="text-[11px] text-slate-400 font-medium bg-slate-50 px-2 py-0.5 rounded-full border border-slate-100 flex items-center gap-1 shrink-0">
+                                     <Timer className="w-3 h-3"/>{new Date(parseInt(g.id.replace('g_custom_', ''))).toLocaleDateString('zh-TW', { month: '2-digit', day: '2-digit' })}
                                   </div>
                                ) : (
-                                  <div className="text-[11px] text-slate-400 font-medium bg-slate-50 px-2 py-0.5 rounded-full border border-slate-100 flex items-center gap-1">
+                                  <div className="text-[11px] text-slate-400 font-medium bg-slate-50 px-2 py-0.5 rounded-full border border-slate-100 flex items-center gap-1 shrink-0">
                                      <Library className="w-3 h-3"/>系統內建
                                   </div>
                                )}
                            </div>
-                           <div className="text-sm text-slate-500 flex items-center gap-2 mb-2">
-                              接續：<span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md font-medium border border-slate-200">{verbForms.find(f=>f.id===g.baseForm)?.label}</span>
+                           <div className="text-sm text-slate-500 flex items-center gap-2 mb-2 flex-wrap">
+                              接在前面：<span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md font-medium border border-slate-200">{verbForms.find(f=>f.id===g.baseForm)?.label}</span>
                               {g.removeStr && <span className="text-red-400 font-bold">-「{g.removeStr}」</span>}
                               <span className="text-emerald-500 font-bold">+「{g.appendStr}」</span>
                            </div>
