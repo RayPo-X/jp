@@ -1550,7 +1550,7 @@ return parsed;
   };
 
   const [editingGrammarId, setEditingGrammarId] = useState(null);
-  const [newGrammar, setNewGrammar] = useState({ name: '', baseForm: 'te', removeStr: '', appendStr: '', appliesTo: ['verb'], example: '', processExample: '' });
+  const [newGrammar, setNewGrammar] = useState({ name: '', baseForm: 'te', removeStr: '', appendStr: '', appliesTo: ['verb'], example: '' });
   
   const handleEditGrammar = (g) => {
     setEditingGrammarId(g.id);
@@ -1560,8 +1560,7 @@ return parsed;
       removeStr: g.removeStr || '',
       appendStr: g.appendStr || '',
       appliesTo: g.appliesTo || ['verb'],
-      example: g.example || '',
-      processExample: g.processExample || ''
+      example: g.example || ''
     });
   };
 
@@ -1574,7 +1573,7 @@ return parsed;
     } else {
         setCustomGrammars(prev => [...prev, { ...newGrammar, id: `g_custom_${Date.now()}` }]);
     }
-    setNewGrammar({ name: '', baseForm: 'te', removeStr: '', appendStr: '', appliesTo: ['verb'], example: '', processExample: '' });
+    setNewGrammar({ name: '', baseForm: 'te', removeStr: '', appendStr: '', appliesTo: ['verb'], example: '' });
   };
 
   const getInitialVerbInputs = () => {
@@ -2700,47 +2699,6 @@ return parsed;
                            </div>
                            <div className="text-sm text-slate-500 flex items-center gap-2 mb-2 flex-wrap">
                               接在前面：{verbForms.find(f=>f.id===g.baseForm)?.label && <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md font-medium border border-slate-200">{verbForms.find(f=>f.id===g.baseForm)?.label}</span>}
-                                <div className="ml-1 w-full mt-2 text-slate-600 font-bold flex flex-col gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200 shadow-sm">
-                                   <div className="text-[13px] text-slate-400 font-normal mb-1">變化過程範例：</div>
-                                   {g.processExample ? (
-                                      <div className="text-slate-700 font-bold text-[15px] px-2 py-1 bg-white rounded-lg border border-slate-100">{g.processExample}</div>
-                                   ) : (() => {
-                                       const selectedVerb = verbDB.find(v => v.jisho === exampleVerbId) || verbDB[0];
-                                       const baseWord = selectedVerb && selectedVerb[g.baseForm] ? stripRuby(selectedVerb[g.baseForm]) : '〇〇';
-                                       const jishoStr = selectedVerb && selectedVerb.jisho ? stripRuby(selectedVerb.jisho) : '〇〇';
-                                       const baseLabel = verbForms.find(f=>f.id===g.baseForm)?.label || '基礎';
-                                       
-                                       let displayStr = baseWord;
-                                       let resultStr = baseWord;
-                                       if (g.removeStr) {
-                                           if (baseWord.endsWith(g.removeStr)) {
-                                               displayStr = baseWord.slice(0, -g.removeStr.length) + `~~${g.removeStr}~~`;
-                                               resultStr = baseWord.slice(0, -g.removeStr.length);
-                                           } else {
-                                               displayStr = baseWord + `~~${g.removeStr}~~`;
-                                           }
-                                       }
-                                       resultStr += (g.appendStr || '');
-                                       return (
-                                         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                                           <div className="flex items-center gap-2">
-                                             <span className="text-slate-500 font-medium text-xs bg-slate-200 px-1.5 py-0.5 rounded">原形</span>
-                                             <span>{jishoStr}</span>
-                                           </div>
-                                           <ArrowRight className="w-4 h-4 text-slate-300 hidden sm:block mx-1" />
-                                           <div className="flex items-center gap-2">
-                                             <span className="text-slate-500 font-medium text-xs bg-slate-200 px-1.5 py-0.5 rounded">{baseLabel}</span>
-                                             <span>{renderTextWithStrikethrough(displayStr)}</span>
-                                           </div>
-                                           <ArrowRight className="w-4 h-4 text-emerald-300 hidden sm:block mx-1" />
-                                           <div className="flex items-center gap-2 bg-emerald-50 px-2.5 py-1.5 rounded-lg border border-emerald-100 shadow-sm">
-                                             <span className="text-emerald-600 font-black text-xs">完成</span>
-                                             <span className="text-emerald-700 font-black text-[15px]">{resultStr}</span>
-                                           </div>
-                                         </div>
-                                       );
-                                   })()}
-                                </div>
                            </div>
                            {g.example && (
                               <div className="w-full text-[15px] bg-blue-50/80 border border-blue-100 text-blue-900 px-4 py-2.5 rounded-xl font-bold tracking-wide mt-2">
@@ -2767,7 +2725,6 @@ return parsed;
                         <div><label className="block text-sm font-bold text-emerald-700 mb-1.5">刪除字尾 (選填)</label><input type="text" value={newGrammar.removeStr || ''} onChange={e => setNewGrammar(p => ({...p, removeStr: e.target.value}))} placeholder="例：ます" className="w-full p-4 rounded-xl border border-emerald-200 outline-none focus:border-emerald-500"/></div>
                         <div><label className="block text-sm font-bold text-emerald-700 mb-1.5">加上字尾</label><input type="text" value={newGrammar.appendStr || ''} onChange={e => setNewGrammar(p => ({...p, appendStr: e.target.value}))} placeholder="例：でください" className="w-full p-4 rounded-xl border border-emerald-200 outline-none focus:border-emerald-500"/></div>
                       </div>
-                      <div><label className="block text-sm font-bold text-emerald-700 mb-1.5">變化過程範例 (選填)</label><input type="text" value={newGrammar.processExample || ''} onChange={e => setNewGrammar(p => ({...p, processExample: e.target.value}))} placeholder="自由輸入，例如：飲む ➔ 飲んで ➔ 飲んでください" className="w-full p-4 rounded-xl border border-emerald-200 outline-none focus:border-emerald-500"/></div>
                       <div><label className="block text-sm font-bold text-emerald-700 mb-1.5">例句 (選填)</label><input type="text" value={newGrammar.example} onChange={e => setNewGrammar(p => ({...p, example: e.target.value}))} placeholder="例：ここでタバコを吸わないでください" className="w-full p-4 rounded-xl border border-emerald-200 outline-none focus:border-emerald-500"/></div>
                       <div className="flex gap-4 mt-4">
                           <button onClick={handleAddGrammar} className="flex-1 py-4 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition-colors shadow-sm text-lg">{editingGrammarId ? '儲存編輯' : '儲存新文法'}</button>
