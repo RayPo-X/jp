@@ -850,7 +850,7 @@ return parsed;
 
     setRoundHistory(prev => [...prev, {
       question: (vocabTestMode === 'sentence_srs' || vocabTestMode === 'sentence_infinite') ? 
-        (currentQuestionDirection === 'j2c' ? (parseExample(currentVocab.example || currentVocab.word || currentVocab.reading).plainSentence || currentVocab.word || currentVocab.reading) : currentVocab.meaning) 
+        (currentQuestionDirection === 'j2c' ? (parseExample(currentVocab.example || currentVocab.word || currentVocab.reading).plainSentence || currentVocab.word || currentVocab.reading) : (parseExample(currentVocab.example || currentVocab.word || currentVocab.reading).translation || currentVocab.meaning)) 
         : currentVocab.meaning,
       userAnswer: finalAnswer,
       correctAnswer: correctAnswerStr,
@@ -2720,7 +2720,7 @@ return parsed;
                      <>
                        <div className="text-sm text-slate-500 mb-2">{currentQuestionDirection === 'j2c' ? '請翻譯以下例句（不顯示漢字以訓練聽力/閱讀）：' : '請將以下中文翻譯成日文（訓練輸出/寫作）：'}</div>
                        <div className="text-2xl sm:text-3xl font-black text-slate-800 tracking-wide mb-8 py-8 px-4 bg-slate-50 rounded-2xl border border-slate-200">
-                          {currentQuestionDirection === 'j2c' ? parseExample(currentVocab.example || currentVocab.word || currentVocab.reading).readingOnly : currentVocab.meaning}
+                          {currentQuestionDirection === 'j2c' ? parseExample(currentVocab.example || currentVocab.word || currentVocab.reading).readingOnly : (parseExample(currentVocab.example || currentVocab.word || currentVocab.reading).translation || currentVocab.meaning)}
                        </div>
                      </>
                  ) : (
