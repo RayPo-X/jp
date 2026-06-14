@@ -620,16 +620,16 @@ return parsed;
   const formatVerbType = (type, group) => {
     const gStr = String(group);
     if (type === 'verb') {
-        if (gStr === '1') return '第一類動詞（五段動詞）';
-        if (gStr === '2') return '第二類動詞 ( 一段動詞 )';
-        if (gStr === '3') return '第3類（不規則）';
-        return `動詞 (${group})`;
+        if (gStr === '1') return <div className="text-center leading-tight">第一類動詞<br/><span className="text-[10px] opacity-80">（五段動詞）</span></div>;
+        if (gStr === '2') return <div className="text-center leading-tight">第二類動詞<br/><span className="text-[10px] opacity-80">( 一段動詞 )</span></div>;
+        if (gStr === '3') return <div className="text-center leading-tight">第3類<br/><span className="text-[10px] opacity-80">（不規則）</span></div>;
+        return <div className="text-center leading-tight">動詞<br/><span className="text-[10px] opacity-80">({group})</span></div>;
     } else if (type === 'adj_i') {
-        return ' い形容詞';
+        return <div className="text-center leading-tight">い形容詞</div>;
     } else if (type === 'adj_na') {
-        return ' な形容詞';
+        return <div className="text-center leading-tight">な形容詞</div>;
     }
-    return `${type} (${group})`;
+    return <div className="text-center leading-tight">{type}<br/><span className="text-[10px] opacity-80">({group})</span></div>;
   };
 
   const getVerbTypeStyle = (type, group) => {
