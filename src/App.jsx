@@ -2579,7 +2579,7 @@ return parsed;
                  <tbody>
                     {sortedVocabDB.map(v => editingVocabId === v.id ? (
                        <tr key={'edit-'+v.id} className="border-b border-amber-200 bg-amber-50">
-                          <td colSpan={7} className="p-4">
+                          <td colSpan={5 + verbForms.length} className="p-4">
                              <div className="flex flex-col gap-2">
                                <div className="flex gap-3">
                                  <div className="flex-1">
@@ -2789,7 +2789,7 @@ return parsed;
                    <input type="text" value={verbInputs.example || ''} onChange={e=>handleVerbInputChange('example', e.target.value)} placeholder="例：雨[あめ]が降[ふ]るので、行[い]きません。" className="w-full p-3 rounded-xl border border-indigo-200"/>
                  </div>
                  <div className="flex justify-between items-center mb-4 mt-6"><h4 className="font-bold text-indigo-800">各變化型設定</h4><button onClick={() => {if (!verbInputs.jisho) return alert('請先填寫普通形(辭書形/常體)！'); const forms = autoConjugate(verbInputs.jisho, verbInputs.group); if (Object.keys(forms).length > 0) { setVerbInputs(prev => ({ ...prev, ...forms })); } else { alert('無法自動產生，請確認格式是否正確！'); } }} className="text-sm text-indigo-700 bg-indigo-100 px-4 py-2 rounded-xl font-bold hover:bg-indigo-200 flex items-center gap-1 transition-colors"><Sparkles className="w-4 h-4"/> 自動產生變化型</button></div><div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-4">
-                   <div><label className="block text-sm font-bold text-indigo-700 mb-1">ます形 (支援漢字[假名])</label><input type="text" value={verbInputs.masu || ''} onChange={e=>handleVerbInputChange('masu', e.target.value)} placeholder="例：行[い]きます" className="w-full p-3 rounded-xl border border-indigo-200"/></div>
+                   
                    {verbForms.map(f => (
                        <div key={f.id}><label className="block text-sm font-bold text-indigo-700 mb-1">{f.label}</label><input type="text" value={verbInputs[f.id] || ''} onChange={e=>handleVerbInputChange(f.id, e.target.value)} className="w-full p-3 rounded-xl border border-indigo-200"/></div>
                    ))}
@@ -2819,8 +2819,7 @@ return parsed;
                  <thead className="bg-slate-50 text-slate-600"><tr>
                     <th className="p-4 rounded-tl-xl cursor-pointer hover:bg-slate-100 transition-colors select-none" onClick={() => handleVerbSort('type')}>類型/群組{renderVerbSortIcon('type')}</th>
                     <th className="p-4 cursor-pointer hover:bg-slate-100 transition-colors select-none" onClick={() => handleVerbSort('tag')}>標籤/主題{renderVerbSortIcon('tag')}</th>
-                    <th className="p-4">ます形</th>
-                    <th className="p-4 cursor-pointer hover:bg-slate-100 transition-colors select-none" onClick={() => handleVerbSort('word')}>辭書/て形{renderVerbSortIcon('word')}</th>
+                    {verbForms.map(f => <th key={f.id} className="p-4 whitespace-nowrap">{f.label}</th>)}
                     <th className="p-4 cursor-pointer hover:bg-slate-100 transition-colors select-none" onClick={() => handleVerbSort('meaning')}>中文意思{renderVerbSortIcon('meaning')}</th>
                     <th className="p-4 cursor-pointer hover:bg-slate-100 transition-colors select-none" onClick={() => handleVerbSort('dateAdded')}>加入日期{renderVerbSortIcon('dateAdded')}</th>
                     <th className="p-4 rounded-tr-xl">操作</th>
@@ -2828,13 +2827,10 @@ return parsed;
                  <tbody>
                     {sortedVerbDB.map(v => editingVerbId === v.id ? (
                        <tr key={'edit-'+v.id} className="border-b border-indigo-200 bg-indigo-50">
-                          <td colSpan={7} className="p-4">
+                          <td colSpan={5 + verbForms.length} className="p-4">
                              <div className="flex flex-col gap-2">
                                <div className="flex flex-wrap gap-3">
-                                 <div className="flex-1 min-w-[120px]">
-                                   <label className="block text-xs font-bold text-indigo-600 mb-1 ml-1">ます形</label>
-                                   <input type="text" value={verbEditForm.masu || ''} onChange={e=>setVerbEditForm({...verbEditForm, masu: e.target.value})} placeholder="ます形" className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:border-indigo-500 font-bold text-sm"/>
-                                 </div>
+                                 
                                  {verbForms.map(f => (
                                    <div key={f.id} className="flex-1 min-w-[120px]">
                                      <label className="block text-xs font-bold text-indigo-600 mb-1 ml-1">{f.label}</label>
@@ -2878,8 +2874,9 @@ return parsed;
                               <button onClick={() => handleRematchVerbDbTheme(v.id, v.meaning)} title="自動配對主題" className="p-1 text-slate-300 hover:text-indigo-500 transition-colors"><Sparkles className="w-4 h-4"/></button>
                             </div>
                           </td>
-                          <td className="p-4 font-bold text-slate-800">{renderRuby(v.masu)}</td>
-                          <td className="p-4 text-slate-600">{renderRuby(v.jisho)} / {renderRuby(v.te)}</td>
+                          {verbForms.map(f => (
+                           <td key={f.id} className="p-4 font-bold text-slate-700 whitespace-nowrap">{renderRuby(v[f.id])}</td>
+                        ))}
                           <td className="p-4 font-bold text-slate-700">{v.meaning}</td>
                           <td className="p-4 text-xs text-slate-400 whitespace-nowrap">{getAddedDate(v.id)}</td>
                           <td className="p-4 flex gap-1">
