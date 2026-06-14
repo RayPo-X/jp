@@ -2090,7 +2090,7 @@ return parsed;
                     <Puzzle className="w-5 h-5"/>
                   </div>
                   <div className="text-left">
-                    <div className="font-bold text-slate-800">套用自訂文法測驗</div>
+                    <div className="font-bold text-slate-800">文法測驗</div>
                     <div className="text-xs text-slate-400 mt-0.5">練習您建立的進階文法公式</div>
                   </div>
                 </div>
