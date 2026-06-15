@@ -94,8 +94,16 @@ export const autoConjugate = (jisho, group) => {
     const map = vowelMap[ending];
     if (map) {
       forms.masu = stem + map.i + 'ます';
-      forms.nai = stem + map.a + 'ない';
-      forms.nakatta = stem + map.a + 'なかった';
+      
+      // ない形有例外：ある -> ない
+      if (jisho === 'ある' || jisho === '有[あ]る') {
+        forms.nai = 'ない';
+        forms.nakatta = 'なかった';
+      } else {
+        forms.nai = stem + map.a + 'ない';
+        forms.nakatta = stem + map.a + 'なかった';
+      }
+
       forms.ba = stem + map.e + 'ば';
       forms.volitional = stem + map.o + 'う';
       forms.potential = stem + map.e + 'る';
