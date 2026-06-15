@@ -2844,7 +2844,9 @@ return parsed;
                  </div>
                  <div className="flex justify-between items-center mb-4 mt-6"><h4 className="font-bold text-indigo-800">各變化型設定</h4><button onClick={() => {if (!verbInputs.jisho) return alert('請先填寫普通形(辭書形/常體)！'); const forms = autoConjugate(verbInputs.jisho, verbInputs.group); if (Object.keys(forms).length > 0) { setVerbInputs(prev => ({ ...prev, ...forms })); } else { alert('無法自動產生，請確認格式是否正確！'); } }} className="text-sm text-indigo-700 bg-indigo-100 px-4 py-2 rounded-xl font-bold hover:bg-indigo-200 flex items-center gap-1 transition-colors"><Sparkles className="w-4 h-4"/> 自動產生變化型</button></div><div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-4">
                    
-                   {verbForms.map((f, idx) => (
+                   {verbForms.map((f, idx) => {
+                        if ((verbInputs.type === 'adj_i' || verbInputs.type === 'adj_na') && f.id === 'masu') return null;
+                        return (
                         <div key={f.id}
                              draggable
                              onDragStart={(e) => { setDraggedFormIndex(idx); e.dataTransfer.effectAllowed = 'move'; }}
@@ -2867,7 +2869,7 @@ return parsed;
                           </label>
                           <input draggable="true" onDragStart={e => { e.preventDefault(); e.stopPropagation(); }} type="text" value={verbInputs[f.id] || ''} onChange={e=>handleVerbInputChange(f.id, e.target.value)} className="w-full p-3 rounded-xl border border-indigo-200 bg-white/80 focus:bg-white transition-colors outline-none focus:border-indigo-500 pointer-events-auto cursor-text"/>
                         </div>
-                    ))}
+                    );})}
                  </div>
 
                  <div className="mt-6 border-t border-indigo-100 pt-6 pb-6">
@@ -2933,12 +2935,14 @@ return parsed;
                              <div className="flex flex-col gap-2">
                                <div className="flex flex-wrap gap-3">
                                  
-                                 {verbForms.map(f => (
+                                 {verbForms.map(f => {
+                                   if ((verbEditForm.type === 'adj_i' || verbEditForm.type === 'adj_na') && f.id === 'masu') return null;
+                                   return (
                                    <div key={f.id} className="flex-1 min-w-[120px]">
                                      <label className="block text-xs font-bold text-indigo-600 mb-1 ml-1">{f.label}</label>
                                      <input type="text" value={verbEditForm[f.id] || ''} onChange={e=>setVerbEditForm({...verbEditForm, [f.id]: e.target.value})} placeholder={f.label} className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:border-indigo-500 font-bold text-sm"/>
                                    </div>
-                                 ))}
+                                 );})}
                                  <div className="flex-1 min-w-[120px]">
                                    <label className="block text-xs font-bold text-slate-500 mb-1 ml-1">中文意思</label>
                                    <input type="text" value={verbEditForm.meaning || ''} onChange={e=>setVerbEditForm({...verbEditForm, meaning: e.target.value})} placeholder="中文意思" className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:border-indigo-500 text-sm"/>
@@ -2995,6 +2999,9 @@ return parsed;
     }
     
     // Default to rendering verb form
+    if (colId === 'masu' && (v.type === 'adj_i' || v.type === 'adj_na')) {
+        return <td key={colId} className="p-4 font-bold text-slate-300 whitespace-nowrap">-</td>;
+    }
     return <td key={colId} className="p-4 font-bold text-slate-700 whitespace-nowrap">{renderRuby(v[colId])}</td>;
 })}
                        </tr>
