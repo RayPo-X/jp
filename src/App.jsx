@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { autoConjugate } from './conjugator';
+import { autoConjugate, deriveJishoFromMasu } from './conjugator';
 import { BUILT_IN_DICTIONARY, getAvailableThemes, getWordsByTheme } from './dictionary';
 import { 
   Settings, Play, CheckCircle2, XCircle, ArrowRight, BookOpen, 
@@ -2842,7 +2842,7 @@ return parsed;
                    <label className="block text-sm font-bold text-indigo-700 mb-1">例句 (選填，支援漢字[假名]自動標音)</label>
                    <input type="text" value={verbInputs.example || ''} onChange={e=>handleVerbInputChange('example', e.target.value)} placeholder="例：雨[あめ]が降[ふ]るので、行[い]きません。" className="w-full p-3 rounded-xl border border-indigo-200"/>
                  </div>
-                 <div className="flex justify-between items-center mb-4 mt-6"><h4 className="font-bold text-indigo-800">各變化型設定</h4><button onClick={() => {if (!verbInputs.jisho) return alert('請先填寫普通形(辭書形/常體)！'); const forms = autoConjugate(verbInputs.jisho, verbInputs.group); if (Object.keys(forms).length > 0) { setVerbInputs(prev => ({ ...prev, ...forms })); } else { alert('無法自動產生，請確認格式是否正確！'); } }} className="text-sm text-indigo-700 bg-indigo-100 px-4 py-2 rounded-xl font-bold hover:bg-indigo-200 flex items-center gap-1 transition-colors"><Sparkles className="w-4 h-4"/> 自動產生變化型</button></div><div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-4">
+                 <div className="flex justify-between items-center mb-4 mt-6"><h4 className="font-bold text-indigo-800">各變化型設定</h4><button onClick={() => {     let jishoToUse = verbInputs.jisho;     if (!jishoToUse && verbInputs.masu) {         jishoToUse = deriveJishoFromMasu(verbInputs.masu, verbInputs.group);     }     if (!jishoToUse) return alert('請填寫普通形(辭書形/常體)或ます形！');      const forms = autoConjugate(jishoToUse, verbInputs.group);      if (Object.keys(forms).length > 0) {          setVerbInputs(prev => ({ ...prev, jisho: jishoToUse, ...forms }));      } else {          alert('無法自動產生，請確認格式是否正確！');      }  }} className="text-sm text-indigo-700 bg-indigo-100 px-4 py-2 rounded-xl font-bold hover:bg-indigo-200 flex items-center gap-1 transition-colors"><Sparkles className="w-4 h-4"/> 自動產生變化型</button></div><div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-4">
                    
                    {verbForms.map((f, idx) => {
                         if ((verbInputs.type === 'adj_i' || verbInputs.type === 'adj_na') && f.id === 'masu') return null;
