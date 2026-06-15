@@ -1609,7 +1609,7 @@ return parsed;
 
   const [editingGrammarId, setEditingGrammarId] = useState(null);
   const [grammarFilterTag, setGrammarFilterTag] = useState('');
-  const [newGrammar, setNewGrammar] = useState({ name: '', baseForm: 'te', removeStr: '', appendStr: '', appliesTo: ['verb'], example: '', processExample: '', note: '', tag: '' });
+  const [newGrammar, setNewGrammar] = useState({ name: '', baseForm: 'te', removeStr: '', appendStr: '', appliesTo: ['verb'], example: '', exampleTranslation: '', processExample: '', note: '', tag: '' });
   
   const handleEditGrammar = (g) => {
     setEditingGrammarId(g.id);
@@ -1632,7 +1632,7 @@ return parsed;
     } else {
         setCustomGrammars(prev => [...prev, { ...newGrammar, id: `g_custom_${Date.now()}` }]);
     }
-    setNewGrammar({ name: '', baseForm: 'te', removeStr: '', appendStr: '', appliesTo: ['verb'], example: '', processExample: '', note: '', tag: '' });
+    setNewGrammar({ name: '', baseForm: 'te', removeStr: '', appendStr: '', appliesTo: ['verb'], example: '', exampleTranslation: '', processExample: '', note: '', tag: '' });
   };
 
   const getInitialVerbInputs = () => {
@@ -2778,6 +2778,7 @@ return parsed;
                            {g.example && (
                               <div className="w-full text-[15px] bg-blue-50/80 border border-blue-100 text-blue-900 px-4 py-2.5 rounded-xl font-bold tracking-wide mt-2">
                                 💬 例句：{renderTextWithStrikethrough(g.example)}
+                                {g.exampleTranslation && <div className="text-sm font-medium text-blue-700 mt-1 pl-6">{g.exampleTranslation}</div>}
                               </div>
                            )}
                          </div>
@@ -2803,10 +2804,11 @@ return parsed;
                       <div><label className="block text-sm font-bold text-emerald-700 mb-1.5">變化筆記 (選填)</label><input type="text" value={newGrammar.processExample || ''} onChange={e => setNewGrammar(p => ({...p, processExample: e.target.value}))} placeholder="自由輸入，例如：飲む ➔ 飲んで ➔ 飲んでください" className="w-full p-4 rounded-xl border border-emerald-200 outline-none focus:border-emerald-500"/></div>
                       <div><label className="block text-sm font-bold text-emerald-700 mb-1.5">分類標籤 (選填)</label><input type="text" value={newGrammar.tag || ''} onChange={e => setNewGrammar(p => ({...p, tag: e.target.value}))} placeholder="例：N5、接續詞" className="w-full p-4 rounded-xl border border-emerald-200 outline-none focus:border-emerald-500" list="grammar-tags-list"/></div>
                       <div><label className="block text-sm font-bold text-emerald-700 mb-1.5">個人備註 (選填)</label><input type="text" value={newGrammar.note || ''} onChange={e => setNewGrammar(p => ({...p, note: e.target.value}))} placeholder="記錄自己的心得或注意事項..." className="w-full p-4 rounded-xl border border-emerald-200 outline-none focus:border-emerald-500"/></div>
-                      <div><label className="block text-sm font-bold text-emerald-700 mb-1.5">例句 (選填)</label><input type="text" value={newGrammar.example} onChange={e => setNewGrammar(p => ({...p, example: e.target.value}))} placeholder="例：ここでタバコを吸わないでください" className="w-full p-4 rounded-xl border border-emerald-200 outline-none focus:border-emerald-500"/></div>
+                      <div><label className="block text-sm font-bold text-emerald-700 mb-1.5">例句 (選填)</label><input type="text" value={newGrammar.example || ''} onChange={e => setNewGrammar(p => ({...p, example: e.target.value}))} placeholder="例：ここでタバコを吸わないでください" className="w-full p-4 rounded-xl border border-emerald-200 outline-none focus:border-emerald-500"/></div>
+                      <div><label className="block text-sm font-bold text-emerald-700 mb-1.5">例句中文翻譯 (選填)</label><input type="text" value={newGrammar.exampleTranslation || ''} onChange={e => setNewGrammar(p => ({...p, exampleTranslation: e.target.value}))} placeholder="例：請不要在這裡吸菸" className="w-full p-4 rounded-xl border border-emerald-200 outline-none focus:border-emerald-500"/></div>
                       <div className="flex gap-4 mt-4">
                           <button onClick={handleAddGrammar} className="flex-1 py-4 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition-colors shadow-sm text-lg">{editingGrammarId ? '儲存編輯' : '儲存新文法'}</button>
-                          {editingGrammarId && <button onClick={() => { setEditingGrammarId(null); setNewGrammar({ name: '', baseForm: 'te', removeStr: '', appendStr: '', appliesTo: ['verb'], example: '', processExample: '', note: '', tag: '' }); }} className="py-4 px-6 bg-slate-200 text-slate-700 font-bold rounded-xl hover:bg-slate-300 transition-colors shadow-sm text-lg">取消</button>}
+                          {editingGrammarId && <button onClick={() => { setEditingGrammarId(null); setNewGrammar({ name: '', baseForm: 'te', removeStr: '', appendStr: '', appliesTo: ['verb'], example: '', exampleTranslation: '', processExample: '', note: '', tag: '' }); }} className="py-4 px-6 bg-slate-200 text-slate-700 font-bold rounded-xl hover:bg-slate-300 transition-colors shadow-sm text-lg">取消</button>}
                       </div>
                     </div>
                  </div>
