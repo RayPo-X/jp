@@ -542,8 +542,12 @@ return parsed;
   };
 
 
-  const [sourceForm, setSourceForm] = useState('masu'); 
-  const [targetForms, setTargetForms] = useState(['te', 'ta', 'nai', 'jisho']); 
+  const [sourceForm, setSourceForm] = useState(() => localStorage.getItem('verbApp_sourceForm') || 'masu'); 
+  const [targetForms, setTargetForms] = useState(() => {
+    const saved = localStorage.getItem('verbApp_targetForms');
+    if (saved) return JSON.parse(saved);
+    return ['te', 'ta', 'nai', 'jisho'];
+  }); 
   const [activeWordTypes, setActiveWordTypes] = useState(['verb', 'adj_i', 'adj_na']);
   const [verbTestMode, setVerbTestMode] = useState('normal'); 
   const [mistakeBank, setMistakeBank] = useState({}); 
@@ -585,6 +589,10 @@ return parsed;
   const [isSyncing, setIsSyncing] = useState(false);
   
   useEffect(() => { localStorage.setItem('verbApp_githubToken', githubToken); }, [githubToken]);
+
+  useEffect(() => { localStorage.setItem('verbApp_sourceForm', sourceForm); }, [sourceForm]);
+  useEffect(() => { localStorage.setItem('verbApp_targetForms', JSON.stringify(targetForms)); }, [targetForms]);
+
 
   // One-time migration: Change all timestamps to June 12, 2026
   useEffect(() => {
