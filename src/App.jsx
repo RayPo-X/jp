@@ -3142,7 +3142,7 @@ return parsed;
       )}
 
       {/* ==== 進行測驗中 (Playing UI) ==== */}
-      {!isRoundComplete && !isPaused && (appState === 'vocab_playing' || appState === 'verb_playing') && (
+      {!isRoundComplete && (appState === 'vocab_playing' || appState === 'verb_playing') && (
          <div className="max-w-2xl mx-auto bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-100 text-center relative overflow-hidden">
             
             {isPaused && (
