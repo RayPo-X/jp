@@ -1935,7 +1935,7 @@ return parsed;
               </h1>
             </div>
             {(appState === 'verb_playing' || appState === 'vocab_playing') && (
-              <button onClick={() => setShowSettingsModal(true)} className="p-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200 transition-colors"><Settings className="w-5 h-5" /></button>
+              <button onClick={() => { setIsPaused(true); setShowSettingsModal(true); }} className="p-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200 transition-colors"><Settings className="w-5 h-5" /></button>
             )}
          </header>
       )}
