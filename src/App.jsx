@@ -1836,7 +1836,9 @@ return parsed;
   };
 
   const syncToGitHub = async () => {
-    if (!githubToken) return alert('請先輸入 GitHub Token');
+    const cleanToken = githubToken.trim();
+    const cleanGistId = gistId.trim();
+    if (!cleanToken) return alert('請先輸入 GitHub Token');
     setIsSyncing(true);
     try {
       const data = { vocabDB, verbDB, verbForms, verbTableColumnOrder, customGrammars, grammarProgress, exportDate: new Date().toISOString() };
@@ -1852,7 +1854,7 @@ return parsed;
       const res = await fetch(url, {
         method,
         headers: {
-          'Authorization': `token ${githubToken}`,
+          'Authorization': `token ${cleanToken}`,
           'Accept': 'application/vnd.github.v3+json',
           'Content-Type': 'application/json',
         },
@@ -1867,7 +1869,7 @@ return parsed;
 
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
       const json = await res.json();
-      if (!gistId) setGistId(json.id);
+      if (!cleanGistId) setGistId(json.id);
       alert('上傳至 GitHub 成功！');
     } catch (err) {
       console.error(err);
@@ -1878,13 +1880,15 @@ return parsed;
   };
 
   const syncFromGitHub = async () => {
-    if (!githubToken || !gistId) return alert('請輸入 GitHub Token 與 Gist ID');
+    const cleanToken = githubToken.trim();
+    const cleanGistId = gistId.trim();
+    if (!cleanToken || !cleanGistId) return alert('請輸入 GitHub Token 與 Gist ID');
     if (!window.confirm('此操作會以雲端資料覆蓋本地進度，確定要下載嗎？')) return;
     setIsSyncing(true);
     try {
-      const res = await fetch(`https://api.github.com/gists/${gistId}`, {
+      const res = await fetch(`https://api.github.com/gists/${cleanGistId}`, {
         headers: {
-          'Authorization': `token ${githubToken}`,
+          'Authorization': `token ${cleanToken}`,
           'Accept': 'application/vnd.github.v3+json'
         }
       });
