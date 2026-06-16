@@ -2614,7 +2614,7 @@ return parsed;
       )}
 
       {appState === 'vocab_manage' && (
-        <div className="max-w-5xl mx-auto mt-4 animate-in fade-in">
+        <div className="w-[95vw] max-w-[1600px] mx-auto mt-4 animate-in fade-in">
            <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-100">
              <div className="flex justify-between items-center mb-6">
   <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2"><BookType className="w-6 h-6 text-amber-500"/> 管理單字記憶庫</h2>
@@ -2839,7 +2839,7 @@ return parsed;
       )}
 
       {appState === 'grammar_manage' && (
-        <div className="max-w-6xl mx-auto mt-4 animate-in fade-in">
+        <div className="w-[95vw] max-w-[1600px] mx-auto mt-4 animate-in fade-in">
            <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-100">
               <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2 mb-8"><Puzzle className="w-6 h-6 text-emerald-600"/> 文法公式庫</h2>
               <div className="grid lg:grid-cols-[1.2fr_1fr] gap-8">
@@ -2936,7 +2936,7 @@ return parsed;
       )}
 
       {appState === 'verb_manage' && (
-        <div className="max-w-5xl mx-auto mt-4 animate-in fade-in">
+        <div className="w-[95vw] max-w-[1600px] mx-auto mt-4 animate-in fade-in">
            <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-100">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2"><Library className="w-6 h-6 text-indigo-600"/> 動詞與形容詞庫</h2>
