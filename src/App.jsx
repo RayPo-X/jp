@@ -1096,18 +1096,34 @@ return parsed;
         customGrammars.forEach(grammar => { if (grammar.appliesTo.includes(word.type) && word[grammar.baseForm]) { availablePool.push({ word, target: grammar.id, grammarDef: grammar }); } });
       });
     }
-    else if (mode === 'custom') {
-      if (customWordIds.length === 0) { alert('請先到設定勾選自訂單字！'); goHome(); return; }
-      const customWords = verbDB.filter(w => customWordIds.includes(w.id));
-      customWords.forEach(word => validTargets.forEach(target => { if (word[target]) availablePool.push({ word, target, grammarDef: null }); }));
-    }
     else {
-      let filteredWords = verbDB.filter(w => activeWordTypes.includes(w.type));
-      if (filteredWords.length === 0) return;
-      filteredWords.forEach(word => validTargets.forEach(target => { if (word[target]) availablePool.push({ word, target, grammarDef: null }); }));
+      const processWord = (word) => {
+        validTargets.forEach(target => {
+          const customDef = customGrammars.find(g => g.id === target);
+          if (customDef) {
+             if (customDef.appliesTo.includes(word.type) && word[customDef.baseForm]) {
+               availablePool.push({ word, target: customDef.id, grammarDef: customDef });
+             }
+          } else {
+             if (word[target]) availablePool.push({ word, target, grammarDef: null });
+          }
+        });
+      };
+
+      if (mode === 'custom') {
+        if (customWordIds.length === 0) { alert('請先到設定勾選自訂單字！'); goHome(); return; }
+        verbDB.filter(w => customWordIds.includes(w.id)).forEach(processWord);
+      } else {
+        const filteredWords = verbDB.filter(w => activeWordTypes.includes(w.type));
+        if (filteredWords.length === 0) return;
+        filteredWords.forEach(processWord);
+      }
     }
 
-    if (availablePool.length === 0) return;
+    if (availablePool.length === 0) {
+      alert('找不到符合條件的單字，請檢查您的出題基準與變化目標設定是否衝突！');
+      return;
+    }
     const selectedItem = availablePool[Math.floor(Math.random() * availablePool.length)];
 
     setCurrentVerb(selectedItem.word);
