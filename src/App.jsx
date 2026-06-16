@@ -835,6 +835,51 @@ return parsed;
   const [inputMode, setInputMode] = useState('choice'); 
   const [autoAdvance, setAutoAdvance] = useState(false); 
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+
+  const handleExportBackup = () => {
+    const backupData = {
+      vocabDB,
+      verbDB,
+      verbForms,
+      verbTableColumnOrder,
+      customGrammars,
+      grammarProgress
+    };
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData, null, 2));
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", dataStr);
+    const dateStr = new Date().toISOString().slice(0,10).replace(/-/g,"");
+    downloadAnchorNode.setAttribute("download", `jp_verb_dojo_backup_${dateStr}.json`);
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+  };
+
+  const handleImportBackup = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const importedData = JSON.parse(event.target.result);
+        if (importedData.vocabDB) setVocabDB(importedData.vocabDB);
+        if (importedData.verbDB) setVerbDB(importedData.verbDB);
+        if (importedData.verbForms) setVerbForms(importedData.verbForms);
+        if (importedData.verbTableColumnOrder) setVerbTableColumnOrder(importedData.verbTableColumnOrder);
+        if (importedData.customGrammars) setCustomGrammars(importedData.customGrammars);
+        if (importedData.grammarProgress) setGrammarProgress(importedData.grammarProgress);
+        
+        alert('匯入成功！系統將為您套用備份檔中的資料。');
+        setShowSettingsModal(false);
+      } catch (err) {
+        alert('檔案格式錯誤，無法讀取備份資料！');
+        console.error(err);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
   const [showManualModal, setShowManualModal] = useState(false);
 
   const [questionCount, setQuestionCount] = useState(1);
@@ -1794,7 +1839,7 @@ return parsed;
     if (!githubToken) return alert('請先輸入 GitHub Token');
     setIsSyncing(true);
     try {
-      const data = { vocabDB, customGrammars, grammarProgress, verbDB, exportDate: new Date().toISOString() };
+      const data = { vocabDB, verbDB, verbForms, verbTableColumnOrder, customGrammars, grammarProgress, exportDate: new Date().toISOString() };
       const content = JSON.stringify(data, null, 2);
       
       let url = 'https://api.github.com/gists';
@@ -1886,7 +1931,7 @@ return parsed;
       {showSettingsModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-6 animate-in zoom-in-95">
-             <div className="flex justify-between items-center mb-6"><h2 className="text-xl font-bold flex items-center gap-2"><Settings className="w-6 h-6 text-slate-600"/> 測驗設定</h2><button onClick={()=>setShowSettingsModal(false)} className="text-slate-400 hover:text-slate-600"><XCircle className="w-6 h-6"/></button></div>
+             <div className="flex justify-between items-center mb-6"><h2 className="text-xl font-bold flex items-center gap-2"><Settings className="w-6 h-6 text-slate-600"/> 系統與測驗設定</h2><button onClick={()=>setShowSettingsModal(false)} className="text-slate-400 hover:text-slate-600"><XCircle className="w-6 h-6"/></button></div>
              <div className="space-y-6">
                 <div>
                   <h3 className="text-sm font-bold text-slate-700 mb-2 uppercase tracking-wider">作答模式</h3>
