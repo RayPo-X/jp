@@ -2007,7 +2007,7 @@ return parsed;
                  
 
 
-  <button onClick={()=>setShowSettingsModal(false)} className="w-full mt-8 py-3 bg-slate-800 text-white rounded-xl font-bold">完成設定</button>
+  <button onClick={() => { setShowSettingsModal(false); if(appState === 'verb_playing') { generateVerbQuestion(verbTestMode); } }} className="w-full mt-8 py-3 bg-slate-800 text-white rounded-xl font-bold">完成設定</button>
           </div>
         </div>
       )}
