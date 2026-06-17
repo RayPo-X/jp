@@ -7,7 +7,7 @@ import {
   Pause, SlidersHorizontal, Layers, FolderHeart, ShieldAlert, Trash2, Award, Medal,
   Heart, Swords, Skull, Flame, Home, Puzzle, Plus, Edit3, 
   Map as MapIcon, Library, BookType, Sparkles, Coffee, Car, Shirt, SmilePlus,
-  MessageSquareQuote, PenTool, RefreshCcw, Save, Pencil, Search, GripHorizontal
+  MessageSquareQuote, PenTool, RefreshCcw, Save, Pencil, Search, GripHorizontal, Star
 } from 'lucide-react';
 
 const renderTextWithStrikethrough = (text) => {
@@ -1018,7 +1018,7 @@ return parsed;
       setVocabMistakes(prev => ({...prev, [currentVocab.id]: currentVocab}));
     }
 
-    setRoundHistory(prev => [...prev, {
+    setRoundHistory(prev => [...prev, { id: currentVocab.id, isVocab: true,
       question: (vocabTestMode === 'sentence_srs' || vocabTestMode === 'sentence_infinite') ? 
         (currentQuestionDirection === 'j2c' ? (parseExample(currentVocab.example || currentVocab.word || currentVocab.reading).plainSentence || currentVocab.word || currentVocab.reading) : (parseExample(currentVocab.example || currentVocab.word || currentVocab.reading).translation || currentVocab.meaning)) 
         : (inputMode === 'kanji' ? `${currentVocab.reading} (${currentVocab.meaning})` : currentVocab.meaning),
@@ -1093,7 +1093,8 @@ return parsed;
     if (mode === 'grammar') {
       if (customGrammars.length === 0) { alert('您的自訂文法庫為空！請先新增。'); goHome(); return; }
       verbDB.forEach(word => {
-        customGrammars.forEach(grammar => { if (grammar.appliesTo.includes(word.type) && word[grammar.baseForm]) { availablePool.push({ word, target: grammar.id, grammarDef: grammar }); } });
+        customGrammars.forEach(grammar => { if (onlyImportantVerbTest && !word.isImportant) return;
+        if (grammar.appliesTo.includes(word.type) && word[grammar.baseForm]) { availablePool.push({ word, target: grammar.id, grammarDef: grammar }); } });
       });
     }
     else {
@@ -1114,7 +1115,12 @@ return parsed;
         if (customWordIds.length === 0) { alert('請先到設定勾選自訂單字！'); goHome(); return; }
         verbDB.filter(w => customWordIds.includes(w.id)).forEach(processWord);
       } else {
-        const filteredWords = verbDB.filter(w => activeWordTypes.includes(w.type));
+        let filteredWords = verbDB.filter(w => activeWordTypes.includes(w.type));
+        if (onlyImportantVerbTest) {
+          const impPool = filteredWords.filter(w => w.isImportant);
+          if (impPool.length > 0) filteredWords = impPool;
+          else alert('目前勾選的詞性中沒有標記為「重要」的動詞/形容詞！將回到一般出題。');
+        }
         if (filteredWords.length === 0) return;
         filteredWords.forEach(processWord);
       }
@@ -1178,7 +1184,7 @@ return parsed;
       setMistakeBank(prev => ({ ...prev, [`${currentVerb.id}_${currentTarget}`]: { wordObj: currentVerb, target: currentTarget, grammarDef: currentGrammarDef } }));
     }
 
-    setRoundHistory(prev => [...prev, { question: qTitle, userAnswer: finalAnswer, correctAnswer: currentCorrectPlain, userIsCorrect: isCorrect, explanation: exp }]);
+    setRoundHistory(prev => [...prev, { id: currentVerb.id, isVocab: false, question: qTitle, userAnswer: finalAnswer, correctAnswer: currentCorrectPlain, userIsCorrect: isCorrect, explanation: exp }]);
 
     if (!currentGrammarDef) {
       const srsKey = `${currentVerb.id}_${currentTarget}`;
@@ -2004,6 +2010,15 @@ return parsed;
                     <h3 className="text-sm font-bold text-slate-700 mb-2 uppercase tracking-wider">自動換題</h3>
                     <label className="flex items-center gap-2 cursor-pointer p-2"><input type="checkbox" checked={autoAdvance} onChange={(e)=>setAutoAdvance(e.target.checked)} className="w-5 h-5 text-blue-600 rounded"/><span>答對時自動進入下一題 (無縫體驗)</span></label>
                 </div>
+                <div>
+                    <h3 className="text-sm font-bold text-slate-700 mb-2 uppercase tracking-wider">⭐ 專屬特訓</h3>
+                    {(appState === 'vocab_playing' || appState === 'home') && (
+                      <label className="flex items-center gap-2 cursor-pointer p-2"><input type="checkbox" checked={onlyImportantVocabTest} onChange={(e)=>setOnlyImportantVocabTest(e.target.checked)} className="w-5 h-5 text-amber-500 rounded border-slate-300"/><span>僅針對標記為「重要」的單字出題</span></label>
+                    )}
+                    {(appState === 'verb_playing' || appState === 'home') && (
+                      <label className="flex items-center gap-2 cursor-pointer p-2"><input type="checkbox" checked={onlyImportantVerbTest} onChange={(e)=>setOnlyImportantVerbTest(e.target.checked)} className="w-5 h-5 text-amber-500 rounded border-slate-300"/><span>僅針對標記為「重要」的動詞/形容詞出題</span></label>
+                    )}
+                </div>
              </div>
              
                  {appState === 'verb_playing' && (
@@ -2642,6 +2657,13 @@ return parsed;
            <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-100">
              <div className="flex justify-between items-center mb-6">
   <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2"><BookType className="w-6 h-6 text-amber-500"/> 管理單字記憶庫</h2>
+  <div className="flex items-center gap-4 ml-4">
+      <label className="flex items-center gap-2 cursor-pointer select-none bg-amber-50 text-amber-700 px-3 py-1.5 rounded-xl font-bold border border-amber-200 hover:bg-amber-100 transition-colors">
+          <input type="checkbox" checked={showOnlyImportantVocab} onChange={(e)=>setShowOnlyImportantVocab(e.target.checked)} className="hidden"/>
+          <Star className={`w-4 h-4 ${showOnlyImportantVocab ? 'fill-amber-500 text-amber-500' : 'text-amber-500/50'}`}/>
+          只顯示重要
+      </label>
+  </div>
   <button onClick={() => {
     if(window.confirm('確定要將所有單字的複習進度重置為今天嗎？這將會讓所有單字出現在今日待複習清單中！')) {
       setVocabDB(vocabDB.map(v => ({ ...v, status: 'learning', interval: 0, repetitions: 0, nextReview: Date.now() })));
@@ -2851,6 +2873,7 @@ return parsed;
                           <td className="p-4 text-slate-500 font-medium">{v.interval === 0 ? '今天' : `${v.interval} 天後`}</td>
                           <td className="p-4 flex gap-1">
                              <button onClick={()=>{setEditingVocabId(v.id); setVocabEditForm({word: v.word||'', reading: v.reading||'', meaning: v.meaning||'', example: v.example||''});}} className="p-2 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-colors" title="編輯"><Edit3 className="w-4 h-4"/></button>
+                             <button onClick={() => {createVocabBackup(); setVocabDB(prev => prev.map(x => x.id === v.id ? { ...x, isImportant: !x.isImportant } : x))}} className={`p-2 rounded-lg transition-colors ${v.isImportant ? 'text-amber-500 bg-amber-50 hover:bg-amber-100' : 'text-slate-400 hover:text-amber-500 hover:bg-amber-50'}`} title="標記為重要"><Star className={`w-4 h-4 ${v.isImportant ? 'fill-current' : ''}`}/></button>
                              <button onClick={()=>{if(window.confirm('確定刪除？')){createVocabBackup(); setVocabDB(vocabDB.filter(x=>x.id!==v.id));}}} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="刪除"><Trash2 className="w-4 h-4"/></button>
                            </td>
                        </tr>
@@ -2964,6 +2987,13 @@ return parsed;
            <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-100">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2"><Library className="w-6 h-6 text-indigo-600"/> 動詞與形容詞庫</h2>
+                 <div className="flex items-center gap-4 ml-4">
+                     <label className="flex items-center gap-2 cursor-pointer select-none bg-amber-50 text-amber-700 px-3 py-1.5 rounded-xl font-bold border border-amber-200 hover:bg-amber-100 transition-colors">
+                         <input type="checkbox" checked={showOnlyImportantVerb} onChange={(e)=>setShowOnlyImportantVerb(e.target.checked)} className="hidden"/>
+                         <Star className={`w-4 h-4 ${showOnlyImportantVerb ? 'fill-amber-500 text-amber-500' : 'text-amber-500/50'}`}/>
+                         只顯示重要
+                     </label>
+                 </div>
               </div>
               <div className="bg-indigo-50 p-6 rounded-3xl border border-indigo-100 mb-8">
                                   <div className="flex justify-between items-center mb-4"><h3 className="font-bold text-indigo-800 text-lg">批次與單筆新增動詞/形容詞</h3></div>
@@ -3136,7 +3166,8 @@ return parsed;
     if (colId === 'actions') {
         return <td key={colId} className="p-4 flex gap-1">
             <button onClick={()=>{setEditingVerbId(v.id); setVerbEditForm({ ...v });}} className="p-2 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 rounded-lg transition-colors" title="編輯"><Edit3 className="w-4 h-4"/></button>
-            <button onClick={()=>{if(window.confirm('確定刪除？')) setVerbDB(verbDB.filter(x=>x.id!==v.id))}} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="刪除"><Trash2 className="w-4 h-4"/></button>
+            <button onClick={() => setVerbDB(prev => prev.map(x => x.id === v.id ? { ...x, isImportant: !x.isImportant } : x))} className={`p-2 rounded-lg transition-colors ${v.isImportant ? 'text-amber-500 bg-amber-50 hover:bg-amber-100' : 'text-slate-400 hover:text-amber-500 hover:bg-amber-50'}`} title="標記為重要"><Star className={`w-4 h-4 ${v.isImportant ? 'fill-current' : ''}`}/></button>
+                             <button onClick={()=>{if(window.confirm('確定刪除？')) setVerbDB(verbDB.filter(x=>x.id!==v.id))}} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="刪除"><Trash2 className="w-4 h-4"/></button>
         </td>;
     }
     
@@ -3169,7 +3200,20 @@ return parsed;
                  <div className="space-y-4">
                    {roundHistory.filter(h => !h.userIsCorrect).length === 0 ? <div className="text-green-600 font-bold text-center py-6">太神啦！全對無錯題！🎉</div> : (
                      roundHistory.filter(h => !h.userIsCorrect).map((item, idx) => (
-                       <div key={idx} className="bg-white p-4 rounded-xl border border-red-100 shadow-sm"><div className="text-sm text-slate-600 mb-2 font-bold">{item.question}</div><div className="flex gap-4 text-sm font-bold mb-3"><div className="text-red-500 line-through">你的答案: {item.userAnswer || '未作答'}</div><div className="text-green-600">正確答案: {item.correctAnswer}</div></div><div className="text-xs bg-red-50 p-2 rounded text-red-800 leading-relaxed font-medium">💡 解析：{item.explanation}</div></div>
+                       <div key={idx} className="bg-white p-4 rounded-xl border border-red-100 shadow-sm relative">
+                          <button 
+                            onClick={() => {
+                               if(item.isVocab) {
+                                  setVocabDB(prev => prev.map(x => x.id === item.id ? { ...x, isImportant: !x.isImportant } : x));
+                               } else {
+                                  setVerbDB(prev => prev.map(x => x.id === item.id ? { ...x, isImportant: !x.isImportant } : x));
+                               }
+                            }}
+                            className={`absolute top-3 right-3 p-2 rounded-lg transition-colors ${(item.isVocab ? vocabDB.find(x=>x.id===item.id)?.isImportant : verbDB.find(x=>x.id===item.id)?.isImportant) ? 'text-amber-500 bg-amber-50' : 'text-slate-300 hover:text-amber-500 hover:bg-amber-50'}`} 
+                            title="標記為重要">
+                            <Star className={`w-5 h-5 ${(item.isVocab ? vocabDB.find(x=>x.id===item.id)?.isImportant : verbDB.find(x=>x.id===item.id)?.isImportant) ? 'fill-current' : ''}`}/>
+                          </button>
+                          <div className="text-sm text-slate-600 mb-2 font-bold pr-10">{item.question}</div><div className="flex gap-4 text-sm font-bold mb-3"><div className="text-red-500 line-through">你的答案: {item.userAnswer || '未作答'}</div><div className="text-green-600">正確答案: {item.correctAnswer}</div></div><div className="text-xs bg-red-50 p-2 rounded text-red-800 leading-relaxed font-medium">💡 解析：{item.explanation}</div></div>
                      ))
                    )}
                  </div>
@@ -3211,9 +3255,17 @@ return parsed;
                      <div className="bg-slate-100 px-4 py-1.5 rounded-full text-sm font-bold text-slate-600 w-fit">{appState === 'vocab_playing' && vocabTestMode === 'srs' ? `SRS 待處理: ${activeVocabQueue.length}` : `題目: ${questionCount} / ${TOTAL_QUESTIONS}`}</div>
                   )}
                </div>
-               {actualTimeLimit > 0 && (
-                  <div className="flex items-center gap-2 mt-1"><button onClick={() => setIsPaused(true)} className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg bg-slate-50 border border-slate-200"><Pause className="w-4 h-4" /></button><div className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-bold ${timeLeft <= 3 && !feedback ? 'bg-red-100 text-red-600 animate-pulse' : 'bg-slate-100 text-slate-600'}`}><Timer className="w-4 h-4" /> {timeLeft}s</div></div>
-               )}
+               <div className="flex items-start gap-2 mt-1">
+                 <button onClick={() => {
+                     if (appState === 'vocab_playing' && currentVocab) setVocabDB(prev => prev.map(x => x.id === currentVocab.id ? { ...x, isImportant: !x.isImportant } : x));
+                     if (appState === 'verb_playing' && currentVerb) setVerbDB(prev => prev.map(x => x.id === currentVerb.id ? { ...x, isImportant: !x.isImportant } : x));
+                 }} className={`p-1.5 rounded-lg transition-colors border ${(appState === 'vocab_playing' ? currentVocab?.isImportant : currentVerb?.isImportant) ? 'bg-amber-50 text-amber-500 border-amber-200' : 'bg-slate-50 text-slate-300 hover:text-amber-500 border-slate-200'}`} title="標記為重要">
+                    <Star className={`w-5 h-5 ${(appState === 'vocab_playing' ? currentVocab?.isImportant : currentVerb?.isImportant) ? 'fill-current' : ''}`}/>
+                 </button>
+                 {actualTimeLimit > 0 && (
+                    <div className="flex items-center gap-2"><button onClick={() => setIsPaused(true)} className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg bg-slate-50 border border-slate-200"><Pause className="w-4 h-4" /></button><div className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-bold ${timeLeft <= 3 && !feedback ? 'bg-red-100 text-red-600 animate-pulse' : 'bg-slate-100 text-slate-600'}`}><Timer className="w-4 h-4" /> {timeLeft}s</div></div>
+                 )}
+               </div>
             </div>
 
             {appState === 'vocab_playing' && currentVocab && (
