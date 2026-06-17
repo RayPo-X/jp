@@ -2793,14 +2793,34 @@ return parsed;
              <div className="overflow-x-auto">
                <table className="w-full text-left text-sm">
                  <thead className="bg-slate-50 text-slate-600"><tr>
-                    <th className="p-4 rounded-tl-xl cursor-pointer hover:bg-slate-100 transition-colors select-none" onClick={() => handleSort('tag')}>主題標籤{renderSortIcon('tag')}</th>
-                    <th className="p-4 cursor-pointer hover:bg-slate-100 transition-colors select-none" onClick={() => handleSort('type')}>類型{renderSortIcon('type')}</th>
-                    <th className="p-4 cursor-pointer hover:bg-slate-100 transition-colors select-none" onClick={() => handleSort('word')}>單字 (平假名){renderSortIcon('word')}</th>
-                    <th className="p-4 cursor-pointer hover:bg-slate-100 transition-colors select-none" onClick={() => handleSort('meaning')}>中文 / 例句{renderSortIcon('meaning')}</th>
-                    <th className="p-4 cursor-pointer hover:bg-slate-100 transition-colors select-none" onClick={() => handleSort('status')}>熟練度{renderSortIcon('status')}</th>
-                    <th className="p-4 cursor-pointer hover:bg-slate-100 transition-colors select-none" onClick={() => handleSort('dateAdded')}>加入日期{renderSortIcon('dateAdded')}</th>
-                    <th className="p-4 cursor-pointer hover:bg-slate-100 transition-colors select-none" onClick={() => handleSort('nextReview')}>下次複習{renderSortIcon('nextReview')}</th>
-                    <th className="p-4 rounded-tr-xl">操作</th>
+                    {vocabTableColumnOrder.map((colId, idx) => {
+                        const def = vocabColDefinitions[colId];
+                        if (!def) return null;
+                        return (
+                            <th key={colId} 
+                                draggable
+                                onDragStart={(e) => { setDragVocabColIdx(idx); e.dataTransfer.effectAllowed = 'move'; }}
+                                onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverVocabColIdx(idx); }}
+                                onDragEnd={() => {
+                                    if (dragVocabColIdx !== null && dragOverVocabColIdx !== null && dragVocabColIdx !== dragOverVocabColIdx) {
+                                        const newOrder = [...vocabTableColumnOrder];
+                                        const item = newOrder.splice(dragVocabColIdx, 1)[0];
+                                        newOrder.splice(dragOverVocabColIdx, 0, item);
+                                        setVocabTableColumnOrder(newOrder);
+                                    }
+                                    setDragVocabColIdx(null);
+                                    setDragOverVocabColIdx(null);
+                                }}
+                                className={`p-4 whitespace-nowrap cursor-grab active:cursor-grabbing hover:bg-slate-100 transition-colors select-none ${dragVocabColIdx === idx ? 'opacity-30' : ''} ${dragOverVocabColIdx === idx && dragVocabColIdx !== idx ? (dragVocabColIdx < dragOverVocabColIdx ? 'border-r-4 border-r-amber-500' : 'border-l-4 border-l-amber-500') : ''}`}
+                                onClick={() => def.sortable && handleSort(colId)}
+                            >
+                                <div className="flex items-center gap-1">
+                                   <GripHorizontal className="w-3 h-3 text-slate-300 shrink-0"/>
+                                   {def.label}{def.sortable && renderSortIcon(colId)}
+                                </div>
+                            </th>
+                        );
+                    })}
                  </tr></thead>
                  <tbody>
                     {sortedVocabDB.map(v => editingVocabId === v.id ? (
