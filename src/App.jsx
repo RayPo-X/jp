@@ -1503,6 +1503,18 @@ return parsed;
         isSentence: !!v.isSentence,
         ef: 2.5, interval: 0, repetitions: 0, nextReview: 0, status: addToReviewNow ? 'learning' : 'new'
     }));
+
+    const isDuplicate = (nv) => vocabDB.some(ev => {
+        if (nv.word) return ev.word === nv.word;
+        return ev.reading === nv.reading && !ev.word;
+    });
+    const duplicates = newVocabs.filter(isDuplicate);
+    if (duplicates.length > 0) {
+        const dupWords = duplicates.map(d => d.word || d.reading).join(', ');
+        alert(`批次新增失敗！發現重複的單字：\n${dupWords}\n\n請手動刪除重複項目後再試一次！`);
+        return;
+    }
+
     if (newVocabs.length > 0) {
         setVocabDB(prev => [...prev, ...newVocabs]);
         setBatchInputs(Array.from({ length: 5 }, () => ({ word: '', reading: '', meaning: '', tag: '自訂', example: '', isSentence: false })));
@@ -1772,6 +1784,13 @@ return parsed;
 
     const validVerbs = newVerbs.filter(v => v.jisho && v.meaning);
     if (validVerbs.length > 0) {
+        const isVerbDuplicate = (nv) => verbDB.some(ev => (ev.jisho && ev.jisho === nv.jisho) || (ev.masu && ev.masu === nv.masu));
+        const duplicates = validVerbs.filter(isVerbDuplicate);
+        if (duplicates.length > 0) {
+            const dupWords = duplicates.map(d => d.jisho || d.masu).join(', ');
+            alert(`批次新增失敗！發現重複的動詞/形容詞：\n${dupWords}\n\n請手動刪除重複項目後再試一次！`);
+            return;
+        }
         setVerbDB(prev => [...prev, ...validVerbs.map((v, i) => ({ ...v, tag: guessThemeByMeaning(v.meaning, vocabDB), id: v.type + '_custom_' + Date.now() + '_' + i }))]);
         setVerbImportText('');
         alert('成功匯入 ' + validVerbs.length + ' 個詞彙！');
@@ -1782,6 +1801,11 @@ return parsed;
 
   const handleAddVerb = () => {
     if (!verbInputs.masu || !verbInputs.meaning) return alert('請填寫至少 masu, meaning');
+    const isVerbDuplicate = verbDB.some(ev => (ev.jisho && ev.jisho === verbInputs.jisho) || (ev.masu && ev.masu === verbInputs.masu));
+    if (isVerbDuplicate) {
+        alert('此動詞/形容詞已存在於題庫中（辭書形或ます形重複），禁止重複新增！');
+        return;
+    }
     const newTag = guessThemeByMeaning(verbInputs.meaning, vocabDB);
     setVerbDB(prev => [...prev, { ...verbInputs, tag: newTag, id: `${verbInputs.type}_custom_${Date.now()}` }]);
     setVerbInputs(getInitialVerbInputs());
