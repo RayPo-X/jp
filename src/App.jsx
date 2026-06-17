@@ -448,6 +448,10 @@ return parsed;
   }, [vocabDB, themeSuggestionSeed]);
   const [flashcardQueue, setFlashcardQueue] = useState([]);
   const [currentFlashcardIndex, setCurrentFlashcardIndex] = useState(0);
+  const [showOnlyImportantVocab, setShowOnlyImportantVocab] = useState(false);
+  const [showOnlyImportantVerb, setShowOnlyImportantVerb] = useState(false);
+  const [onlyImportantVocabTest, setOnlyImportantVocabTest] = useState(false);
+  const [onlyImportantVerbTest, setOnlyImportantVerbTest] = useState(false);
   
   const [referenceAmount, setReferenceAmount] = useState(5);
   const [referenceTheme, setReferenceTheme] = useState('random');
@@ -932,6 +936,12 @@ return parsed;
       if(themeData) setCurrentThemeLabel(themeData.name);
     }
     
+    
+    if (onlyImportantVocabTest) {
+      const impPool = queue.filter(w => w.isImportant);
+      if (impPool.length > 0) queue = impPool;
+      else alert('目前的單字範圍內沒有標記為「重要」的項目！將回到一般出題。');
+    }
     
     if (inputMode === 'kanji') {
       queue = queue.filter(v => v.word && v.word.trim() !== '' && v.word !== v.reading);
