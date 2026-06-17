@@ -505,11 +505,12 @@ return parsed;
   
   useEffect(() => {
     const formIds = verbForms.map(f => f.id);
-    const defaultCols = ['type', 'tag', 'meaning', 'dateAdded', 'actions'];
+    const defaultCols = ['isImportant', 'type', 'tag', 'meaning', 'dateAdded', 'actions'];
     setVerbTableColumnOrder(prev => {
        let newOrder = [...prev].filter(id => defaultCols.includes(id) || formIds.includes(id));
        
-       if (!newOrder.includes('type')) newOrder.splice(0, 0, 'type');
+       if (!newOrder.includes('isImportant')) newOrder.splice(0, 0, 'isImportant');
+       if (!newOrder.includes('type')) newOrder.splice(1, 0, 'type');
        if (!newOrder.includes('tag')) newOrder.splice(1, 0, 'tag');
        
        let insertIdx = newOrder.indexOf('tag') + 1;
@@ -534,6 +535,37 @@ return parsed;
     }
   }, [verbTableColumnOrder]);
 
+  const [vocabTableColumnOrder, setVocabTableColumnOrder] = useState(() => {
+    try {
+      const saved = localStorage.getItem('verbApp_vocabTableColumnOrder');
+      if (saved) {
+         let arr = JSON.parse(saved);
+         if (!arr.includes('isImportant')) arr = ['isImportant', ...arr];
+         return arr;
+      }
+    } catch {}
+    return ['isImportant', 'tag', 'type', 'word', 'meaning', 'status', 'dateAdded', 'nextReview', 'actions'];
+  });
+  const [dragVocabColIdx, setDragVocabColIdx] = useState(null);
+  const [dragOverVocabColIdx, setDragOverVocabColIdx] = useState(null);
+  
+  useEffect(() => {
+    if (vocabTableColumnOrder.length > 0) {
+      localStorage.setItem('verbApp_vocabTableColumnOrder', JSON.stringify(vocabTableColumnOrder));
+    }
+  }, [vocabTableColumnOrder]);
+
+  const vocabColDefinitions = {
+    'isImportant': { label: '重要(⭐)', sortable: true },
+    'tag': { label: '主題標籤', sortable: true },
+    'type': { label: '類型', sortable: true },
+    'word': { label: '單字 (平假名)', sortable: true },
+    'meaning': { label: '中文 / 例句', sortable: true },
+    'status': { label: '熟練度', sortable: true },
+    'dateAdded': { label: '加入日期', sortable: true },
+    'nextReview': { label: '下次複習', sortable: true },
+    'actions': { label: '操作', sortable: false }
+  };
   const [dragTableColIdx, setDragTableColIdx] = useState(null);
   const [dragOverTableColIdx, setDragOverTableColIdx] = useState(null);
 
