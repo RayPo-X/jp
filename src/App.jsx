@@ -409,13 +409,15 @@ export default function App() {
          let parsed = JSON.parse(saved);
          if (!Array.isArray(parsed)) throw new Error('Invalid DB');
          parsed = parsed.filter(v => v !== null && v !== undefined).map(v => {
-           if (!v.status) return { ...v, status: v.repetitions >= 5 ? 'mastered' : 'new' };
+           let updatedV = { ...v, learnStatus: v.learnStatus || 'new', correctDates: v.correctDates || [] };
+           if (!updatedV.status) updatedV.status = updatedV.repetitions >= 5 ? 'mastered' : 'new';
+           return updatedV;
            return v;
          });
 return parsed;
       }
-      return INITIAL_VOCAB_DB.map(v => ({ ...v, status: 'new' }));
-    } catch { return INITIAL_VOCAB_DB.map(v => ({ ...v, status: 'new' })); }
+      return INITIAL_VOCAB_DB.map(v => ({ ...v, status: 'new', learnStatus: 'new', correctDates: [] }));
+    } catch { return INITIAL_VOCAB_DB.map(v => ({ ...v, status: 'new', learnStatus: 'new', correctDates: [] })); }
   });
   const [vocabMistakes, setVocabMistakes] = useState({});
   const [vocabTestMode, setVocabTestMode] = useState('srs'); 
@@ -473,9 +475,9 @@ return parsed;
       const saved = localStorage.getItem('verbApp_verbDB');
       if (saved) {
           const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed)) return parsed.map(v => ({ ...v, learnStatus: v.learnStatus || 'new', correctCount: v.correctCount || 0 }));
+          if (Array.isArray(parsed)) return parsed.map(v => ({ ...v, learnStatus: v.learnStatus || 'new', correctDates: v.correctDates || [] }));
       }
-      return INITIAL_VERB_DB.map(v => ({ ...v, learnStatus: 'new', correctCount: 0 }));
+      return INITIAL_VERB_DB.map(v => ({ ...v, learnStatus: 'new', correctDates: [] }));
     } catch { return INITIAL_VERB_DB; }
   });
   useEffect(() => { localStorage.setItem('verbApp_verbDB', JSON.stringify(verbDB)); }, [verbDB]);
@@ -545,10 +547,11 @@ return parsed;
       if (saved) {
          let arr = JSON.parse(saved);
          if (!arr.includes('isImportant')) arr = ['isImportant', ...arr];
+         if (!arr.includes('learnStatus')) arr.splice(1, 0, 'learnStatus');
          return arr;
       }
     } catch {}
-    return ['isImportant', 'tag', 'type', 'word', 'meaning', 'status', 'dateAdded', 'nextReview', 'actions'];
+    return ['isImportant', 'learnStatus', 'tag', 'type', 'word', 'meaning', 'status', 'dateAdded', 'nextReview', 'actions'];
   });
   const [dragVocabColIdx, setDragVocabColIdx] = useState(null);
   const [dragOverVocabColIdx, setDragOverVocabColIdx] = useState(null);
@@ -561,6 +564,7 @@ return parsed;
 
   const vocabColDefinitions = {
     'isImportant': { label: '重要(⭐)', sortable: true },
+    'learnStatus': { label: '學習狀態', sortable: true },
     'tag': { label: '主題標籤', sortable: true },
     'type': { label: '類型', sortable: true },
     'word': { label: '單字 (平假名)', sortable: true },
@@ -1243,8 +1247,9 @@ return parsed;
       if (verbTestMode === 'rpg') setHp(prev => prev + 1);
       setVerbDB(prev => prev.map(x => {
         if (x.id !== currentVerb.id) return x;
-        const newCount = (x.correctCount || 0) + 1;
-        return { ...x, correctCount: newCount, learnStatus: newCount >= 3 ? 'learned' : x.learnStatus };
+        const todayStr = new Date().toLocaleDateString('en-CA'); // e.g. YYYY-MM-DD
+        const newDates = Array.from(new Set([...(x.correctDates || []), todayStr]));
+        return { ...x, correctDates: newDates, learnStatus: newDates.length >= 3 ? 'learned' : x.learnStatus };
       }));
     } else {
       setCombo(0);
@@ -2258,7 +2263,11 @@ return parsed;
               </div>
 
               {/* Stats Cards */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                <div className="bg-green-50 border border-green-100 rounded-2xl p-4 text-center">
+                  <div className="text-3xl font-black text-green-600 leading-none mb-1.5">{vocabDB.filter(v => v.learnStatus === 'learned').length}</div>
+                  <div className="text-xs font-bold text-green-700/70">已學習詞彙</div>
+                </div>
                 <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 text-center">
                   <div className="text-3xl font-black text-amber-600 leading-none mb-1.5">{todayQueue.length}</div>
                   <div className="text-xs font-bold text-amber-700/70">單字待複習</div>
@@ -2931,6 +2940,15 @@ return parsed;
                                     <button onClick={() => {createVocabBackup(); setVocabDB(prev => prev.map(x => x.id === v.id ? { ...x, isImportant: !x.isImportant } : x))}} className={`p-2 rounded-lg transition-colors ${v.isImportant ? 'text-amber-500 bg-amber-50 hover:bg-amber-100' : 'text-slate-400 hover:text-amber-500 hover:bg-amber-50'}`} title="標記為重要"><Star className={`w-4 h-4 ${v.isImportant ? 'fill-current' : ''}`}/></button>
                                 </td>;
                              }
+                             if (colId === 'learnStatus') {
+                                const isLearned = v.learnStatus === 'learned';
+                                return <td key={colId} className="p-4 text-center">
+                                  <span className={`px-3 py-1.5 rounded-full text-xs font-bold border ${isLearned ? 'bg-emerald-50 text-emerald-700 border-emerald-300' : 'bg-slate-50 text-slate-400 border-slate-200'}`}>
+                                    {isLearned ? '✓ 已學習' : '待學習'}
+                                  </span>
+                                  <div className="text-[10px] text-slate-400 mt-1 font-mono">{(v.correctDates || []).length} / 3 天</div>
+                                </td>;
+                             }
                              if (colId === 'tag') {
                                 return <td key={colId} className="p-4">
                                   <div className="flex items-center gap-1.5">
@@ -3094,7 +3112,7 @@ return parsed;
                            )}
                          </div>
                          <div className="flex items-center gap-2 shrink-0">
-                           {(() => { const isGLearned = (grammarProgress[g.id]?.repetitions || 0) >= 3 || g.learnStatus === 'learned'; return (<button onClick={() => setCustomGrammars(prev => prev.map(x => x.id === g.id ? { ...x, learnStatus: isGLearned && g.learnStatus === 'learned' ? 'new' : 'learned' } : x))} className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${isGLearned ? 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100' : 'bg-slate-50 text-slate-400 border-slate-200 hover:bg-slate-100 hover:text-slate-600'}`} title={isGLearned ? '已學習（點擊可重置手動標記）' : '手動標記為已學習'}>{isGLearned ? '✓ 已學習' : '待學習'}</button>); })()}
+                           {(() => { const isGLearned = (grammarProgress[g.id]?.repetitions || 0) >= 3 || g.learnStatus === 'learned'; return (<span className={`px-3 py-1.5 rounded-full text-xs font-bold border ${isGLearned ? 'bg-emerald-50 text-emerald-700 border-emerald-300' : 'bg-slate-50 text-slate-400 border-slate-200'}`} title={isGLearned ? '系統判定已學習' : '系統判定待學習'}>{isGLearned ? '✓ 已學習' : '待學習'}</span>); })()}
                            <button onClick={() => setCustomGrammars(prev => prev.map(x => x.id === g.id ? { ...x, isImportant: !x.isImportant } : x))} className={`p-3 rounded-xl transition-colors ${g.isImportant ? 'text-amber-500 bg-amber-50 hover:bg-amber-100' : 'text-slate-400 hover:text-amber-500 hover:bg-amber-50'}`} title="標記為重要"><Star className={`w-5 h-5 ${g.isImportant ? 'fill-current' : ''}`}/></button>
                            <button onClick={() => handleEditGrammar(g)} className="p-3 text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-colors" title="編輯公式"><Pencil className="w-5 h-5"/></button>
                            <button onClick={() => {if(window.confirm('確定刪除？')) setCustomGrammars(customGrammars.filter(x=>x.id!==g.id))}} className="p-3 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors" title="刪除公式"><Trash2 className="w-5 h-5"/></button>
@@ -3284,6 +3302,15 @@ return parsed;
     if (colId === 'isImportant') {
         return <td key={colId} className="p-4 text-center">
             <button onClick={() => setVerbDB(prev => prev.map(x => x.id === v.id ? { ...x, isImportant: !x.isImportant } : x))} className={`p-2 rounded-lg transition-colors ${v.isImportant ? 'text-amber-500 bg-amber-50 hover:bg-amber-100' : 'text-slate-400 hover:text-amber-500 hover:bg-amber-50'}`} title="標記為重要"><Star className={`w-4 h-4 ${v.isImportant ? 'fill-current' : ''}`}/></button>
+        </td>;
+    }
+    if (colId === 'learnStatus') {
+        const isLearned = v.learnStatus === 'learned';
+        return <td key={colId} className="p-4 text-center">
+            <button onClick={() => setVerbDB(prev => prev.map(x => x.id === v.id ? { ...x, learnStatus: isLearned ? 'new' : 'learned' } : x))} className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${isLearned ? 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100' : 'bg-slate-50 text-slate-400 border-slate-200 hover:bg-slate-100 hover:text-slate-600'}`} title={isLearned ? '點擊重設為待學習' : '手動標記為已學習'}>
+                {isLearned ? '✓ 已學習' : '待學習'}
+            </button>
+            <div className="text-[10px] text-slate-400 mt-1 font-mono">{(v.correctDates || []).length} / 3 天</div>
         </td>;
     }
     if (colId === 'type') {
