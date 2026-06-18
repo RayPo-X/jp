@@ -570,6 +570,7 @@ return parsed;
   const [dragOverTableColIdx, setDragOverTableColIdx] = useState(null);
 
   const colDefinitions = {
+    'isImportant': { label: '重要(⭐)', sortable: true },
     'type': { label: '類型/群組', sortable: true },
     'tag': { label: '標籤/主題', sortable: true },
     'meaning': { label: '中文意思', sortable: true },
