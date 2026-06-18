@@ -2355,7 +2355,7 @@ return parsed;
               </div>
 
               {/* Grammar Stats Cards */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
                  <div className="bg-green-50 border border-green-100 rounded-2xl p-4 text-center">
                    <div className="text-3xl font-black text-green-600 leading-none mb-1.5">{verbDB.filter(v => v.learnStatus === 'learned').length}</div>
                    <div className="text-xs font-bold text-green-700/70">已學習詞彙</div>
@@ -2371,6 +2371,10 @@ return parsed;
                 <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-center">
                   <div className="text-3xl font-black text-slate-700 leading-none mb-1.5">{Object.keys(grammarProgress).length}</div>
                   <div className="text-xs font-bold text-slate-400">已練習</div>
+                </div>
+                <div className="bg-red-50 border border-red-100 rounded-2xl p-4 text-center">
+                  <div className="text-3xl font-black text-red-500 leading-none mb-1.5">{Object.keys(mistakeBank).length}</div>
+                  <div className="text-xs font-bold text-red-400">累積錯題</div>
                 </div>
               </div>
 
