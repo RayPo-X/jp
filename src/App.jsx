@@ -2914,13 +2914,13 @@ return parsed;
 
              <datalist id="db-theme-suggestions">{Array.from(new Set(vocabDB.map(v => v.tag))).filter(Boolean).map(tag => <option key={tag} value={tag} />)}</datalist>
              <div className="overflow-x-auto">
-               <table className="w-full text-left text-sm table-fixed">
+               <table className="min-w-full text-left text-sm table-fixed">
                  <thead className="bg-slate-50 text-slate-600"><tr>
                     {vocabTableColumnOrder.map((colId, idx) => {
                         const def = vocabColDefinitions[colId];
                         if (!def) return null;
                         return (
-                                                        <th key={colId} 
+                                                                                    <th key={colId} 
                                 className={`p-0 relative bg-slate-50 text-slate-600 select-none ${dragVocabColIdx === idx ? 'opacity-30' : ''} ${dragOverVocabColIdx === idx && dragVocabColIdx !== idx ? (dragVocabColIdx < dragOverVocabColIdx ? 'border-r-4 border-r-amber-500' : 'border-l-4 border-l-amber-500') : ''}`}
                                 style={{ width: vocabColWidths[colId] || (['isImportant', 'actions'].includes(colId) ? 80 : undefined) }}
                             >
@@ -2951,9 +2951,11 @@ return parsed;
                                     const startWidth = e.currentTarget.parentElement.getBoundingClientRect().width;
                                     resizingRef.current = { tableType: 'vocab', colId, startX: e.clientX, startWidth };
                                   }}
-                                  className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-amber-400 z-10"
+                                  className="absolute -right-2 top-0 bottom-0 w-4 cursor-col-resize hover:bg-amber-400/50 z-20 flex items-center justify-center group"
                                   title="拖曳縮放"
-                                />
+                                >
+                                  <div className="w-0.5 h-1/2 bg-amber-400 opacity-0 group-hover:opacity-100 transition-opacity rounded-full"></div>
+                                </div>
                             </th>
                         );
                     })}
@@ -3285,7 +3287,7 @@ return parsed;
               </div>
 
               <div className="overflow-x-auto">
-               <table className="w-full text-left text-sm table-fixed">
+               <table className="min-w-full text-left text-sm table-fixed">
                  <thead className="bg-slate-50 text-slate-600"><tr>
                     {verbTableColumnOrder.map((colId, idx) => {
         const isBuiltIn = colDefinitions[colId];
@@ -3296,7 +3298,7 @@ return parsed;
         const sortable = isBuiltIn ? isBuiltIn.sortable : false;
         
         return (
-                        <th key={colId} 
+                                    <th key={colId} 
                 className={`p-0 relative bg-slate-50 text-slate-600 select-none ${dragTableColIdx === idx ? 'opacity-30' : ''} ${dragOverTableColIdx === idx && dragTableColIdx !== idx ? (dragTableColIdx < dragOverTableColIdx ? 'border-r-4 border-r-indigo-500' : 'border-l-4 border-l-indigo-500') : ''}`}
                 style={{ width: verbColWidths[colId] || (['isImportant', 'actions'].includes(colId) ? 80 : undefined) }}
             >
@@ -3327,9 +3329,11 @@ return parsed;
                     const startWidth = e.currentTarget.parentElement.getBoundingClientRect().width;
                     resizingRef.current = { tableType: 'verb', colId, startX: e.clientX, startWidth };
                   }}
-                  className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-indigo-400 z-10"
+                  className="absolute -right-2 top-0 bottom-0 w-4 cursor-col-resize hover:bg-indigo-400/50 z-20 flex items-center justify-center group"
                   title="拖曳縮放"
-                />
+                >
+                  <div className="w-0.5 h-1/2 bg-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity rounded-full"></div>
+                </div>
             </th>
         );
     })}
