@@ -3004,7 +3004,7 @@ return parsed;
                              title="依照重要標記排序"
                            >
                              <Star className={`w-4 h-4 ${grammarSortConfig.key === 'isImportant' ? 'fill-current' : ''}`}/> 
-                             {grammarSortConfig.key === 'isImportant' ? (grammarSortConfig.direction === 'desc' ? '遞減' : '遞增') : '排序'}
+                             {grammarSortConfig.key === 'isImportant' ? (grammarSortConfig.direction === 'desc' ? '星號置頂' : '星號置底') : '排序'}
                            </button>
                          </div>
                      <div className="flex items-center gap-2">
