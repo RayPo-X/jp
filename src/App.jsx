@@ -3004,7 +3004,7 @@ return parsed;
                      </div>
                    </div>
                    <datalist id="grammar-tags-list">{Array.from(new Set([...customGrammars.map(g => g.tag), ...vocabDB.map(v => v.tag)])).filter(Boolean).map(tag => <option key={tag} value={tag} />)}</datalist>
-                    {customGrammars.filter(g => !grammarFilterTag || g.tag === grammarFilterTag).map(g => (
+                    {customGrammars.filter(g => !grammarFilterTag || g.tag === grammarFilterTag).sort((a, b) => (a.isImportant === b.isImportant ? 0 : a.isImportant ? -1 : 1)).map(g => (
                       <div key={g.id} className="p-5 bg-white border border-slate-200 rounded-2xl flex justify-between items-center shadow-sm hover:border-emerald-300 transition-colors">
                          <div className="flex-1 min-w-0 pr-4">
                            <div className="flex items-center gap-2 mb-1.5 flex-nowrap">
