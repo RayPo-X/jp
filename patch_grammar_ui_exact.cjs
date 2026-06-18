@@ -1,50 +1,30 @@
 const fs = require('fs');
-let c = fs.readFileSync('src/App.jsx', 'utf8');
-let lines = c.split('\n');
+let lines = fs.readFileSync('src/App.jsx', 'utf8').split('\n');
 
-const replaceStr = `                                <div className="ml-1 w-full mt-2 text-slate-600 font-bold flex flex-col gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200 shadow-sm">
-                                   <div className="text-[13px] text-slate-400 font-normal mb-1">變化過程範例：</div>
-                                   {(() => {
-                                       const selectedVerb = verbDB.find(v => v.jisho === exampleVerbId) || verbDB[0];
-                                       const baseWord = selectedVerb && selectedVerb[g.baseForm] ? stripRuby(selectedVerb[g.baseForm]) : '〇〇';
-                                       const jishoStr = selectedVerb && selectedVerb.jisho ? stripRuby(selectedVerb.jisho) : '〇〇';
-                                       const baseLabel = verbForms.find(f=>f.id===g.baseForm)?.label || '基礎';
-                                       
-                                       let displayStr = baseWord;
-                                       let resultStr = baseWord;
-                                       if (g.removeStr) {
-                                           if (baseWord.endsWith(g.removeStr)) {
-                                               displayStr = baseWord.slice(0, -g.removeStr.length) + \`~~\${g.removeStr}~~\`;
-                                               resultStr = baseWord.slice(0, -g.removeStr.length);
-                                           } else {
-                                               displayStr = baseWord + \`~~\${g.removeStr}~~\`;
-                                           }
-                                       }
-                                       resultStr += (g.appendStr || '');
-                                       return (
-                                         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                                           <div className="flex items-center gap-2">
-                                             <span className="text-slate-500 font-medium text-xs bg-slate-200 px-1.5 py-0.5 rounded">原形</span>
-                                             <span>{jishoStr}</span>
-                                           </div>
-                                           <ArrowRight className="w-4 h-4 text-slate-300 hidden sm:block mx-1" />
-                                           <div className="flex items-center gap-2">
-                                             <span className="text-slate-500 font-medium text-xs bg-slate-200 px-1.5 py-0.5 rounded">{baseLabel}</span>
-                                             <span>{renderTextWithStrikethrough(displayStr)}</span>
-                                           </div>
-                                           <ArrowRight className="w-4 h-4 text-emerald-300 hidden sm:block mx-1" />
-                                           <div className="flex items-center gap-2 bg-emerald-50 px-2.5 py-1.5 rounded-lg border border-emerald-100 shadow-sm">
-                                             <span className="text-emerald-600 font-black text-xs">完成</span>
-                                             <span className="text-emerald-700 font-black text-[15px]">{resultStr}</span>
-                                           </div>
-                                         </div>
-                                       );
-                                   })()}
-                                </div>`;
+const testGenNewStr = `      verbDB.forEach(word => {
+        customGrammars.forEach(grammar => { 
+          if (onlyImportantVerbTest && !word.isImportant) return;
+          if (onlyImportantGrammarTest && !grammar.isImportant) return;
+          if (grammar.appliesTo.includes(word.type) && word[grammar.baseForm]) { availablePool.push({ word, target: grammar.id, grammarDef: grammar }); } 
+        });
+      });`;
 
-// Replace lines 2702 to 2732 (inclusive). In 0-indexed array, this is lines[2701] to lines[2731]
-// The number of lines to remove is 32 - 1 = 31 lines
-lines.splice(2701, 31, replaceStr);
+const testOptNewStr = `                    {(appState === 'verb_playing' || appState === 'home') && (
+                      <>
+                        <label className="flex items-center gap-2 cursor-pointer p-2"><input type="checkbox" checked={onlyImportantVerbTest} onChange={(e)=>setOnlyImportantVerbTest(e.target.checked)} className="w-5 h-5 text-amber-500 rounded border-slate-300"/><span>僅針對標記為「重要」的動詞/形容詞出題</span></label>
+                        <label className="flex items-center gap-2 cursor-pointer p-2"><input type="checkbox" checked={onlyImportantGrammarTest} onChange={(e)=>setOnlyImportantGrammarTest(e.target.checked)} className="w-5 h-5 text-emerald-500 rounded border-slate-300"/><span>僅針對標記為「重要」的文法公式出題</span></label>
+                      </>
+                    )}`;
+
+const cardBtnNewStr = `                         <div className="flex items-center gap-2 shrink-0">
+                           <button onClick={() => setCustomGrammars(prev => prev.map(x => x.id === g.id ? { ...x, isImportant: !x.isImportant } : x))} className={\`p-3 rounded-xl transition-colors \${g.isImportant ? 'text-amber-500 bg-amber-50 hover:bg-amber-100' : 'text-slate-400 hover:text-amber-500 hover:bg-amber-50'}\`} title="標記為重要"><Star className={\`w-5 h-5 \${g.isImportant ? 'fill-current' : ''}\`}/></button>
+                           <button onClick={() => handleEditGrammar(g)} className="p-3 text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-colors" title="編輯公式"><Pencil className="w-5 h-5"/></button>
+                           <button onClick={() => {if(window.confirm('確定刪除？')) setCustomGrammars(customGrammars.filter(x=>x.id!==g.id))}} className="p-3 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors" title="刪除公式"><Trash2 className="w-5 h-5"/></button>
+                         </div>`;
+
+lines.splice(3036, 4, cardBtnNewStr);
+lines.splice(2061, 3, testOptNewStr);
+lines.splice(1138, 4, testGenNewStr);
 
 fs.writeFileSync('src/App.jsx', lines.join('\n'));
-console.log('done');
+console.log('done patching grammar ui exactly');
