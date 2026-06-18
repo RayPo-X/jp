@@ -409,15 +409,18 @@ export default function App() {
          let parsed = JSON.parse(saved);
          if (!Array.isArray(parsed)) throw new Error('Invalid DB');
          parsed = parsed.filter(v => v !== null && v !== undefined).map(v => {
-           let updatedV = { ...v, learnStatus: v.learnStatus || 'new', correctDates: v.correctDates || [] };
-           if (!updatedV.status) updatedV.status = updatedV.repetitions >= 5 ? 'mastered' : 'new';
+           let updatedV = { ...v, correctDates: v.correctDates || [] };
+           if (updatedV.learnStatus === 'learned' && updatedV.status === 'new') updatedV.status = 'learning';
+           if (updatedV.repetitions >= 5 && updatedV.status !== 'mastered' && updatedV.status !== 'learning') updatedV.status = 'learning';
+           if (!updatedV.status) updatedV.status = 'new';
+           if (updatedV.status === 'mastered' && (updatedV.interval || 0) < 60) updatedV.status = 'learning';
+           delete updatedV.learnStatus;
            return updatedV;
-           return v;
          });
 return parsed;
       }
-      return INITIAL_VOCAB_DB.map(v => ({ ...v, status: 'new', learnStatus: 'new', correctDates: [] }));
-    } catch { return INITIAL_VOCAB_DB.map(v => ({ ...v, status: 'new', learnStatus: 'new', correctDates: [] })); }
+      return INITIAL_VOCAB_DB.map(v => ({ ...v, status: 'new', correctDates: [] }));
+    } catch { return INITIAL_VOCAB_DB.map(v => ({ ...v, status: 'new', correctDates: [] })); }
   });
   const [vocabMistakes, setVocabMistakes] = useState({});
   const [vocabTestMode, setVocabTestMode] = useState('srs'); 
@@ -547,11 +550,13 @@ return parsed;
       if (saved) {
          let arr = JSON.parse(saved);
          if (!arr.includes('isImportant')) arr = ['isImportant', ...arr];
-         if (!arr.includes('learnStatus')) arr.splice(1, 0, 'learnStatus');
+         // Remove old learnStatus if exists
+         arr = arr.filter(col => col !== 'learnStatus');
+         if (!arr.includes('status')) arr.splice(1, 0, 'status');
          return arr;
       }
     } catch {}
-    return ['isImportant', 'learnStatus', 'tag', 'type', 'word', 'meaning', 'status', 'dateAdded', 'nextReview', 'actions'];
+    return ['isImportant', 'status', 'tag', 'type', 'word', 'meaning', 'dateAdded', 'nextReview', 'actions'];
   });
   const [dragVocabColIdx, setDragVocabColIdx] = useState(null);
   const [dragOverVocabColIdx, setDragOverVocabColIdx] = useState(null);
@@ -564,12 +569,11 @@ return parsed;
 
   const vocabColDefinitions = {
     'isImportant': { label: '重要(⭐)', sortable: true },
-    'learnStatus': { label: '學習狀態', sortable: true },
     'tag': { label: '主題標籤', sortable: true },
     'type': { label: '類型', sortable: true },
     'word': { label: '單字 (平假名)', sortable: true },
     'meaning': { label: '中文 / 例句', sortable: true },
-    'status': { label: '熟練度', sortable: true },
+    'status': { label: '學習狀態', sortable: true },
     'dateAdded': { label: '加入日期', sortable: true },
     'nextReview': { label: '下次複習', sortable: true },
     'actions': { label: '操作', sortable: false }
@@ -1063,11 +1067,7 @@ return parsed;
     setUserInput(finalAnswer);
     
     if (isCorrect) {
-      setVerbDB(prev => prev.map(x => {
-        if (x.id !== currentVerb.id) return x;
-        const newCount = (x.correctCount || 0) + 1;
-        return { ...x, correctCount: newCount, learnStatus: newCount >= 3 ? 'learned' : x.learnStatus };
-      }));
+
       setScore(prev => prev + 1);
       setCombo(prev => prev + 1);
       if (vocabTestMode === 'mistakes') setVocabMistakes(prev => { const newM = {...prev}; delete newM[currentVocab.id]; return newM; });
@@ -2263,22 +2263,29 @@ return parsed;
               </div>
 
               {/* Stats Cards */}
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                <div className="bg-green-50 border border-green-100 rounded-2xl p-4 text-center">
-                  <div className="text-3xl font-black text-green-600 leading-none mb-1.5">{vocabDB.filter(v => v.learnStatus === 'learned').length}</div>
-                  <div className="text-xs font-bold text-green-700/70">已學習詞彙</div>
+              {/* Stats Cards */}
+              <div className="grid grid-cols-3 gap-3 mb-3">
+                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-center">
+                  <div className="text-3xl font-black text-slate-500 leading-none mb-1.5">{vocabDB.filter(v => v.status === 'new').length}</div>
+                  <div className="text-xs font-bold text-slate-500/70">📚 待學習</div>
+                </div>
+                <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 text-center">
+                  <div className="text-3xl font-black text-blue-600 leading-none mb-1.5">{vocabDB.filter(v => v.status === 'learning').length}</div>
+                  <div className="text-xs font-bold text-blue-700/70">🎯 已學習</div>
                 </div>
                 <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 text-center">
-                  <div className="text-3xl font-black text-amber-600 leading-none mb-1.5">{todayQueue.length}</div>
-                  <div className="text-xs font-bold text-amber-700/70">單字待複習</div>
+                  <div className="text-3xl font-black text-amber-600 leading-none mb-1.5">{vocabDB.filter(v => v.status === 'mastered').length}</div>
+                  <div className="text-xs font-bold text-amber-700/70">🏆 精通</div>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="bg-orange-50 border border-orange-100 rounded-2xl p-4 text-center">
+                  <div className="text-3xl font-black text-orange-600 leading-none mb-1.5">{todayQueue.length}</div>
+                  <div className="text-xs font-bold text-orange-700/70">單字待複習</div>
                 </div>
                 <div className="bg-fuchsia-50 border border-fuchsia-100 rounded-2xl p-4 text-center">
                   <div className="text-3xl font-black text-fuchsia-600 leading-none mb-1.5">{todaySentenceQueue.length}</div>
                   <div className="text-xs font-bold text-fuchsia-700/70">例句待複習</div>
-                </div>
-                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-center">
-                  <div className="text-3xl font-black text-slate-700 leading-none mb-1.5">{vocabDB.length}</div>
-                  <div className="text-xs font-bold text-slate-400">單字庫/例句 總共</div>
                 </div>
                 <div className="bg-red-50 border border-red-100 rounded-2xl p-4 text-center">
                   <div className="text-3xl font-black text-red-500 leading-none mb-1.5">{Object.keys(vocabMistakes).length}</div>
@@ -2944,15 +2951,7 @@ return parsed;
                                     <button onClick={() => {createVocabBackup(); setVocabDB(prev => prev.map(x => x.id === v.id ? { ...x, isImportant: !x.isImportant } : x))}} className={`p-2 rounded-lg transition-colors ${v.isImportant ? 'text-amber-500 bg-amber-50 hover:bg-amber-100' : 'text-slate-400 hover:text-amber-500 hover:bg-amber-50'}`} title="標記為重要"><Star className={`w-4 h-4 ${v.isImportant ? 'fill-current' : ''}`}/></button>
                                 </td>;
                              }
-                             if (colId === 'learnStatus') {
-                                const isLearned = v.learnStatus === 'learned';
-                                return <td key={colId} className="p-4 text-center">
-                                  <span className={`px-3 py-1.5 rounded-full text-xs font-bold border ${isLearned ? 'bg-emerald-50 text-emerald-700 border-emerald-300' : 'bg-slate-50 text-slate-400 border-slate-200'}`}>
-                                    {isLearned ? '✓ 已學習' : '待學習'}
-                                  </span>
-                                  <div className="text-[10px] text-slate-400 mt-1 font-mono">{(v.correctDates || []).length} / 3 天</div>
-                                </td>;
-                             }
+
                              if (colId === 'tag') {
                                 return <td key={colId} className="p-4">
                                   <div className="flex items-center gap-1.5">
@@ -2998,10 +2997,14 @@ return parsed;
                                 return <td key={colId} className="p-4"><div className="font-bold text-slate-700">{v.meaning}</div>{v.example && <div className="text-slate-500 text-xs mt-1 bg-slate-100 p-1.5 rounded inline-block">{renderRuby(v.example)}</div>}</td>;
                              }
                              if (colId === 'status') {
-                                return <td key={colId} className="p-4">
-                                  <div className="flex items-center gap-1.5">
-                                    <span className="text-base">{getVocabBadge(v).emoji}</span>
-                                    <span className="bg-emerald-50 text-emerald-700 px-2 py-1 rounded-lg font-mono text-xs border border-emerald-100">EF {v.ef.toFixed(1)}</span>
+                                const isNew = v.status === 'new';
+                                const isMastered = v.status === 'mastered';
+                                return <td key={colId} className="p-4 text-center">
+                                  <span className={`px-3 py-1.5 rounded-full text-xs font-bold border ${isNew ? 'bg-slate-50 text-slate-400 border-slate-200' : isMastered ? 'bg-amber-50 text-amber-600 border-amber-300' : 'bg-blue-50 text-blue-600 border-blue-300'}`}>
+                                    {isNew ? '📚 待學習' : isMastered ? '🏆 精通' : '🎯 已學習'}
+                                  </span>
+                                  <div className="text-[10px] text-slate-400 mt-1 font-mono">
+                                    {isNew ? `${(v.correctDates || []).length} / 3 天` : `間隔 ${v.interval || 0} 天`}
                                   </div>
                                 </td>;
                              }
