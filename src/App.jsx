@@ -453,6 +453,8 @@ return parsed;
   const [onlyImportantVocabTest, setOnlyImportantVocabTest] = useState(false);
   const [onlyImportantVerbTest, setOnlyImportantVerbTest] = useState(false);
   const [onlyImportantGrammarTest, setOnlyImportantGrammarTest] = useState(false);
+  const [onlyLearnedVerbTest, setOnlyLearnedVerbTest] = useState(false);
+  const [onlyLearnedGrammarTest, setOnlyLearnedGrammarTest] = useState(false);
   
   const [referenceAmount, setReferenceAmount] = useState(5);
   const [referenceTheme, setReferenceTheme] = useState('random');
@@ -471,9 +473,9 @@ return parsed;
       const saved = localStorage.getItem('verbApp_verbDB');
       if (saved) {
           const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed)) return parsed;
+          if (Array.isArray(parsed)) return parsed.map(v => ({ ...v, learnStatus: v.learnStatus || 'new', correctCount: v.correctCount || 0 }));
       }
-      return INITIAL_VERB_DB;
+      return INITIAL_VERB_DB.map(v => ({ ...v, learnStatus: 'new', correctCount: 0 }));
     } catch { return INITIAL_VERB_DB; }
   });
   useEffect(() => { localStorage.setItem('verbApp_verbDB', JSON.stringify(verbDB)); }, [verbDB]);
@@ -511,7 +513,8 @@ return parsed;
        let newOrder = [...prev].filter(id => defaultCols.includes(id) || formIds.includes(id));
        
        if (!newOrder.includes('isImportant')) newOrder.splice(0, 0, 'isImportant');
-       if (!newOrder.includes('type')) newOrder.splice(1, 0, 'type');
+       if (!newOrder.includes('learnStatus')) newOrder.splice(1, 0, 'learnStatus');
+       if (!newOrder.includes('type')) newOrder.splice(2, 0, 'type');
        if (!newOrder.includes('tag')) newOrder.splice(1, 0, 'tag');
        
        let insertIdx = newOrder.indexOf('tag') + 1;
@@ -572,6 +575,7 @@ return parsed;
 
   const colDefinitions = {
     'isImportant': { label: '重要(⭐)', sortable: true },
+    'learnStatus': { label: '學習狀態', sortable: true },
     'type': { label: '類型/群組', sortable: true },
     'tag': { label: '標籤/主題', sortable: true },
     'meaning': { label: '中文意思', sortable: true },
@@ -599,10 +603,11 @@ return parsed;
         let parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
             parsed = parsed.map(g => {
-                if (g && g.name && g.name.includes('〜')) {
-                    return { ...g, name: g.name.replace(/〜/g, ' ＿') };
+                let ng = { ...g, learnStatus: g.learnStatus || 'new' };
+                if (ng && ng.name && ng.name.includes('〜')) {
+                    ng = { ...ng, name: ng.name.replace(/〜/g, ' ＿') };
                 }
-                return g;
+                return ng;
             });
             return parsed;
         }
@@ -1054,6 +1059,11 @@ return parsed;
     setUserInput(finalAnswer);
     
     if (isCorrect) {
+      setVerbDB(prev => prev.map(x => {
+        if (x.id !== currentVerb.id) return x;
+        const newCount = (x.correctCount || 0) + 1;
+        return { ...x, correctCount: newCount, learnStatus: newCount >= 3 ? 'learned' : x.learnStatus };
+      }));
       setScore(prev => prev + 1);
       setCombo(prev => prev + 1);
       if (vocabTestMode === 'mistakes') setVocabMistakes(prev => { const newM = {...prev}; delete newM[currentVocab.id]; return newM; });
@@ -1140,6 +1150,7 @@ return parsed;
         customGrammars.forEach(grammar => { 
           if (onlyImportantVerbTest && !word.isImportant) return;
           if (onlyImportantGrammarTest && !grammar.isImportant) return;
+          if (onlyLearnedGrammarTest && !((grammarProgress[grammar.id]?.repetitions || 0) >= 3 || grammar.learnStatus === 'learned')) return;
           if (grammar.appliesTo.includes(word.type) && word[grammar.baseForm]) { availablePool.push({ word, target: grammar.id, grammarDef: grammar }); } 
         });
       });
@@ -1167,6 +1178,11 @@ return parsed;
           const impPool = filteredWords.filter(w => w.isImportant);
           if (impPool.length > 0) filteredWords = impPool;
           else alert('目前勾選的詞性中沒有標記為「重要」的動詞/形容詞！將回到一般出題。');
+        }
+        if (onlyLearnedVerbTest) {
+          const learnedPool = filteredWords.filter(w => w.learnStatus === 'learned');
+          if (learnedPool.length > 0) filteredWords = learnedPool;
+          else alert('目前沒有已學習的動詞/形容詞！將回到全部出題。');
         }
         if (filteredWords.length === 0) return;
         filteredWords.forEach(processWord);
@@ -1225,6 +1241,11 @@ return parsed;
       setScore(prev => prev + 1);
       setCombo(prev => prev + 1);
       if (verbTestMode === 'rpg') setHp(prev => prev + 1);
+      setVerbDB(prev => prev.map(x => {
+        if (x.id !== currentVerb.id) return x;
+        const newCount = (x.correctCount || 0) + 1;
+        return { ...x, correctCount: newCount, learnStatus: newCount >= 3 ? 'learned' : x.learnStatus };
+      }));
     } else {
       setCombo(0);
       if (verbTestMode === 'rpg') setHp(prev => prev - 1);
@@ -2067,6 +2088,8 @@ return parsed;
                       <>
                         <label className="flex items-center gap-2 cursor-pointer p-2"><input type="checkbox" checked={onlyImportantVerbTest} onChange={(e)=>setOnlyImportantVerbTest(e.target.checked)} className="w-5 h-5 text-amber-500 rounded border-slate-300"/><span>僅針對標記為「重要」的動詞/形容詞出題</span></label>
                         <label className="flex items-center gap-2 cursor-pointer p-2"><input type="checkbox" checked={onlyImportantGrammarTest} onChange={(e)=>setOnlyImportantGrammarTest(e.target.checked)} className="w-5 h-5 text-emerald-500 rounded border-slate-300"/><span>僅針對標記為「重要」的文法公式出題</span></label>
+                        <label className="flex items-center gap-2 cursor-pointer p-2 border-t border-slate-100 mt-1"><input type="checkbox" checked={onlyLearnedVerbTest} onChange={(e)=>setOnlyLearnedVerbTest(e.target.checked)} className="w-5 h-5 text-emerald-600 rounded border-slate-300"/><span>只從「已學習」的動詞/形容詞出題</span></label>
+                        <label className="flex items-center gap-2 cursor-pointer p-2"><input type="checkbox" checked={onlyLearnedGrammarTest} onChange={(e)=>setOnlyLearnedGrammarTest(e.target.checked)} className="w-5 h-5 text-emerald-600 rounded border-slate-300"/><span>只從「已學習」的文法公式出題</span></label>
                       </>
                     )}
                 </div>
@@ -2323,7 +2346,7 @@ return parsed;
               </div>
 
               {/* Grammar Stats Cards */}
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 text-center">
                   <div className="text-3xl font-black text-blue-600 leading-none mb-1.5">{todayGrammarQueue.length}</div>
                   <div className="text-xs font-bold text-blue-700/70">待複習</div>
@@ -2335,6 +2358,10 @@ return parsed;
                 <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-center">
                   <div className="text-3xl font-black text-slate-700 leading-none mb-1.5">{Object.keys(grammarProgress).length}</div>
                   <div className="text-xs font-bold text-slate-400">已練習</div>
+                 <div className="bg-green-50 border border-green-100 rounded-2xl p-4 text-center">
+                   <div className="text-3xl font-black text-green-600 leading-none mb-1.5">{verbDB.filter(v => v.learnStatus === 'learned').length}</div>
+                   <div className="text-xs font-bold text-green-700/70">已學習詞彙</div>
+                 </div>
                 </div>
               </div>
 
@@ -3067,6 +3094,7 @@ return parsed;
                            )}
                          </div>
                          <div className="flex items-center gap-2 shrink-0">
+                           {(() => { const isGLearned = (grammarProgress[g.id]?.repetitions || 0) >= 3 || g.learnStatus === 'learned'; return (<button onClick={() => setCustomGrammars(prev => prev.map(x => x.id === g.id ? { ...x, learnStatus: isGLearned && g.learnStatus === 'learned' ? 'new' : 'learned' } : x))} className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${isGLearned ? 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100' : 'bg-slate-50 text-slate-400 border-slate-200 hover:bg-slate-100 hover:text-slate-600'}`} title={isGLearned ? '已學習（點擊可重置手動標記）' : '手動標記為已學習'}>{isGLearned ? '✓ 已學習' : '待學習'}</button>); })()}
                            <button onClick={() => setCustomGrammars(prev => prev.map(x => x.id === g.id ? { ...x, isImportant: !x.isImportant } : x))} className={`p-3 rounded-xl transition-colors ${g.isImportant ? 'text-amber-500 bg-amber-50 hover:bg-amber-100' : 'text-slate-400 hover:text-amber-500 hover:bg-amber-50'}`} title="標記為重要"><Star className={`w-5 h-5 ${g.isImportant ? 'fill-current' : ''}`}/></button>
                            <button onClick={() => handleEditGrammar(g)} className="p-3 text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-colors" title="編輯公式"><Pencil className="w-5 h-5"/></button>
                            <button onClick={() => {if(window.confirm('確定刪除？')) setCustomGrammars(customGrammars.filter(x=>x.id!==g.id))}} className="p-3 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors" title="刪除公式"><Trash2 className="w-5 h-5"/></button>
