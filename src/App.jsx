@@ -1742,6 +1742,7 @@ return parsed;
   };
 
   const [editingGrammarId, setEditingGrammarId] = useState(null);
+  const [grammarSortConfig, setGrammarSortConfig] = useState({ key: null, direction: null });
   const [grammarFilterTag, setGrammarFilterTag] = useState('');
   const [newGrammar, setNewGrammar] = useState({ name: '', baseForm: 'te', removeStr: '', appendStr: '', appliesTo: ['verb'], example: '', exampleTranslation: '', processExample: '', note: '', tag: '' });
   
@@ -2986,10 +2987,26 @@ return parsed;
                  <div className="space-y-4">
                    <div className="flex justify-between items-center mb-4">
                      <h3 className="font-bold text-slate-700 text-lg">已儲存的公式</h3>
-                         <select value={grammarFilterTag} onChange={e => setGrammarFilterTag(e.target.value)} className="p-2 border border-slate-200 rounded-lg text-sm bg-white outline-none focus:border-emerald-400 text-slate-600">
-                           <option value="">所有分類</option>
-                           {Array.from(new Set(customGrammars.map(g => g.tag))).filter(Boolean).map(tag => <option key={tag} value={tag}>{tag}</option>)}
-                         </select>
+                         <div className="flex items-center gap-2">
+                           <select value={grammarFilterTag} onChange={e => setGrammarFilterTag(e.target.value)} className="p-2 border border-slate-200 rounded-lg text-sm bg-white outline-none focus:border-emerald-400 text-slate-600">
+                             <option value="">所有分類</option>
+                             {Array.from(new Set(customGrammars.map(g => g.tag))).filter(Boolean).map(tag => <option key={tag} value={tag}>{tag}</option>)}
+                           </select>
+                           <button 
+                             onClick={() => {
+                                 setGrammarSortConfig(prev => {
+                                     if (prev.key !== 'isImportant') return { key: 'isImportant', direction: 'desc' };
+                                     if (prev.direction === 'desc') return { key: 'isImportant', direction: 'asc' };
+                                     return { key: null, direction: null };
+                                 });
+                             }} 
+                             className={`p-2 border rounded-lg text-sm font-bold flex items-center gap-1 transition-colors ${grammarSortConfig.key === 'isImportant' ? 'bg-amber-50 border-amber-300 text-amber-700' : 'bg-white border-slate-200 text-slate-600 hover:border-amber-300 hover:text-amber-600'}`}
+                             title="依照重要標記排序"
+                           >
+                             <Star className={`w-4 h-4 ${grammarSortConfig.key === 'isImportant' ? 'fill-current' : ''}`}/> 
+                             {grammarSortConfig.key === 'isImportant' ? (grammarSortConfig.direction === 'desc' ? '遞減' : '遞增') : '排序'}
+                           </button>
+                         </div>
                      <div className="flex items-center gap-2">
                        <span className="text-sm font-bold text-slate-500">💡 選擇示範單字：</span>
                        <select 
@@ -3004,7 +3021,16 @@ return parsed;
                      </div>
                    </div>
                    <datalist id="grammar-tags-list">{Array.from(new Set([...customGrammars.map(g => g.tag), ...vocabDB.map(v => v.tag)])).filter(Boolean).map(tag => <option key={tag} value={tag} />)}</datalist>
-                    {customGrammars.filter(g => !grammarFilterTag || g.tag === grammarFilterTag).sort((a, b) => (a.isImportant === b.isImportant ? 0 : a.isImportant ? -1 : 1)).map(g => (
+                    {customGrammars.filter(g => !grammarFilterTag || g.tag === grammarFilterTag).sort((a, b) => {
+                        if (grammarSortConfig.key === 'isImportant') {
+                            const valA = a.isImportant ? 1 : 0;
+                            const valB = b.isImportant ? 1 : 0;
+                            if (valA !== valB) {
+                                return grammarSortConfig.direction === 'desc' ? valB - valA : valA - valB;
+                            }
+                        }
+                        return 0;
+                    }).map(g => (
                       <div key={g.id} className="p-5 bg-white border border-slate-200 rounded-2xl flex justify-between items-center shadow-sm hover:border-emerald-300 transition-colors">
                          <div className="flex-1 min-w-0 pr-4">
                            <div className="flex items-center gap-2 mb-1.5 flex-nowrap">
