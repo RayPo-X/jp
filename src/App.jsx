@@ -561,6 +561,41 @@ return parsed;
   const [dragVocabColIdx, setDragVocabColIdx] = useState(null);
   const [dragOverVocabColIdx, setDragOverVocabColIdx] = useState(null);
   
+  const resizingRef = useRef(null);
+  const [vocabColWidths, setVocabColWidths] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('verbApp_vocabColWidths')) || {}; } catch { return {}; }
+  });
+  const [verbColWidths, setVerbColWidths] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('verbApp_verbColWidths')) || {}; } catch { return {}; }
+  });
+
+  useEffect(() => {
+    localStorage.setItem('verbApp_vocabColWidths', JSON.stringify(vocabColWidths));
+  }, [vocabColWidths]);
+  useEffect(() => {
+    localStorage.setItem('verbApp_verbColWidths', JSON.stringify(verbColWidths));
+  }, [verbColWidths]);
+
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (!resizingRef.current) return;
+      const { tableType, colId, startX, startWidth } = resizingRef.current;
+      const diffX = e.clientX - startX;
+      let newWidth = Math.max(50, startWidth + diffX);
+      if (tableType === 'vocab') setVocabColWidths(prev => ({ ...prev, [colId]: newWidth }));
+      else setVerbColWidths(prev => ({ ...prev, [colId]: newWidth }));
+    };
+    const handleMouseUp = () => {
+      if (resizingRef.current) resizingRef.current = null;
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, []);
+  
   useEffect(() => {
     if (vocabTableColumnOrder.length > 0) {
       localStorage.setItem('verbApp_vocabTableColumnOrder', JSON.stringify(vocabTableColumnOrder));
@@ -2879,33 +2914,46 @@ return parsed;
 
              <datalist id="db-theme-suggestions">{Array.from(new Set(vocabDB.map(v => v.tag))).filter(Boolean).map(tag => <option key={tag} value={tag} />)}</datalist>
              <div className="overflow-x-auto">
-               <table className="w-full text-left text-sm">
+               <table className="w-full text-left text-sm table-fixed">
                  <thead className="bg-slate-50 text-slate-600"><tr>
                     {vocabTableColumnOrder.map((colId, idx) => {
                         const def = vocabColDefinitions[colId];
                         if (!def) return null;
                         return (
-                            <th key={colId} 
-                                draggable
-                                onDragStart={(e) => { setDragVocabColIdx(idx); e.dataTransfer.effectAllowed = 'move'; }}
-                                onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverVocabColIdx(idx); }}
-                                onDragEnd={() => {
-                                    if (dragVocabColIdx !== null && dragOverVocabColIdx !== null && dragVocabColIdx !== dragOverVocabColIdx) {
-                                        const newOrder = [...vocabTableColumnOrder];
-                                        const item = newOrder.splice(dragVocabColIdx, 1)[0];
-                                        newOrder.splice(dragOverVocabColIdx, 0, item);
-                                        setVocabTableColumnOrder(newOrder);
-                                    }
-                                    setDragVocabColIdx(null);
-                                    setDragOverVocabColIdx(null);
-                                }}
-                                className={`p-4 whitespace-nowrap cursor-grab active:cursor-grabbing hover:bg-slate-100 transition-colors select-none ${dragVocabColIdx === idx ? 'opacity-30' : ''} ${dragOverVocabColIdx === idx && dragVocabColIdx !== idx ? (dragVocabColIdx < dragOverVocabColIdx ? 'border-r-4 border-r-amber-500' : 'border-l-4 border-l-amber-500') : ''}`}
-                                onClick={() => def.sortable && handleSort(colId)}
+                                                        <th key={colId} 
+                                className={`p-0 relative bg-slate-50 text-slate-600 select-none ${dragVocabColIdx === idx ? 'opacity-30' : ''} ${dragOverVocabColIdx === idx && dragVocabColIdx !== idx ? (dragVocabColIdx < dragOverVocabColIdx ? 'border-r-4 border-r-amber-500' : 'border-l-4 border-l-amber-500') : ''}`}
+                                style={{ width: vocabColWidths[colId] || (['isImportant', 'actions'].includes(colId) ? 80 : undefined) }}
                             >
-                                <div className="flex items-center gap-1">
+                                <div 
+                                  draggable
+                                  onDragStart={(e) => { setDragVocabColIdx(idx); e.dataTransfer.effectAllowed = 'move'; }}
+                                  onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverVocabColIdx(idx); }}
+                                  onDragEnd={() => {
+                                      if (dragVocabColIdx !== null && dragOverVocabColIdx !== null && dragVocabColIdx !== dragOverVocabColIdx) {
+                                          const newOrder = [...vocabTableColumnOrder];
+                                          const item = newOrder.splice(dragVocabColIdx, 1)[0];
+                                          newOrder.splice(dragOverVocabColIdx, 0, item);
+                                          setVocabTableColumnOrder(newOrder);
+                                      }
+                                      setDragVocabColIdx(null);
+                                      setDragOverVocabColIdx(null);
+                                  }}
+                                  className="p-4 whitespace-nowrap cursor-grab active:cursor-grabbing hover:bg-slate-100 transition-colors flex items-center gap-1 w-full h-full overflow-hidden"
+                                  onClick={() => { if(!resizingRef.current) { def.sortable && handleSort(colId); } }}
+                                >
                                    <GripHorizontal className="w-3 h-3 text-slate-300 shrink-0"/>
                                    {def.label}{def.sortable && renderSortIcon(colId)}
                                 </div>
+                                <div 
+                                  onMouseDown={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    const startWidth = e.currentTarget.parentElement.getBoundingClientRect().width;
+                                    resizingRef.current = { tableType: 'vocab', colId, startX: e.clientX, startWidth };
+                                  }}
+                                  className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-amber-400 z-10"
+                                  title="拖曳縮放"
+                                />
                             </th>
                         );
                     })}
@@ -3237,7 +3285,7 @@ return parsed;
               </div>
 
               <div className="overflow-x-auto">
-               <table className="w-full text-left text-sm">
+               <table className="w-full text-left text-sm table-fixed">
                  <thead className="bg-slate-50 text-slate-600"><tr>
                     {verbTableColumnOrder.map((colId, idx) => {
         const isBuiltIn = colDefinitions[colId];
@@ -3248,27 +3296,40 @@ return parsed;
         const sortable = isBuiltIn ? isBuiltIn.sortable : false;
         
         return (
-            <th key={colId} 
-                draggable
-                onDragStart={(e) => { setDragTableColIdx(idx); e.dataTransfer.effectAllowed = 'move'; }}
-                onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverTableColIdx(idx); }}
-                onDragEnd={() => {
-                    if (dragTableColIdx !== null && dragOverTableColIdx !== null && dragTableColIdx !== dragOverTableColIdx) {
-                        const newOrder = [...verbTableColumnOrder];
-                        const item = newOrder.splice(dragTableColIdx, 1)[0];
-                        newOrder.splice(dragOverTableColIdx, 0, item);
-                        setVerbTableColumnOrder(newOrder);
-                    }
-                    setDragTableColIdx(null);
-                    setDragOverTableColIdx(null);
-                }}
-                className={`p-4 whitespace-nowrap cursor-grab active:cursor-grabbing hover:bg-slate-100 transition-colors select-none ${dragTableColIdx === idx ? 'opacity-30' : ''} ${dragOverTableColIdx === idx && dragTableColIdx !== idx ? (dragTableColIdx < dragOverTableColIdx ? 'border-r-4 border-r-indigo-500' : 'border-l-4 border-l-indigo-500') : ''}`}
-                onClick={() => sortable && handleVerbSort(colId)}
+                        <th key={colId} 
+                className={`p-0 relative bg-slate-50 text-slate-600 select-none ${dragTableColIdx === idx ? 'opacity-30' : ''} ${dragOverTableColIdx === idx && dragTableColIdx !== idx ? (dragTableColIdx < dragOverTableColIdx ? 'border-r-4 border-r-indigo-500' : 'border-l-4 border-l-indigo-500') : ''}`}
+                style={{ width: verbColWidths[colId] || (['isImportant', 'actions'].includes(colId) ? 80 : undefined) }}
             >
-                <div className="flex items-center gap-1">
+                <div 
+                  draggable
+                  onDragStart={(e) => { setDragTableColIdx(idx); e.dataTransfer.effectAllowed = 'move'; }}
+                  onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverTableColIdx(idx); }}
+                  onDragEnd={() => {
+                      if (dragTableColIdx !== null && dragOverTableColIdx !== null && dragTableColIdx !== dragOverTableColIdx) {
+                          const newOrder = [...verbTableColumnOrder];
+                          const item = newOrder.splice(dragTableColIdx, 1)[0];
+                          newOrder.splice(dragOverTableColIdx, 0, item);
+                          setVerbTableColumnOrder(newOrder);
+                      }
+                      setDragTableColIdx(null);
+                      setDragOverTableColIdx(null);
+                  }}
+                  className="p-4 whitespace-nowrap cursor-grab active:cursor-grabbing hover:bg-slate-100 transition-colors flex items-center gap-1 w-full h-full overflow-hidden"
+                  onClick={() => { if(!resizingRef.current) { sortable && handleVerbSort(colId); } }}
+                >
                    <GripHorizontal className="w-3 h-3 text-slate-300 shrink-0"/>
                    {label}{sortable && renderVerbSortIcon(colId)}
                 </div>
+                <div 
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const startWidth = e.currentTarget.parentElement.getBoundingClientRect().width;
+                    resizingRef.current = { tableType: 'verb', colId, startX: e.clientX, startWidth };
+                  }}
+                  className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-indigo-400 z-10"
+                  title="拖曳縮放"
+                />
             </th>
         );
     })}
