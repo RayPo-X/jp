@@ -2948,7 +2948,7 @@ return parsed;
                    ↩ 重設欄寬
                  </button>
                </div>
-               <table className="text-left text-sm table-fixed" style={{ width: 'max-content', minWidth: '100%' }}>
+               <table className="text-left text-sm table-fixed" style={{ width: vocabTableColumnOrder.reduce((acc, colId) => acc + (vocabColWidths[colId] ?? VOCAB_DEFAULT_WIDTHS[colId] ?? 100), 0) }}>
                  <thead className="bg-slate-50 text-slate-600"><tr>
                     {vocabTableColumnOrder.map((colId, idx) => {
                         const def = vocabColDefinitions[colId];
@@ -3329,7 +3329,7 @@ return parsed;
                      ↩ 重設欄寬
                    </button>
                  </div>
-                <table className="text-left text-sm table-fixed" style={{ width: 'max-content', minWidth: '100%' }}>
+               <table className="text-left text-sm table-fixed" style={{ width: verbTableColumnOrder.reduce((acc, colId) => acc + (verbColWidths[colId] ?? (VERB_DEFAULT_WIDTHS[colId] || (verbForms.find(f => f.id === colId) ? 120 : 100))), 0) }}>
                  <thead className="bg-slate-50 text-slate-600"><tr>
                     {verbTableColumnOrder.map((colId, idx) => {
         const isBuiltIn = colDefinitions[colId];
