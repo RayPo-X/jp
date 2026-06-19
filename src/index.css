@@ -24,6 +24,13 @@ ruby rt {
   scrollbar-width: none;
 }
 
+table.table-fixed th,
+table.table-fixed td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 @layer utilities {
   .animate-in {
     animation: animateIn 0.2s ease-out;

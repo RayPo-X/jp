@@ -602,7 +602,7 @@ return parsed;
       if (!resizingRef.current) return;
       const { tableType, colId, startX, startWidth } = resizingRef.current;
       const diffX = e.clientX - startX;
-      let newWidth = Math.max(50, startWidth + diffX);
+      let newWidth = Math.max(15, startWidth + diffX);
       if (tableType === 'vocab') setVocabColWidths(prev => ({ ...prev, [colId]: newWidth }));
       else setVerbColWidths(prev => ({ ...prev, [colId]: newWidth }));
     };
