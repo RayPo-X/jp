@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { autoConjugate, deriveJishoFromMasu } from './conjugator';
 import { BUILT_IN_DICTIONARY, getAvailableThemes, getWordsByTheme } from './dictionary';
 import { 
@@ -561,6 +561,27 @@ return parsed;
   const [dragVocabColIdx, setDragVocabColIdx] = useState(null);
   const [dragOverVocabColIdx, setDragOverVocabColIdx] = useState(null);
   
+  const VOCAB_DEFAULT_WIDTHS = {
+    'isImportant': 70,
+    'status': 110,
+    'tag': 110,
+    'type': 80,
+    'word': 160,
+    'meaning': 220,
+    'dateAdded': 120,
+    'nextReview': 120,
+    'actions': 90,
+  };
+  const VERB_DEFAULT_WIDTHS = {
+    'isImportant': 70,
+    'learnStatus': 110,
+    'type': 100,
+    'tag': 110,
+    'meaning': 160,
+    'dateAdded': 120,
+    'actions': 90,
+  };
+
   const resizingRef = useRef(null);
   const [vocabColWidths, setVocabColWidths] = useState(() => {
     try { return JSON.parse(localStorage.getItem('verbApp_vocabColWidths')) || {}; } catch { return {}; }
@@ -586,7 +607,11 @@ return parsed;
       else setVerbColWidths(prev => ({ ...prev, [colId]: newWidth }));
     };
     const handleMouseUp = () => {
-      if (resizingRef.current) resizingRef.current = null;
+      if (resizingRef.current) {
+        resizingRef.current = null;
+        document.body.style.userSelect = '';
+        document.body.style.cursor = '';
+      }
     };
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
@@ -2914,7 +2939,16 @@ return parsed;
 
              <datalist id="db-theme-suggestions">{Array.from(new Set(vocabDB.map(v => v.tag))).filter(Boolean).map(tag => <option key={tag} value={tag} />)}</datalist>
              <div className="overflow-x-auto">
-               <table className="min-w-full text-left text-sm table-fixed">
+               <div className="flex justify-end mb-2">
+                 <button
+                   onClick={() => { if(window.confirm('確定要重設所有欄位寬度為預設值嗎？')) { setVocabColWidths({}); } }}
+                   className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-amber-600 bg-slate-100 hover:bg-amber-50 border border-slate-200 hover:border-amber-300 px-3 py-1.5 rounded-lg transition-colors"
+                   title="重設所有欄位寬度"
+                 >
+                   ↩ 重設欄寬
+                 </button>
+               </div>
+               <table className="text-left text-sm table-fixed" style={{ width: 'max-content', minWidth: '100%' }}>
                  <thead className="bg-slate-50 text-slate-600"><tr>
                     {vocabTableColumnOrder.map((colId, idx) => {
                         const def = vocabColDefinitions[colId];
@@ -2922,7 +2956,7 @@ return parsed;
                         return (
                                                                                     <th key={colId} 
                                 className={`p-0 relative bg-slate-50 text-slate-600 select-none ${dragVocabColIdx === idx ? 'opacity-30' : ''} ${dragOverVocabColIdx === idx && dragVocabColIdx !== idx ? (dragVocabColIdx < dragOverVocabColIdx ? 'border-r-4 border-r-amber-500' : 'border-l-4 border-l-amber-500') : ''}`}
-                                style={{ width: vocabColWidths[colId] || (['isImportant', 'actions'].includes(colId) ? 80 : undefined) }}
+                                style={{ width: vocabColWidths[colId] ?? VOCAB_DEFAULT_WIDTHS[colId] }}
                             >
                                 <div 
                                   draggable
@@ -2950,11 +2984,13 @@ return parsed;
                                     e.stopPropagation();
                                     const startWidth = e.currentTarget.parentElement.getBoundingClientRect().width;
                                     resizingRef.current = { tableType: 'vocab', colId, startX: e.clientX, startWidth };
+                                    document.body.style.userSelect = 'none';
+                                    document.body.style.cursor = 'col-resize';
                                   }}
-                                  className="absolute -right-2 top-0 bottom-0 w-4 cursor-col-resize hover:bg-amber-400/50 z-20 flex items-center justify-center group"
+                                  className="absolute right-0 top-0 bottom-0 w-4 cursor-col-resize hover:bg-amber-300/30 z-30 flex items-center justify-center group border-r border-transparent hover:border-amber-400"
                                   title="拖曳縮放"
                                 >
-                                  <div className="w-0.5 h-1/2 bg-amber-400 opacity-0 group-hover:opacity-100 transition-opacity rounded-full"></div>
+                                  <div className="w-0.5 h-full bg-transparent group-hover:bg-amber-500 transition-colors"></div>
                                 </div>
                             </th>
                         );
@@ -3167,10 +3203,7 @@ return parsed;
                                 {g.exampleTranslation && <div className="text-sm font-medium text-blue-700 mt-1 pl-6">{g.exampleTranslation}</div>}
                               </div>
                            )}
-                         </div>
-                         <div className="flex items-center gap-2 shrink-0">
-                           {(() => { const isGLearned = (grammarProgress[g.id]?.repetitions || 0) >= 3 || g.learnStatus === 'learned'; return (<span className={`px-3 py-1.5 rounded-full text-xs font-bold border ${isGLearned ? 'bg-emerald-50 text-emerald-700 border-emerald-300' : 'bg-slate-50 text-slate-400 border-slate-200'}`} title={isGLearned ? '系統判定已學習' : '系統判定待學習'}>{isGLearned ? '✓ 已學習' : '待學習'}</span>); })()}
-                           <button onClick={() => setCustomGrammars(prev => prev.map(x => x.id === g.id ? { ...x, isImportant: !x.isImportant } : x))} className={`p-3 rounded-xl transition-colors ${g.isImportant ? 'text-amber-500 bg-amber-50 hover:bg-amber-100' : 'text-slate-400 hover:text-amber-500 hover:bg-amber-50'}`} title="標記為重要"><Star className={`w-5 h-5 ${g.isImportant ? 'fill-current' : ''}`}/></button>
+                                   <button onClick={() => setCustomGrammars(prev => prev.map(x => x.id === g.id ? { ...x, isImportant: !x.isImportant } : x))} className={`p-3 rounded-xl transition-colors ${g.isImportant ? 'text-amber-500 bg-amber-50 hover:bg-amber-100' : 'text-slate-400 hover:text-amber-500 hover:bg-amber-50'}`} title="標記為重要"><Star className={`w-5 h-5 ${g.isImportant ? 'fill-current' : ''}`}/></button>
                            <button onClick={() => handleEditGrammar(g)} className="p-3 text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-colors" title="編輯公式"><Pencil className="w-5 h-5"/></button>
                            <button onClick={() => {if(window.confirm('確定刪除？')) setCustomGrammars(customGrammars.filter(x=>x.id!==g.id))}} className="p-3 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors" title="刪除公式"><Trash2 className="w-5 h-5"/></button>
                          </div>
@@ -3287,7 +3320,16 @@ return parsed;
               </div>
 
               <div className="overflow-x-auto">
-               <table className="min-w-full text-left text-sm table-fixed">
+                 <div className="flex justify-end mb-2">
+                   <button
+                     onClick={() => { if(window.confirm('確定要重設所有欄位寬度為預設值嗎？')) { setVerbColWidths({}); } }}
+                     className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-indigo-600 bg-slate-100 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-300 px-3 py-1.5 rounded-lg transition-colors"
+                     title="重設所有欄位寬度"
+                   >
+                     ↩ 重設欄寬
+                   </button>
+                 </div>
+                <table className="text-left text-sm table-fixed" style={{ width: 'max-content', minWidth: '100%' }}>
                  <thead className="bg-slate-50 text-slate-600"><tr>
                     {verbTableColumnOrder.map((colId, idx) => {
         const isBuiltIn = colDefinitions[colId];
@@ -3300,7 +3342,7 @@ return parsed;
         return (
                                     <th key={colId} 
                 className={`p-0 relative bg-slate-50 text-slate-600 select-none ${dragTableColIdx === idx ? 'opacity-30' : ''} ${dragOverTableColIdx === idx && dragTableColIdx !== idx ? (dragTableColIdx < dragOverTableColIdx ? 'border-r-4 border-r-indigo-500' : 'border-l-4 border-l-indigo-500') : ''}`}
-                style={{ width: verbColWidths[colId] || (['isImportant', 'actions'].includes(colId) ? 80 : undefined) }}
+                style={{ width: verbColWidths[colId] ?? (VERB_DEFAULT_WIDTHS[colId] || (verbForms.find(f => f.id === colId) ? 120 : undefined)) }}
             >
                 <div 
                   draggable
@@ -3328,11 +3370,13 @@ return parsed;
                     e.stopPropagation();
                     const startWidth = e.currentTarget.parentElement.getBoundingClientRect().width;
                     resizingRef.current = { tableType: 'verb', colId, startX: e.clientX, startWidth };
+                    document.body.style.userSelect = 'none';
+                    document.body.style.cursor = 'col-resize';
                   }}
-                  className="absolute -right-2 top-0 bottom-0 w-4 cursor-col-resize hover:bg-indigo-400/50 z-20 flex items-center justify-center group"
+                  className="absolute right-0 top-0 bottom-0 w-4 cursor-col-resize hover:bg-indigo-300/30 z-30 flex items-center justify-center group border-r border-transparent hover:border-indigo-400"
                   title="拖曳縮放"
                 >
-                  <div className="w-0.5 h-1/2 bg-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity rounded-full"></div>
+                  <div className="w-0.5 h-full bg-transparent group-hover:bg-indigo-500 transition-colors"></div>
                 </div>
             </th>
         );
