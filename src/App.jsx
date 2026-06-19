@@ -91,6 +91,105 @@ const DEFAULT_FORM_OPTIONS = [
   { id: 'causative_passive', label: '使役受身形 (被迫～)' }
 ];
 
+const ALL_VERB_FORMS = ['dictionary', 'masu', 'te', 'ta', 'nai', 'potential', 'passive', 'causative', 'volitional', 'imperative', 'causative_passive'];
+const ACTIVE_VERB_FORMS = ['dictionary', 'masu', 'te', 'ta', 'nai'];
+
+const createDefaultVerbStats = () => {
+  const stats = {};
+  ALL_VERB_FORMS.forEach(form => {
+    stats[form] = { correct: 0, wrong: 0, recentHistory: [] };
+  });
+  return stats;
+};
+
+const migrateVerb = (v) => ({
+  ...v,
+  status: v.status || 'not_started',
+  recentHistory: v.recentHistory || [],
+  stats: v.stats || createDefaultVerbStats()
+});
+
+const getWeakestVerbForms = (db) => {
+  const formAccuracies = {};
+  
+  ACTIVE_VERB_FORMS.forEach(form => {
+    let totalCorrect = 0;
+    let totalWrong = 0;
+    db.forEach(verb => {
+       if (verb.stats && verb.stats[form]) {
+           totalCorrect += verb.stats[form].correct;
+           totalWrong += verb.stats[form].wrong;
+       }
+    });
+    const totalAttempts = totalCorrect + totalWrong;
+    formAccuracies[form] = totalAttempts === 0 ? 0 : totalCorrect / totalAttempts;
+  });
+
+  return Object.entries(formAccuracies).sort((a, b) => a[1] - b[1]);
+};
+
+const generateVerbQuestion = (db) => {
+  if (!db || db.length === 0) return null;
+
+  const sortedForms = getWeakestVerbForms(db);
+  // Give 70% chance to pick the absolute weakest form, 30% for a random active form
+  const targetForm = Math.random() < 0.7 ? sortedForms[0][0] : ACTIVE_VERB_FORMS[Math.floor(Math.random() * ACTIVE_VERB_FORMS.length)];
+  
+  let candidateVerbs = db.filter(v => v.status !== 'mastered');
+  if (candidateVerbs.length === 0) candidateVerbs = db;
+  const selectedVerb = candidateVerbs[Math.floor(Math.random() * candidateVerbs.length)];
+  
+  let baseForm, targetQuestionForm;
+  
+  if (Math.random() > 0.5 && targetForm !== 'dictionary') {
+     baseForm = 'dictionary';
+     targetQuestionForm = targetForm;
+  } else {
+     targetQuestionForm = 'dictionary';
+     baseForm = targetForm === 'dictionary' ? 'masu' : targetForm;
+  }
+  
+  const forms = autoConjugateVerb(selectedVerb.masu, selectedVerb.group?.toString() || (selectedVerb.type === 'verb' ? (selectedVerb.jisho.endsWith('る') ? '2' : '1') : '')) || selectedVerb;
+  
+  return {
+    verbId: selectedVerb.id,
+    baseForm: baseForm,
+    targetForm: targetQuestionForm,
+    baseWord: forms[baseForm] || selectedVerb[baseForm],
+    correctAnswer: forms[targetQuestionForm] || selectedVerb[targetQuestionForm],
+    testedForm: targetForm
+  };
+};
+
+const handleVerbAnswer = (verbId, form, isCorrect, db) => {
+    return db.map(v => {
+        if (v.id !== verbId) return v;
+        const newVerb = { ...v };
+        if (!newVerb.stats) newVerb.stats = createDefaultVerbStats();
+        if (!newVerb.stats[form]) newVerb.stats[form] = { correct: 0, wrong: 0, recentHistory: [] };
+        
+        if (isCorrect) newVerb.stats[form].correct += 1;
+        else newVerb.stats[form].wrong += 1;
+        newVerb.stats[form].recentHistory = [...newVerb.stats[form].recentHistory, isCorrect].slice(-20);
+        
+        if (!newVerb.recentHistory) newVerb.recentHistory = [];
+        newVerb.recentHistory = [...newVerb.recentHistory, isCorrect].slice(-20);
+        
+        if (newVerb.recentHistory.length >= 20) {
+            const globalAccuracy = newVerb.recentHistory.filter(Boolean).length / 20;
+            if (globalAccuracy >= 0.9 && newVerb.status !== 'mastered') {
+                newVerb.status = 'mastered';
+            } else if (globalAccuracy < 0.8 && newVerb.status === 'mastered') {
+                newVerb.status = 'learning';
+            }
+        } else if (newVerb.status === 'not_started') {
+            newVerb.status = 'learning';
+        }
+        
+        return newVerb;
+    });
+};
+
 const autoConjugateVerb = (masuStr, group) => {
     if (!masuStr || typeof masuStr !== 'string' || !masuStr.endsWith('ます')) return null;
     const match = masuStr.match(/^(.*?)(.)ます$/);
@@ -478,10 +577,10 @@ return parsed;
       const saved = localStorage.getItem('verbApp_verbDB');
       if (saved) {
           const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed)) return parsed.map(v => ({ ...v, learnStatus: v.learnStatus || 'new', correctDates: v.correctDates || [] }));
+          if (Array.isArray(parsed)) return parsed.map(v => migrateVerb({ ...v, learnStatus: v.learnStatus || 'new', correctDates: v.correctDates || [] }));
       }
-      return INITIAL_VERB_DB.map(v => ({ ...v, learnStatus: 'new', correctDates: [] }));
-    } catch { return INITIAL_VERB_DB; }
+      return INITIAL_VERB_DB.map(v => migrateVerb({ ...v, learnStatus: 'new', correctDates: [] }));
+    } catch { return INITIAL_VERB_DB.map(v => migrateVerb({ ...v, learnStatus: 'new', correctDates: [] })); }
   });
   useEffect(() => { localStorage.setItem('verbApp_verbDB', JSON.stringify(verbDB)); }, [verbDB]);
 
@@ -513,7 +612,7 @@ return parsed;
   
   useEffect(() => {
     const formIds = verbForms.map(f => f.id);
-    const defaultCols = ['isImportant', 'type', 'tag', 'meaning', 'dateAdded', 'actions'];
+    const defaultCols = ['isImportant', 'status', 'accuracy', 'type', 'tag', 'meaning', 'dateAdded', 'actions'];
     setVerbTableColumnOrder(prev => {
        let newOrder = [...prev].filter(id => defaultCols.includes(id) || formIds.includes(id));
        
@@ -574,7 +673,8 @@ return parsed;
   };
   const VERB_DEFAULT_WIDTHS = {
     'isImportant': 70,
-    'learnStatus': 110,
+    'status': 110,
+    'accuracy': 110,
     'type': 100,
     'tag': 110,
     'meaning': 160,
@@ -644,7 +744,8 @@ return parsed;
 
   const colDefinitions = {
     'isImportant': { label: '重要(⭐)', sortable: true },
-    'learnStatus': { label: '學習狀態', sortable: true },
+    'status': { label: '學習狀態', sortable: true },
+    'accuracy': { label: '整體準確率', sortable: true },
     'type': { label: '類型/群組', sortable: true },
     'tag': { label: '標籤/主題', sortable: true },
     'meaning': { label: '中文意思', sortable: true },
@@ -1011,6 +1112,10 @@ return parsed;
   
   const [userInput, setUserInput] = useState('');
   const [feedback, setFeedback] = useState(null); 
+  
+  const [currentVerbQuiz, setCurrentVerbQuiz] = useState(null);
+  const [verbQuizFeedback, setVerbQuizFeedback] = useState(null);
+  const [verbQuizInput, setVerbQuizInput] = useState('');
   const [explanation, setExplanation] = useState('');
   const [timeLeft, setTimeLeft] = useState(15);
   const [choiceOptions, setChoiceOptions] = useState([]);
@@ -1103,6 +1208,31 @@ return parsed;
             setChoiceOptions(generateVocabDistractors(nextVocab, vocabDB));
         }
     }
+  };
+
+  const startVerbLearningEngine = () => {
+    const q = generateVerbQuestion(verbDB);
+    if (!q) { alert('動詞庫中沒有可用的動詞。'); return; }
+    setCurrentVerbQuiz(q);
+    setVerbQuizFeedback(null);
+    setVerbQuizInput('');
+    setAppState('verb_learning_quiz');
+  };
+
+  const processVerbLearningAnswer = () => {
+    if (verbQuizFeedback !== null || !currentVerbQuiz) return;
+    const isCorrect = verbQuizInput.trim().toLowerCase() === currentVerbQuiz.correctAnswer.toLowerCase();
+    
+    setVerbDB(prev => handleVerbAnswer(currentVerbQuiz.verbId, currentVerbQuiz.testedForm, isCorrect, prev));
+    setVerbQuizFeedback(isCorrect ? 'correct' : 'wrong');
+  };
+
+  const nextVerbLearningQuestion = () => {
+    const q = generateVerbQuestion(verbDB);
+    if (!q) { alert('發生錯誤，無法產生題目。'); setAppState('verb_learning_dashboard'); return; }
+    setCurrentVerbQuiz(q);
+    setVerbQuizFeedback(null);
+    setVerbQuizInput('');
   };
 
   const processVocabAnswer = (answerToCheck = null) => {
@@ -2459,8 +2589,14 @@ return parsed;
                 {todayGrammarQueue.length > 0 ? `📝 今日變化複習 (SRS) - 剩餘 ${Math.min(todayGrammarQueue.length, 20)} 題` : '🎉 今日變化複習完成！'}
               </button>
 
+              <button onClick={() => setAppState('verb_learning_dashboard')}
+                className="w-full py-5 rounded-2xl font-bold text-lg flex justify-center items-center gap-2 transition-all bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm hover:shadow-md active:scale-[0.98] mt-4"
+              >
+                🎓 動詞變化特訓 (N5-N2 弱點分析)
+              </button>
+
               {/* Practice Modes */}
-              <div className="grid grid-cols-2 gap-3 mt-6">
+              <div className="grid grid-cols-2 gap-3 mt-4">
                 <button onClick={() => startVerbRound('normal')}
                   className="p-5 bg-white border-2 border-slate-100 hover:border-blue-300 hover:bg-blue-50 rounded-2xl transition-all text-left group active:scale-[0.97]">
                   <div className="p-2 bg-blue-100 text-blue-600 rounded-xl w-fit mb-3 group-hover:bg-blue-500 group-hover:text-white transition-colors">
@@ -3453,13 +3589,30 @@ return parsed;
             <button onClick={() => setVerbDB(prev => prev.map(x => x.id === v.id ? { ...x, isImportant: !x.isImportant } : x))} className={`p-2 rounded-lg transition-colors ${v.isImportant ? 'text-amber-500 bg-amber-50 hover:bg-amber-100' : 'text-slate-400 hover:text-amber-500 hover:bg-amber-50'}`} title="標記為重要"><Star className={`w-4 h-4 ${v.isImportant ? 'fill-current' : ''}`}/></button>
         </td>;
     }
-    if (colId === 'learnStatus') {
-        const isLearned = v.learnStatus === 'learned';
+    if (colId === 'status') {
+        const icons = { not_started: '📚 待學習', learning: '🔥 練習中', mastered: '🏆 已掌握' };
+        const colors = { not_started: 'bg-slate-100 text-slate-500 border-slate-200', learning: 'bg-orange-50 text-orange-600 border-orange-200', mastered: 'bg-amber-100 text-amber-700 border-amber-300' };
+        const st = v.status || 'not_started';
         return <td key={colId} className="p-4 text-center">
-            <button onClick={() => setVerbDB(prev => prev.map(x => x.id === v.id ? { ...x, learnStatus: isLearned ? 'new' : 'learned' } : x))} className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${isLearned ? 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100' : 'bg-slate-50 text-slate-400 border-slate-200 hover:bg-slate-100 hover:text-slate-600'}`} title={isLearned ? '點擊重設為待學習' : '手動標記為已學習'}>
-                {isLearned ? '✓ 已學習' : '待學習'}
-            </button>
-            <div className="text-[10px] text-slate-400 mt-1 font-mono">{(v.correctDates || []).length} / 3 天</div>
+            <span className={`inline-block px-3 py-1.5 rounded-full text-xs font-bold border ${colors[st]}`}>
+                {icons[st]}
+            </span>
+        </td>;
+    }
+    if (colId === 'accuracy') {
+        let totalCorrect = 0; let totalWrong = 0;
+        if (v.stats) {
+            ACTIVE_VERB_FORMS.forEach(f => {
+                if (v.stats[f]) { totalCorrect += v.stats[f].correct; totalWrong += v.stats[f].wrong; }
+            });
+        }
+        const total = totalCorrect + totalWrong;
+        const acc = total === 0 ? 0 : Math.round((totalCorrect / total) * 100);
+        return <td key={colId} className="p-4 text-center">
+            <div className="w-full bg-slate-100 rounded-full h-2 mb-1 border border-slate-200 overflow-hidden">
+                <div className="bg-indigo-500 h-2" style={{ width: `${acc}%` }}></div>
+            </div>
+            <span className="text-[10px] font-mono font-bold text-slate-500">{total > 0 ? `${acc}%` : '-'}</span>
         </td>;
     }
     if (colId === 'type') {
@@ -3556,7 +3709,99 @@ return parsed;
          </div>
       )}
 
-      {/* ==== 進行測驗中 (Playing UI) ==== */}
+      {appState === 'verb_learning_dashboard' && (
+        <div className="max-w-4xl mx-auto pt-6 sm:pt-12 animate-in fade-in slide-in-from-bottom-4">
+          <div className="flex items-center gap-4 mb-8">
+            <button onClick={() => setAppState('home')} className="p-3 bg-white border border-slate-200 text-slate-500 rounded-2xl hover:bg-slate-50 hover:text-slate-800 transition-colors">
+              <ArrowRight className="w-6 h-6 rotate-180"/>
+            </button>
+            <h1 className="text-3xl font-black text-slate-800 tracking-tight">動詞變化特訓中心</h1>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+             <div className="bg-slate-50 rounded-3xl p-6 border border-slate-200 text-center">
+               <div className="text-4xl mb-2">📚</div>
+               <div className="text-3xl font-black text-slate-700">{verbDB.filter(v => v.status === 'not_started').length}</div>
+               <div className="text-sm font-bold text-slate-500">待學習</div>
+             </div>
+             <div className="bg-orange-50 rounded-3xl p-6 border border-orange-200 text-center">
+               <div className="text-4xl mb-2">🔥</div>
+               <div className="text-3xl font-black text-orange-600">{verbDB.filter(v => v.status === 'learning').length}</div>
+               <div className="text-sm font-bold text-orange-600/70">練習中</div>
+             </div>
+             <div className="bg-amber-50 rounded-3xl p-6 border border-amber-200 text-center">
+               <div className="text-4xl mb-2">🏆</div>
+               <div className="text-3xl font-black text-amber-600">{verbDB.filter(v => v.status === 'mastered').length}</div>
+               <div className="text-sm font-bold text-amber-600/70">已掌握</div>
+             </div>
+          </div>
+
+          <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 mb-8">
+             <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2"><Target className="w-6 h-6 text-indigo-500" />最弱項目分析排行榜</h2>
+             <div className="space-y-3">
+               {getWeakestVerbForms(verbDB).map((item, idx) => {
+                  const formLabel = DEFAULT_FORM_OPTIONS.find(o => o.id === item[0])?.label || item[0];
+                  const acc = Math.round(item[1] * 100);
+                  return (
+                    <div key={item[0]} className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl">
+                       <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black ${idx === 0 ? 'bg-red-100 text-red-600' : 'bg-slate-200 text-slate-600'}`}>{idx + 1}</div>
+                       <div className="flex-1 font-bold text-slate-700">{formLabel}</div>
+                       <div className="w-1/3">
+                          <div className="w-full bg-slate-200 rounded-full h-2.5 overflow-hidden">
+                             <div className={`h-2.5 rounded-full ${idx === 0 ? 'bg-red-500' : 'bg-indigo-500'}`} style={{ width: `${acc}%` }}></div>
+                          </div>
+                       </div>
+                       <div className="w-12 text-right font-mono font-bold text-slate-500">{acc}%</div>
+                    </div>
+                  );
+               })}
+             </div>
+          </div>
+
+          <button onClick={startVerbLearningEngine} className="w-full py-5 rounded-2xl font-bold text-xl flex justify-center items-center gap-2 transition-all bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm hover:shadow-md active:scale-[0.98]">
+             開始弱項打擊訓練 🎯
+          </button>
+        </div>
+      )}
+
+      {appState === 'verb_learning_quiz' && currentVerbQuiz && (
+        <div className="max-w-2xl mx-auto pt-12 animate-in fade-in slide-in-from-bottom-4 text-center">
+            <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100 relative overflow-hidden">
+                <div className="absolute top-0 inset-x-0 h-2 bg-indigo-500"></div>
+                <div className="flex justify-between items-center mb-6">
+                    <button onClick={() => setAppState('verb_learning_dashboard')} className="p-2 text-slate-400 hover:text-slate-600 bg-slate-50 rounded-xl">結束訓練</button>
+                    <div className="px-4 py-1.5 bg-indigo-50 text-indigo-600 rounded-full text-sm font-bold border border-indigo-100">針對訓練: {DEFAULT_FORM_OPTIONS.find(o=>o.id===currentVerbQuiz.testedForm)?.label || currentVerbQuiz.testedForm}</div>
+                </div>
+
+                <div className="text-sm font-bold text-slate-400 mb-2">{DEFAULT_FORM_OPTIONS.find(o=>o.id===currentVerbQuiz.baseForm)?.label || currentVerbQuiz.baseForm}</div>
+                <div className="text-4xl font-black text-slate-800 mb-8">{currentVerbQuiz.baseWord}</div>
+
+                <div className="flex flex-col items-center gap-4">
+                    <div className="text-slate-400"><ArrowRight className="w-8 h-8 rotate-90"/></div>
+                    <div className="text-sm font-bold text-slate-500">{DEFAULT_FORM_OPTIONS.find(o=>o.id===currentVerbQuiz.targetForm)?.label || currentVerbQuiz.targetForm}</div>
+                </div>
+
+                <form onSubmit={e => { e.preventDefault(); processVerbLearningAnswer(); }} className="mt-8 relative">
+                   <input type="text" value={verbQuizInput} onChange={e => setVerbQuizInput(e.target.value)} disabled={verbQuizFeedback !== null} placeholder="輸入日文變化..." autoFocus className={`w-full px-5 py-4 text-2xl text-center rounded-2xl border-2 outline-none ${verbQuizFeedback === 'correct' ? 'border-green-500 bg-green-50 text-green-800 font-bold' : verbQuizFeedback === 'wrong' ? 'border-red-500 bg-red-50 text-red-800 font-bold' : 'border-slate-200 focus:border-indigo-500'}`} />
+                </form>
+
+                {verbQuizFeedback === 'wrong' && (
+                    <div className="mt-6 p-4 bg-red-50 border border-red-100 rounded-2xl text-left animate-in zoom-in">
+                        <div className="font-bold text-red-600 mb-1">正確答案：</div>
+                        <div className="text-3xl font-black text-slate-800">{currentVerbQuiz.correctAnswer}</div>
+                    </div>
+                )}
+
+                {verbQuizFeedback !== null && (
+                    <button onClick={nextVerbLearningQuestion} className={`w-full mt-6 py-4 rounded-xl font-bold text-lg ${verbQuizFeedback === 'correct' ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-slate-800 text-white hover:bg-slate-700'}`} autoFocus>
+                        {verbQuizFeedback === 'correct' ? '下一題 (正確) ➔' : '我知道了 ➔'}
+                    </button>
+                )}
+            </div>
+        </div>
+      )}
+
+      {/* ==== 進行中 (Playing UI) ==== */}
       {!isRoundComplete && (appState === 'vocab_playing' || appState === 'verb_playing') && (
          <div className="max-w-2xl mx-auto bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-100 text-center relative overflow-hidden">
             
