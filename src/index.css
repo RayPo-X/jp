@@ -26,9 +26,17 @@ ruby rt {
 
 table.table-fixed th,
 table.table-fixed td {
+  /* No more strict nowrap, we want to allow wrapping up to 2 lines */
+}
+
+table.table-fixed th > *,
+table.table-fixed td > * {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  word-break: break-word;
 }
 
 @layer utilities {

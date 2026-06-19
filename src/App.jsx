@@ -2972,7 +2972,7 @@ return parsed;
                                       setDragVocabColIdx(null);
                                       setDragOverVocabColIdx(null);
                                   }}
-                                  className="p-4 whitespace-nowrap cursor-grab active:cursor-grabbing hover:bg-slate-100 transition-colors flex items-center gap-1 w-full h-full overflow-hidden"
+                                  className="p-4 cursor-grab active:cursor-grabbing hover:bg-slate-100 transition-colors flex items-center gap-1 w-full h-full overflow-hidden"
                                   onClick={() => { if(!resizingRef.current) { def.sortable && handleSort(colId); } }}
                                 >
                                    <GripHorizontal className="w-3 h-3 text-slate-300 shrink-0"/>
@@ -3095,10 +3095,10 @@ return parsed;
                                 </td>;
                              }
                              if (colId === 'dateAdded') {
-                                return <td key={colId} className="p-4 text-slate-500 font-medium whitespace-nowrap">{getAddedDate(v.id)}</td>;
+                                return <td key={colId} className="p-4 text-slate-500 font-medium">{getAddedDate(v.id)}</td>;
                              }
                              if (colId === 'nextReview') {
-                                return <td key={colId} className="p-4 text-slate-500 font-medium whitespace-nowrap">{v.interval === 0 ? '今天' : `${v.interval} 天後`}</td>;
+                                return <td key={colId} className="p-4 text-slate-500 font-medium">{v.interval === 0 ? '今天' : `${v.interval} 天後`}</td>;
                              }
                              if (colId === 'actions') {
                                 return <td key={colId} className="p-4 flex gap-1">
@@ -3358,7 +3358,7 @@ return parsed;
                       setDragTableColIdx(null);
                       setDragOverTableColIdx(null);
                   }}
-                  className="p-4 whitespace-nowrap cursor-grab active:cursor-grabbing hover:bg-slate-100 transition-colors flex items-center gap-1 w-full h-full overflow-hidden"
+                  className="p-4 cursor-grab active:cursor-grabbing hover:bg-slate-100 transition-colors flex items-center gap-1 w-full h-full overflow-hidden"
                   onClick={() => { if(!resizingRef.current) { sortable && handleVerbSort(colId); } }}
                 >
                    <GripHorizontal className="w-3 h-3 text-slate-300 shrink-0"/>
@@ -3457,7 +3457,7 @@ return parsed;
         return <td key={colId} className="p-4 font-bold text-slate-700">{v.meaning}</td>;
     }
     if (colId === 'dateAdded') {
-        return <td key={colId} className="p-4 text-xs text-slate-400 whitespace-nowrap">{getAddedDate(v.id)}</td>;
+        return <td key={colId} className="p-4 text-xs text-slate-400">{getAddedDate(v.id)}</td>;
     }
     if (colId === 'actions') {
         return <td key={colId} className="p-4 flex gap-1">
@@ -3468,9 +3468,9 @@ return parsed;
     
     // Default to rendering verb form
     if (colId === 'masu' && (v.type === 'adj_i' || v.type === 'adj_na')) {
-        return <td key={colId} className="p-4 font-bold text-slate-300 whitespace-nowrap">-</td>;
+        return <td key={colId} className="p-4 font-bold text-slate-300">-</td>;
     }
-    return <td key={colId} className="p-4 font-bold text-slate-700 whitespace-nowrap">{renderRuby(v[colId])}</td>;
+    return <td key={colId} className="p-4 font-bold text-slate-700">{renderRuby(v[colId])}</td>;
 })}
                        </tr>
                     ))}
