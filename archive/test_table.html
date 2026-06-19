@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Table Test</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+</style>
+</head>
+<body class="p-8">
+  <div class="overflow-x-auto w-full max-w-4xl border">
+    <table id="tbl" class="w-full text-left text-sm table-fixed">
+      <thead class="bg-slate-50 text-slate-600">
+        <tr>
+          <th class="p-0 relative" style="width: 150px;">
+            <div class="p-4 whitespace-nowrap overflow-hidden flex items-center">Column 1</div>
+            <div class="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-amber-400 z-10 resizer" data-col="0"></div>
+          </th>
+          <th class="p-0 relative" style="width: 250px;">
+            <div class="p-4 whitespace-nowrap overflow-hidden flex items-center">Column 2</div>
+            <div class="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-amber-400 z-10 resizer" data-col="1"></div>
+          </th>
+          <th class="p-0 relative">
+            <div class="p-4 whitespace-nowrap overflow-hidden flex items-center">Column 3</div>
+            <div class="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-amber-400 z-10 resizer" data-col="2"></div>
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Data 1</td>
+          <td>Data 2</td>
+          <td>Data 3</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <script>
+    const resizers = document.querySelectorAll('.resizer');
+    let resizingCol = null;
+    let startX = 0;
+    let startWidth = 0;
+
+    resizers.forEach(r => {
+      r.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        resizingCol = e.target.parentElement;
+        startX = e.clientX;
+        startWidth = resizingCol.getBoundingClientRect().width;
+      });
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!resizingCol) return;
+      const diff = e.clientX - startX;
+      resizingCol.style.width = Math.max(50, startWidth + diff) + 'px';
+    });
+
+    window.addEventListener('mouseup', () => {
+      resizingCol = null;
+    });
+  </script>
+</body>
+</html>
