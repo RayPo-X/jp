@@ -600,8 +600,9 @@ return parsed;
   useEffect(() => {
     const handleMouseMove = (e) => {
       if (!resizingRef.current) return;
-      const { tableType, colId, startX, startWidth } = resizingRef.current;
-      const diffX = e.clientX - startX;
+      const { tableType, colId, startX, startWidth, maxAllowedDiff } = resizingRef.current;
+      let diffX = e.clientX - startX;
+      diffX = Math.min(diffX, Math.max(0, maxAllowedDiff || 0));
       let newWidth = Math.max(15, startWidth + diffX);
       if (tableType === 'vocab') setVocabColWidths(prev => ({ ...prev, [colId]: newWidth }));
       else setVerbColWidths(prev => ({ ...prev, [colId]: newWidth }));
@@ -2939,7 +2940,20 @@ return parsed;
 
              <datalist id="db-theme-suggestions">{Array.from(new Set(vocabDB.map(v => v.tag))).filter(Boolean).map(tag => <option key={tag} value={tag} />)}</datalist>
              <div className="overflow-x-auto">
-               <div className="flex justify-end mb-2">
+               <div className="flex justify-end mb-2 gap-2">
+                 <button
+                   onClick={(e) => { 
+                     const cWidth = e.currentTarget.closest('.overflow-x-auto').clientWidth; 
+                     const avg = Math.max(50, cWidth / vocabTableColumnOrder.length); 
+                     const nw = {}; 
+                     vocabTableColumnOrder.forEach(id => nw[id] = avg); 
+                     setVocabColWidths(nw); 
+                   }}
+                   className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-amber-600 bg-slate-100 hover:bg-amber-50 border border-slate-200 hover:border-amber-300 px-3 py-1.5 rounded-lg transition-colors"
+                   title="平均分配所有欄位寬度"
+                 >
+                   ⚖️ 平均分配
+                 </button>
                  <button
                    onClick={() => { if(window.confirm('確定要重設所有欄位寬度為預設值嗎？')) { setVocabColWidths({}); } }}
                    className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-amber-600 bg-slate-100 hover:bg-amber-50 border border-slate-200 hover:border-amber-300 px-3 py-1.5 rounded-lg transition-colors"
@@ -2983,7 +2997,10 @@ return parsed;
                                     e.preventDefault();
                                     e.stopPropagation();
                                     const startWidth = e.currentTarget.parentElement.getBoundingClientRect().width;
-                                    resizingRef.current = { tableType: 'vocab', colId, startX: e.clientX, startWidth };
+                                    const tEl = e.currentTarget.closest('table');
+                                    const cEl = e.currentTarget.closest('.overflow-x-auto');
+                                    const maxAllowedDiff = cEl.clientWidth - tEl.getBoundingClientRect().width;
+                                    resizingRef.current = { tableType: 'vocab', colId, startX: e.clientX, startWidth, maxAllowedDiff };
                                     document.body.style.userSelect = 'none';
                                     document.body.style.cursor = 'col-resize';
                                   }}
@@ -3320,7 +3337,20 @@ return parsed;
               </div>
 
               <div className="overflow-x-auto">
-                 <div className="flex justify-end mb-2">
+                 <div className="flex justify-end mb-2 gap-2">
+                   <button
+                     onClick={(e) => { 
+                       const cWidth = e.currentTarget.closest('.overflow-x-auto').clientWidth; 
+                       const avg = Math.max(50, cWidth / verbTableColumnOrder.length); 
+                       const nw = {}; 
+                       verbTableColumnOrder.forEach(id => nw[id] = avg); 
+                       setVerbColWidths(nw); 
+                     }}
+                     className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-indigo-600 bg-slate-100 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-300 px-3 py-1.5 rounded-lg transition-colors"
+                     title="平均分配所有欄位寬度"
+                   >
+                     ⚖️ 平均分配
+                   </button>
                    <button
                      onClick={() => { if(window.confirm('確定要重設所有欄位寬度為預設值嗎？')) { setVerbColWidths({}); } }}
                      className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-indigo-600 bg-slate-100 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-300 px-3 py-1.5 rounded-lg transition-colors"
@@ -3369,7 +3399,10 @@ return parsed;
                     e.preventDefault();
                     e.stopPropagation();
                     const startWidth = e.currentTarget.parentElement.getBoundingClientRect().width;
-                    resizingRef.current = { tableType: 'verb', colId, startX: e.clientX, startWidth };
+                    const tEl = e.currentTarget.closest('table');
+                    const cEl = e.currentTarget.closest('.overflow-x-auto');
+                    const maxAllowedDiff = cEl.clientWidth - tEl.getBoundingClientRect().width;
+                    resizingRef.current = { tableType: 'verb', colId, startX: e.clientX, startWidth, maxAllowedDiff };
                     document.body.style.userSelect = 'none';
                     document.body.style.cursor = 'col-resize';
                   }}
