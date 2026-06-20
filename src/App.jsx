@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import GlobalSearch from './components/GlobalSearch/GlobalSearch';
 import { autoConjugate, deriveJishoFromMasu } from './conjugator';
 import { BUILT_IN_DICTIONARY, getAvailableThemes, getWordsByTheme } from './dictionary';
 import { 
@@ -298,6 +299,73 @@ const DEFAULT_GRAMMARS = [
   { id: 'g_nakereba', name: '必須 ( ＿なければなりません)', baseForm: 'nai', removeStr: 'い', appendStr: 'ければなりません', appliesTo: ['verb'], example: '明日早く起きなければなりません' }
 ];
 
+
+const DEFAULT_TAG_SUGGESTIONS = ['N5', 'N4', 'N3', 'N2', 'N1', '重要', '易錯', '必背', '留學', '生活', '學校', '打工'];
+
+const processTags = (tagStrOrArray) => {
+    let arr = [];
+    if (typeof tagStrOrArray === 'string') {
+        arr = tagStrOrArray.split(/[,，、]/);
+    } else if (Array.isArray(tagStrOrArray)) {
+        arr = tagStrOrArray;
+    }
+    const uniqueTags = new Set();
+    arr.forEach(t => {
+        let clean = t.trim();
+        if (!clean) return;
+        clean = clean.replace(/^[nｎＮ]\s*([1-5])$/i, 'N$1');
+        uniqueTags.add(clean);
+    });
+    return Array.from(uniqueTags);
+};
+
+const TagEditor = ({ tags, onChange, tagStats }) => {
+    const allExistingTags = Object.keys(tagStats).sort((a,b) => tagStats[b] - tagStats[a]);
+    const suggestions = Array.from(new Set([...DEFAULT_TAG_SUGGESTIONS, ...allExistingTags]));
+    const [inputValue, setInputValue] = React.useState(tags ? tags.join(', ') : '');
+
+    React.useEffect(() => {
+        setInputValue(tags ? tags.join(', ') : '');
+    }, [tags]);
+
+    const handleBlur = () => {
+        const newTags = processTags(inputValue);
+        onChange(newTags);
+        setInputValue(newTags.join(', '));
+    };
+
+    const toggleTag = (t) => {
+        let current = processTags(inputValue);
+        if (current.includes(t)) current = current.filter(x => x !== t);
+        else current.push(t);
+        const newStr = current.join(', ');
+        setInputValue(newStr);
+        onChange(current);
+    };
+
+    return (
+        <div className="mt-2 mb-2 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+            <label className="block text-xs font-bold text-slate-500 mb-1">標籤 (可用半形逗號分隔)</label>
+            <input type="text" value={inputValue} onChange={e => setInputValue(e.target.value)} onBlur={handleBlur} onKeyDown={e => e.key === 'Enter' && handleBlur()} placeholder="例如: N4, 重要, 學校" className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all outline-none mb-2"/>
+            <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-1">
+               {suggestions.map(t => {
+                   const isActive = processTags(inputValue).includes(t);
+                   return <button key={t} onClick={(e) => { e.preventDefault(); toggleTag(t); }} className={`px-2 py-1 text-[11px] font-bold rounded-lg border transition-colors ${isActive ? 'bg-indigo-500 text-white border-indigo-500 shadow-sm' : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'}`}>{t} {tagStats[t] ? <span className="opacity-70 font-normal ml-1">({tagStats[t]})</span> : ''}</button>
+               })}
+            </div>
+        </div>
+    );
+};
+
+const renderTags = (tags) => {
+    if (!tags || !Array.isArray(tags) || tags.length === 0) return null;
+    return (
+        <div className="flex flex-wrap gap-1 mt-1">
+            {tags.map(t => <span key={t} className="px-1.5 py-0.5 text-[10px] font-bold text-slate-500 bg-slate-200 rounded-md border border-slate-300">{t}</span>)}
+        </div>
+    );
+};
+
 const getTagStyle = (tag) => {
     if (!tag) return 'bg-slate-50 text-slate-600 border-slate-200';
     if (tag === '自訂') return 'bg-slate-100 text-slate-700 border-slate-300';
@@ -547,12 +615,14 @@ const generateSentenceDistractors = (correctVocab, allVocabs, direction = 'j2c')
 };
 
 export default function App() {
+
   const [appState, setAppState] = useState('home'); 
   const [vocabManageTab, setVocabManageTab] = useState('vocab');
   const [searchTerm, setSearchTerm] = useState('');
   
   // ==== 全域搜尋 State ====
   const [globalSearchTerm, setGlobalSearchTerm] = useState('');
+  const [targetId, setTargetId] = useState(null);
   const [showGlobalSearch, setShowGlobalSearch] = useState(false);
   const [recentSearches, setRecentSearches] = useState(() => {
      try { return JSON.parse(localStorage.getItem('verbApp_recentSearches')) || []; } catch { return []; }
@@ -1062,7 +1132,7 @@ return parsed;
     let list = [...vocabDB];
     if (vocabManageTab === 'vocab' && searchTerm.trim()) {
         const q = searchTerm.toLowerCase();
-        list = list.filter(v => (v.word && v.word.toLowerCase().includes(q)) || (v.reading && v.reading.toLowerCase().includes(q)) || (v.meaning && v.meaning.toLowerCase().includes(q)));
+        list = list.filter(v => (v.word && v.word.toLowerCase().includes(q)) || (v.reading && v.reading.toLowerCase().includes(q)) || (v.meaning && v.meaning.toLowerCase().includes(q)) || (v.tags && v.tags.some(t => t.toLowerCase().includes(q))));
     }
     let sorted = list;
     sorted.sort((a, b) => {
@@ -1103,6 +1173,14 @@ return parsed;
   const [verbSortConfig, setVerbSortConfig] = useState({ key: 'dateAdded', direction: 'desc' });
   const sortedVerbDB = useMemo(() => {
     let sorted = [...verbDB];
+      if (searchTerm.trim()) {
+          const q = searchTerm.toLowerCase();
+          sorted = sorted.filter(v => 
+              (v.jisho && v.jisho.toLowerCase().includes(q)) || 
+              (v.meaning && v.meaning.toLowerCase().includes(q)) ||
+              (v.tags && v.tags.some(t => t.toLowerCase().includes(q)))
+          );
+      }
     sorted.sort((a, b) => {
       if (!a) return 1; if (!b) return -1;
       if (!a) return 1; if (!b) return -1;
@@ -1692,9 +1770,9 @@ return parsed;
   const [isScanningObsidian, setIsScanningObsidian] = useState(false);
   const [importText, setImportText] = useState('');
   const [editingVocabId, setEditingVocabId] = useState(null);
-  const [vocabEditForm, setVocabEditForm] = useState({ word: '', reading: '', meaning: '', example: '' });
+  const [vocabEditForm, setVocabEditForm] = useState({ word: '', reading: '', meaning: '', example: '', tags: [] });
   const [editingVerbId, setEditingVerbId] = useState(null);
-  const [verbEditForm, setVerbEditForm] = useState({ masu: '', jisho: '', te: '', meaning: '' });
+  const [verbEditForm, setVerbEditForm] = useState({ masu: '', jisho: '', te: '', meaning: '', tags: [] });
 
   const [verbImportText, setVerbImportText] = useState(''); 
   const [addToReviewNow, setAddToReviewNow] = useState(true);
@@ -2382,36 +2460,76 @@ return parsed;
      };
   }, [vocabDB, verbDB, customGrammars, kanjiDB, vocabMistakes, mistakeBank, todayQueue]);
 
+    const globalTagStats = React.useMemo(() => {
+      const stats = {};
+      const addTags = (tags) => {
+          if (!Array.isArray(tags)) return;
+          tags.forEach(t => { stats[t] = (stats[t] || 0) + 1; });
+      };
+      vocabDB.forEach(v => addTags(v.tags));
+      verbDB.forEach(v => addTags(v.tags));
+      customGrammars.forEach(g => addTags(g.tags));
+      kanjiDB.forEach(k => addTags(k.tags));
+      return stats;
+  }, [vocabDB, verbDB, customGrammars, kanjiDB]);
+
   const globalSearchResults = React.useMemo(() => {
      if (!globalSearchTerm.trim()) return null;
      const q = globalSearchTerm.trim().toLowerCase();
      
-     const scoreMatch = (target, query) => {
-         if (!target) return 0;
-         const t = target.toLowerCase();
-         if (t === query) return 100;
-         if (t.startsWith(query)) return 50;
-         if (t.includes(query)) return 10;
+     const scoreField = (val, query) => {
+         if (!val) return 0;
+         const v = val.toLowerCase();
+         if (v === query) return 3;
+         if (v.startsWith(query)) return 2;
+         if (v.includes(query)) return 1;
+         return 0;
+     };
+
+     const scoreTags = (tags, query) => {
+         if (!Array.isArray(tags)) return 0;
+         let max = 0;
+         tags.forEach(t => {
+             const lower = t.toLowerCase();
+             if (lower === query) max = Math.max(max, 3);
+             else if (lower.startsWith(query)) max = Math.max(max, 2);
+             else if (lower.includes(query)) max = Math.max(max, 1);
+         });
+         return max;
+     };
+
+     const calculateScore = (titleFields, contentFields, tags) => {
+         let titleScore = 0;
+         for (let text of titleFields) { titleScore = Math.max(titleScore, scoreField(text, q)); }
+         
+         let tagScore = scoreTags(tags, q);
+
+         let contentScore = 0;
+         for (let text of contentFields) { contentScore = Math.max(contentScore, scoreField(text, q)); }
+
+         if (titleScore > 0) return 100 + titleScore;
+         if (tagScore > 0) return 50 + tagScore;
+         if (contentScore > 0) return 10 + contentScore;
          return 0;
      };
 
      const results = { vocab: [], verb: [], grammar: [], kanji: [] };
 
      vocabDB.forEach(v => {
-         let maxScore = Math.max(scoreMatch(v.word, q), scoreMatch(v.reading, q), scoreMatch(v.meaning, q));
-         if (maxScore > 0) results.vocab.push({ item: v, score: maxScore });
+         let s = calculateScore([v.word, v.reading], [v.meaning, v.notes, v.example], v.tags);
+         if (s > 0) results.vocab.push({ item: v, score: s });
      });
      verbDB.forEach(v => {
-         let maxScore = Math.max(scoreMatch(v.jisho, q), scoreMatch(v.meaning, q));
-         if (maxScore > 0) results.verb.push({ item: v, score: maxScore });
+         let s = calculateScore([v.jisho], [v.meaning, v.notes], v.tags);
+         if (s > 0) results.verb.push({ item: v, score: s });
      });
      customGrammars.forEach(g => {
-         let maxScore = Math.max(scoreMatch(g.name, q), scoreMatch(g.suffix, q));
-         if (maxScore > 0) results.grammar.push({ item: g, score: maxScore });
+         let s = calculateScore([g.name], [g.suffix], g.tags);
+         if (s > 0) results.grammar.push({ item: g, score: s });
      });
      kanjiDB.forEach(k => {
-         let maxScore = Math.max(scoreMatch(k.kanji, q), scoreMatch(k.meaning, q));
-         if (maxScore > 0) results.kanji.push({ item: k, score: maxScore });
+         let s = calculateScore([k.kanji], [k.meaning], k.tags);
+         if (s > 0) results.kanji.push({ item: k, score: s });
      });
 
      results.vocab.sort((a, b) => b.score - a.score);
@@ -2421,31 +2539,39 @@ return parsed;
 
      return results;
   }, [globalSearchTerm, vocabDB, verbDB, customGrammars, kanjiDB]);
-
-  const handleGlobalSearchClick = (type, term) => {
-      setRecentSearches(prev => {
-          const newArr = [term, ...prev.filter(t => t !== term)].slice(0, 10);
-          return newArr;
-      });
+  const handleGlobalSearchClick = (type, term, id) => {
+      setRecentSearches(prev => [term, ...prev.filter(t => t !== term)].slice(0, 10));
       setShowGlobalSearch(false);
       setGlobalSearchTerm('');
+      
+      setSearchTerm(term);
+      setTargetId(id);
 
       if (type === 'vocab') {
          setVocabManageTab('vocab');
-         setSearchTerm(term);
          setAppState('vocab_manage');
       } else if (type === 'kanji') {
          setVocabManageTab('kanji');
-         setSearchTerm(term);
          setAppState('vocab_manage');
       } else if (type === 'verb') {
-         setSearchTerm(term);
          setAppState('verb_manage');
       } else if (type === 'grammar') {
-         setSearchTerm(term);
          setAppState('grammar_manage');
       }
   };
+
+    useEffect(() => {
+    if (targetId) {
+        const timer = setTimeout(() => {
+            const el = document.getElementById('item-' + targetId);
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                setTimeout(() => setTargetId(null), 3000);
+            }
+        }, 100);
+        return () => clearTimeout(timer);
+    }
+  }, [targetId, appState, vocabManageTab]);
 
   const grammarStats = React.useMemo(() => {
     let newCount = 0; let learningCount = 0; let masteredCount = 0; let dueCount = 0;
@@ -2657,22 +2783,64 @@ return parsed;
       )}
 
       {appState === 'home' && (
-        <div className="max-w-6xl mx-auto pt-6 sm:pt-12 animate-in fade-in slide-in-from-bottom-4">
-
-          {/* Hero Header */}
-          <div className="text-center mb-10 relative">
-            <div className="inline-flex p-5 bg-gradient-to-br from-blue-100 to-indigo-100 text-blue-600 rounded-3xl mb-4">
-              <BookOpen className="w-14 h-14"/>
+        <div className="max-w-6xl mx-auto pt-6 sm:pt-12 animate-in fade-in slide-in-from-bottom-4">\n            {/* Hero Header */}
+            <div className="text-center mb-6 relative">
+              <div className="inline-flex p-3 bg-gradient-to-br from-blue-100 to-indigo-100 text-blue-600 rounded-3xl mb-2">
+                <Puzzle className="w-8 h-8"/>
+              </div>
+              <h2 className="text-3xl font-black text-slate-800 mb-2 tracking-tight">日語記憶系統</h2>
+              <button onClick={() => setShowManualModal(true)} className="absolute top-0 right-0 sm:right-4 p-2 bg-amber-50 text-amber-600 rounded-2xl hover:bg-amber-100 transition-colors flex items-center gap-2 font-bold shadow-sm text-sm">
+                <BookOpen className="w-4 h-4"/>
+                <span className="hidden sm:inline">說明</span>
+              </button>
             </div>
-            <h1 className="text-4xl sm:text-5xl font-black text-slate-800 tracking-tight mb-3">日文綜合特訓中心</h1>
-            <p className="text-slate-400 text-base font-medium">每天一點點，透過科學方法建立直覺與長久記憶。</p>
-            <button onClick={() => setShowManualModal(true)} className="absolute top-0 right-0 sm:right-4 p-3 bg-amber-50 text-amber-600 rounded-2xl hover:bg-amber-100 transition-colors flex items-center gap-2 font-bold shadow-sm">
-              <BookOpen className="w-5 h-5"/>
-              <span className="hidden sm:inline">使用說明書</span>
-            </button>
-          </div>
+            
+            <div className="max-w-3xl mx-auto mb-10 space-y-4">
+              <GlobalSearch 
+                  globalSearchTerm={globalSearchTerm} 
+                  setGlobalSearchTerm={setGlobalSearchTerm} 
+                  showGlobalSearch={showGlobalSearch} 
+                  setShowGlobalSearch={setShowGlobalSearch} 
+                  recentSearches={recentSearches} 
+                  setRecentSearches={setRecentSearches} 
+                  globalSearchResults={globalSearchResults} 
+                  handleGlobalSearchClick={handleGlobalSearchClick} 
+                  renderTags={renderTags} 
+              />
 
-          {/* Two Column Layout */}
+              {/* Dashboard Lite */}
+              <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm">
+                 <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-2xl flex flex-col items-center justify-center">
+                       <div className="text-sm font-bold text-emerald-600 mb-1">🗓️ 今日待複習</div>
+                       <div className="text-3xl font-black text-emerald-700">{dashboardStats.totalDue} <span className="text-sm font-normal text-emerald-500/70">題</span></div>
+                    </div>
+                    <div className="bg-rose-50 border border-rose-100 p-4 rounded-2xl flex flex-col items-center justify-center">
+                       <div className="text-sm font-bold text-rose-600 mb-1">📒 錯題本</div>
+                       <div className="text-3xl font-black text-rose-700">{dashboardStats.totalMistakes} <span className="text-sm font-normal text-rose-500/70">題</span></div>
+                    </div>
+                 </div>
+                 <div className="grid grid-cols-4 gap-3">
+                    <div className="bg-slate-50 border border-slate-100 p-3 rounded-2xl text-center">
+                       <div className="text-xs font-bold text-slate-400 mb-1">📚 單字</div>
+                       <div className="text-xl font-bold text-slate-700">{dashboardStats.vocabTotal}</div>
+                    </div>
+                    <div className="bg-slate-50 border border-slate-100 p-3 rounded-2xl text-center">
+                       <div className="text-xs font-bold text-slate-400 mb-1">🔄 動詞</div>
+                       <div className="text-xl font-bold text-slate-700">{dashboardStats.verbTotal}</div>
+                    </div>
+                    <div className="bg-slate-50 border border-slate-100 p-3 rounded-2xl text-center">
+                       <div className="text-xs font-bold text-slate-400 mb-1">📖 文法</div>
+                       <div className="text-xl font-bold text-slate-700">{dashboardStats.grammarTotal}</div>
+                    </div>
+                    <div className="bg-slate-50 border border-slate-100 p-3 rounded-2xl text-center">
+                       <div className="text-xs font-bold text-slate-400 mb-1">🈶 漢字</div>
+                       <div className="text-xl font-bold text-slate-700">{dashboardStats.kanjiTotal}</div>
+                    </div>
+                 </div>
+              </div>
+            </div>
+            {/* Two Column Layout */}
           <div className="grid lg:grid-cols-2 gap-8 items-start">
 
             {/* ===== LEFT: 單字記憶庫 ===== */}
@@ -3449,7 +3617,7 @@ return parsed;
                                  <div className="flex-1">
                                    <label className="block text-xs font-bold text-amber-600 mb-1 ml-1">例句 (選填)</label>
                                    <input type="text" value={vocabEditForm.example} onChange={e=>setVocabEditForm({...vocabEditForm, example: e.target.value})} placeholder="例句" className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:border-amber-500 text-sm"/>
-                                 </div>
+                                 </div>\n<div className="w-full mt-2 col-span-full"><TagEditor tags={vocabEditForm.tags} onChange={tags => setVocabEditForm({...vocabEditForm, tags})} tagStats={globalTagStats} /></div>
                                  <button onClick={()=>{
                                      setVocabDB(prev => prev.map(x => x.id === v.id ? { ...x, ...vocabEditForm, isSentence: (vocabEditForm.example && vocabEditForm.example.trim().length > 0) || (vocabEditForm.reading && vocabEditForm.reading.includes('。')) } : x));
                                      setEditingVocabId(null);
@@ -3460,7 +3628,7 @@ return parsed;
                           </td>
                        </tr>
                      ) : (
-                       <tr key={v.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
+                       <tr key={v.id} id={"item-" + v.id} className={"border-b border-slate-50 hover:bg-slate-50/50 transition-colors " + (targetId === v.id ? "bg-amber-100 ring-2 ring-amber-400" : "")}>
                           {vocabTableColumnOrder.map(colId => {
                              if (colId === 'isImportant') {
                                 return <td key={colId} className="p-4 text-center">
@@ -3511,6 +3679,7 @@ return parsed;
                                 return <td key={colId} className="p-4">
                                   <div className="font-bold text-slate-800 text-base">{v.word || v.reading}</div>
                                   {v.word && <div className="text-slate-500 text-xs mt-0.5 mb-1.5">{v.reading}</div>}
+{renderTags(v.tags)}
                                   {kanjis.length > 0 && (
                                     <div className="flex flex-wrap gap-1 mt-1">
                                       {kanjis.map(k => (
@@ -3543,7 +3712,7 @@ return parsed;
                              }
                              if (colId === 'actions') {
                                 return <td key={colId} className="p-4 flex gap-1">
-                                   <button onClick={()=>{setEditingVocabId(v.id); setVocabEditForm({word: v.word||'', reading: v.reading||'', meaning: v.meaning||'', example: v.example||''});}} className="p-2 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-colors" title="編輯"><Edit3 className="w-4 h-4"/></button>
+                                   <button onClick={()=>{setEditingVocabId(v.id); setVocabEditForm({word: v.word||'', reading: v.reading||'', meaning: v.meaning||'', example: v.example||'', tags: v.tags||[]});}} className="p-2 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-colors" title="編輯"><Edit3 className="w-4 h-4"/></button>
                                    <button onClick={()=>{if(window.confirm('確定刪除？')){createVocabBackup(); setVocabDB(vocabDB.filter(x=>x.id!==v.id));}}} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="刪除"><Trash2 className="w-4 h-4"/></button>
                                 </td>;
                              }
@@ -3565,13 +3734,14 @@ return parsed;
                    </div>
                    
                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
-                      {kanjiDB.filter(k => k.kanji.includes(searchTerm) || (k.meaning && k.meaning.includes(searchTerm))).map(kanji => {
+                      {kanjiDB.filter(k => k.kanji.includes(searchTerm) || (k.meaning && k.meaning.includes(searchTerm)) || (k.tags && k.tags.some(t => t.toLowerCase().includes(searchTerm.toLowerCase())))).map(kanji => {
                          const associated = vocabDB.filter(v => v.word.includes(kanji.kanji));
                          const masteredCount = associated.filter(v => v.repetitions >= 5 || v.interval >= 30).length;
                          return (
-                           <div key={kanji.id} className="bg-slate-50 border border-slate-200 rounded-3xl p-5 hover:border-indigo-300 hover:shadow-md transition-all flex flex-col h-72">
+                           <div key={kanji.id} id={"item-" + kanji.id} className={"bg-slate-50 border border-slate-200 rounded-3xl p-5 hover:border-indigo-300 hover:shadow-md transition-all flex flex-col h-72 " + (targetId === kanji.id ? "bg-indigo-100 ring-2 ring-indigo-500" : "")}>
                               <div className="flex items-start justify-between mb-4">
                                  <div className="text-5xl font-black text-slate-800 leading-none">{kanji.kanji}</div>
+<div className="mt-2"><input type="text" value={(kanji.tags||[]).join(', ')} onChange={e => setKanjiDB(prev => prev.map(k => k.id === kanji.id ? {...k, tags: e.target.value.split(',').map(s=>s.trim()).filter(Boolean)} : k))} onBlur={e => setKanjiDB(prev => prev.map(k => k.id === kanji.id ? {...k, tags: processTags(e.target.value)} : k))} placeholder="標籤(逗號分隔)" className="text-xs font-bold text-slate-400 bg-transparent outline-none w-24 border-b border-transparent hover:border-slate-200 focus:border-indigo-500 mt-2 placeholder:text-slate-300"/></div>{renderTags(kanji.tags)}
                                  <div className="text-right flex flex-col items-end">
                                    <input type="text" value={kanji.meaning} onChange={e => setKanjiDB(prev => prev.map(k => k.id === kanji.id ? {...k, meaning: e.target.value} : k))} placeholder="新增意思..." className="text-right text-sm font-bold text-slate-600 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-indigo-500 focus:outline-none w-24 placeholder:text-slate-400 mb-1"/>
                                    <select value={kanji.jlptLevel} onChange={e => setKanjiDB(prev => prev.map(k => k.id === kanji.id ? {...k, jlptLevel: e.target.value} : k))} className="text-xs font-bold text-slate-400 bg-transparent outline-none cursor-pointer hover:text-slate-600">
@@ -3693,7 +3863,14 @@ return parsed;
                      </div>
                    </div>
                    <datalist id="grammar-tags-list">{Array.from(new Set([...customGrammars.map(g => g.tag), ...vocabDB.map(v => v.tag)])).filter(Boolean).map(tag => <option key={tag} value={tag} />)}</datalist>
-                    {customGrammars.filter(g => !grammarFilterTag || g.tag === grammarFilterTag).sort((a, b) => {
+                    {customGrammars.filter(g => {
+    if (grammarFilterTag && g.tag !== grammarFilterTag) return false;
+    if (!searchTerm.trim()) return true;
+    const q = searchTerm.toLowerCase();
+    return (g.name && g.name.toLowerCase().includes(q)) || 
+           (g.suffix && g.suffix.toLowerCase().includes(q)) || 
+           (g.tags && g.tags.some(t => t.toLowerCase().includes(q)));
+  }).sort((a, b) => {
                         if (grammarSortConfig.key === 'isImportant') {
                             const valA = a.isImportant ? 1 : 0;
                             const valB = b.isImportant ? 1 : 0;
@@ -3703,7 +3880,7 @@ return parsed;
                         }
                         return 0;
                     }).map(g => (
-                      <div key={g.id} className="p-5 bg-white border border-slate-200 rounded-2xl flex justify-between items-center shadow-sm hover:border-emerald-300 transition-colors">
+                      <div key={g.id} id={"item-" + g.id} className={"p-5 bg-white border border-slate-200 rounded-2xl flex justify-between items-center shadow-sm hover:border-emerald-300 transition-colors " + (targetId === g.id ? "bg-emerald-100 ring-2 ring-emerald-500" : "")}>
                          <div className="flex-1 min-w-0 pr-4">
                            <div className="flex items-center gap-2 mb-1.5 flex-nowrap">
                                <div className="font-bold text-slate-800 text-lg whitespace-nowrap">{g.name}</div>
@@ -3777,6 +3954,11 @@ return parsed;
            <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-100">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2"><Library className="w-6 h-6 text-indigo-600"/> 動詞與形容詞庫</h2>
+           <div className="relative flex-1 max-w-md mx-4">
+             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+             <input type="text" value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} placeholder="搜尋動詞/形容詞..." className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all outline-none"/>
+             {searchTerm && <button onClick={()=>setSearchTerm('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"><XCircle className="w-4 h-4"/></button>}
+           </div>
                  <div className="flex items-center gap-4 ml-4">
                      <label className="flex items-center gap-2 cursor-pointer select-none bg-amber-50 text-amber-700 px-3 py-1.5 rounded-xl font-bold border border-amber-200 hover:bg-amber-100 transition-colors">
                          <input type="checkbox" checked={showOnlyImportantVerb} onChange={(e)=>setShowOnlyImportantVerb(e.target.checked)} className="hidden"/>
@@ -3950,7 +4132,7 @@ return parsed;
                                  <div className="flex-1 min-w-[120px]">
                                    <label className="block text-xs font-bold text-slate-500 mb-1 ml-1">中文意思</label>
                                    <input type="text" value={verbEditForm.meaning || ''} onChange={e=>setVerbEditForm({...verbEditForm, meaning: e.target.value})} placeholder="中文意思" className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:border-indigo-500 text-sm"/>
-                                 </div>
+                                 </div>\n                                   <div className="w-full mt-2 col-span-full"><TagEditor tags={verbEditForm.tags} onChange={tags => setVerbEditForm({...verbEditForm, tags})} tagStats={globalTagStats} /></div>
                                </div>
                                <div className="flex justify-end gap-2 mt-1">
                                  <button onClick={()=>{
@@ -3963,7 +4145,7 @@ return parsed;
                           </td>
                        </tr>
                      ) : (
-                       <tr key={v.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
+                       <tr key={v.id} id={"item-" + v.id} className={"border-b border-slate-50 hover:bg-slate-50/50 transition-colors " + (targetId === v.id ? "bg-amber-100 ring-2 ring-amber-400" : "")}>
                           {verbTableColumnOrder.map(colId => {
     if (colId === 'isImportant') {
         return <td key={colId} className="p-4 text-center">
