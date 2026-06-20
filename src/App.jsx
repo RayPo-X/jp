@@ -7,7 +7,10 @@ import {
   Pause, SlidersHorizontal, Layers, FolderHeart, ShieldAlert, Trash2, Award, Medal,
   Heart, Swords, Skull, Flame, Home, Puzzle, Plus, Edit3, 
   Map as MapIcon, Library, BookType, Sparkles, Coffee, Car, Shirt, SmilePlus,
-  MessageSquareQuote, PenTool, RefreshCcw, Save, Pencil, Search, GripHorizontal, Star
+  MessageSquareQuote, PenTool, RefreshCcw, Save, Pencil, Search, GripHorizontal, Star,
+  Target,
+  BarChart2,
+  History
 } from 'lucide-react';
 
 const renderTextWithStrikethrough = (text) => {
@@ -78,7 +81,7 @@ const THEMES = [
 
 const DEFAULT_FORM_OPTIONS = [
   { id: 'masu', label: 'ます形' },
-  { id: 'jisho', label: '普通形(辭書形/常體)' },
+  { id: 'jisho', label: '辭書形' },
   { id: 'te', label: 'て形' },
   { id: 'ta', label: 'た形' },
   { id: 'nai', label: 'ない形' },
@@ -91,8 +94,8 @@ const DEFAULT_FORM_OPTIONS = [
   { id: 'causative_passive', label: '使役受身形 (被迫～)' }
 ];
 
-const ALL_VERB_FORMS = ['dictionary', 'masu', 'te', 'ta', 'nai', 'potential', 'passive', 'causative', 'volitional', 'imperative', 'causative_passive'];
-const ACTIVE_VERB_FORMS = ['dictionary', 'masu', 'te', 'ta', 'nai'];
+const ALL_VERB_FORMS = ['jisho', 'masu', 'te', 'ta', 'nai', 'potential', 'passive', 'causative', 'volitional', 'imperative', 'causative_passive'];
+const ACTIVE_VERB_FORMS = ['jisho', 'masu', 'te', 'ta', 'nai'];
 
 const createDefaultVerbStats = () => {
   const stats = {};
@@ -102,12 +105,58 @@ const createDefaultVerbStats = () => {
   return stats;
 };
 
-const migrateVerb = (v) => ({
-  ...v,
-  status: v.status || 'not_started',
-  recentHistory: v.recentHistory || [],
-  stats: v.stats || createDefaultVerbStats()
-});
+const migrateVerb = (v) => {
+  const newV = {
+    ...v,
+    status: v.status || 'not_started',
+    recentHistory: v.recentHistory || [],
+    stats: v.stats || createDefaultVerbStats()
+  };
+  
+  if (newV.stats && newV.stats.dictionary) {
+    if (!newV.stats.jisho) {
+      newV.stats.jisho = newV.stats.dictionary;
+    } else {
+      newV.stats.jisho.correct += newV.stats.dictionary.correct || 0;
+      newV.stats.jisho.wrong += newV.stats.dictionary.wrong || 0;
+      newV.stats.jisho.recentHistory = [...newV.stats.dictionary.recentHistory, ...newV.stats.jisho.recentHistory].slice(-20);
+    }
+    delete newV.stats.dictionary;
+  }
+  
+  return newV;
+};
+
+const extractKanjiFromWord = (word) => {
+  if (!word) return [];
+  const matches = word.match(/[\u4e00-\u9faf]/g);
+  return matches ? Array.from(new Set(matches)) : [];
+};
+
+const syncKanjiDB = (vocabDB, currentKanjiDB) => {
+  let updated = false;
+  const newKanjiDB = [...currentKanjiDB];
+  const existingKanjis = new Set(newKanjiDB.map(k => k.kanji));
+
+  vocabDB.forEach(vocab => {
+    const kanjis = extractKanjiFromWord(vocab.word);
+    kanjis.forEach(k => {
+      if (!existingKanjis.has(k)) {
+        existingKanjis.add(k);
+        newKanjiDB.push({
+          id: `k_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          kanji: k,
+          meaning: '',
+          jlptLevel: 'Unknown',
+          dateAdded: Date.now()
+        });
+        updated = true;
+      }
+    });
+  });
+
+  return updated ? newKanjiDB : currentKanjiDB;
+};
 
 const getWeakestVerbForms = (db) => {
   const formAccuracies = {};
@@ -141,12 +190,12 @@ const generateVerbQuestion = (db) => {
   
   let baseForm, targetQuestionForm;
   
-  if (Math.random() > 0.5 && targetForm !== 'dictionary') {
-     baseForm = 'dictionary';
+  if (Math.random() > 0.5 && targetForm !== 'jisho') {
+     baseForm = 'jisho';
      targetQuestionForm = targetForm;
   } else {
-     targetQuestionForm = 'dictionary';
-     baseForm = targetForm === 'dictionary' ? 'masu' : targetForm;
+     targetQuestionForm = 'jisho';
+     baseForm = targetForm === 'jisho' ? 'masu' : targetForm;
   }
   
   const forms = autoConjugateVerb(selectedVerb.masu, selectedVerb.group?.toString() || (selectedVerb.type === 'verb' ? (selectedVerb.jisho.endsWith('る') ? '2' : '1') : '')) || selectedVerb;
@@ -499,6 +548,16 @@ const generateSentenceDistractors = (correctVocab, allVocabs, direction = 'j2c')
 
 export default function App() {
   const [appState, setAppState] = useState('home'); 
+  const [vocabManageTab, setVocabManageTab] = useState('vocab');
+  const [searchTerm, setSearchTerm] = useState('');
+  
+  // ==== 全域搜尋 State ====
+  const [globalSearchTerm, setGlobalSearchTerm] = useState('');
+  const [showGlobalSearch, setShowGlobalSearch] = useState(false);
+  const [recentSearches, setRecentSearches] = useState(() => {
+     try { return JSON.parse(localStorage.getItem('verbApp_recentSearches')) || []; } catch { return []; }
+  });
+  useEffect(() => { localStorage.setItem('verbApp_recentSearches', JSON.stringify(recentSearches)); }, [recentSearches]);
 
   // ==== 單字系統 State ====
   const [vocabDB, setVocabDB] = useState(() => {
@@ -583,6 +642,20 @@ return parsed;
     } catch { return INITIAL_VERB_DB.map(v => migrateVerb({ ...v, learnStatus: 'new', correctDates: [] })); }
   });
   useEffect(() => { localStorage.setItem('verbApp_verbDB', JSON.stringify(verbDB)); }, [verbDB]);
+
+  // ==== 漢字索引 State ====
+  const [kanjiDB, setKanjiDB] = useState(() => {
+    try {
+      const saved = localStorage.getItem('verbApp_kanjiDB');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [];
+  });
+  useEffect(() => { localStorage.setItem('verbApp_kanjiDB', JSON.stringify(kanjiDB)); }, [kanjiDB]);
+
+  useEffect(() => {
+    setKanjiDB(prev => syncKanjiDB(vocabDB, prev));
+  }, [vocabDB]);
 
   const [draggedFormIndex, setDraggedFormIndex] = useState(null);
   const [dragOverFormIndex, setDragOverFormIndex] = useState(null);
@@ -773,7 +846,22 @@ return parsed;
         let parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
             parsed = parsed.map(g => {
-                let ng = { ...g, learnStatus: g.learnStatus || 'new' };
+                let status = g.status;
+                if (!status) {
+                    if (g.learnStatus === 'learned') status = 'learning';
+                    else status = 'new';
+                }
+                let ng = { 
+                  ...g,
+                  status,
+                  ef: g.ef || 2.5,
+                  interval: g.interval || 0,
+                  repetitions: g.repetitions || 0,
+                  totalAttempts: g.totalAttempts || 0,
+                  totalCorrect: g.totalCorrect || 0,
+                  nextReview: g.nextReview || 0
+                };
+                delete ng.learnStatus;
                 if (ng && ng.name && ng.name.includes('〜')) {
                     ng = { ...ng, name: ng.name.replace(/〜/g, ' ＿') };
                 }
@@ -782,8 +870,8 @@ return parsed;
             return parsed;
         }
       }
-      return DEFAULT_GRAMMARS;
-    } catch { return DEFAULT_GRAMMARS; }
+      return DEFAULT_GRAMMARS.map(g => ({ ...g, status: 'new', ef: 2.5, interval: 0, repetitions: 0, totalAttempts: 0, totalCorrect: 0, nextReview: 0 }));
+    } catch { return DEFAULT_GRAMMARS.map(g => ({ ...g, status: 'new', ef: 2.5, interval: 0, repetitions: 0, totalAttempts: 0, totalCorrect: 0, nextReview: 0 })); }
   });
   useEffect(() => { localStorage.setItem('verbApp_customGrammars', JSON.stringify(customGrammars)); }, [customGrammars]);
 
@@ -971,7 +1059,12 @@ return parsed;
 
   const [vocabSortConfig, setVocabSortConfig] = useState({ key: 'dateAdded', direction: 'desc' });
   const sortedVocabDB = useMemo(() => {
-    let sorted = [...vocabDB];
+    let list = [...vocabDB];
+    if (vocabManageTab === 'vocab' && searchTerm.trim()) {
+        const q = searchTerm.toLowerCase();
+        list = list.filter(v => (v.word && v.word.toLowerCase().includes(q)) || (v.reading && v.reading.toLowerCase().includes(q)) || (v.meaning && v.meaning.toLowerCase().includes(q)));
+    }
+    let sorted = list;
     sorted.sort((a, b) => {
       if (!a) return 1; if (!b) return -1;
       if (!a) return 1; if (!b) return -1;
@@ -1125,8 +1218,10 @@ return parsed;
   const TOTAL_QUESTIONS = 10;
 
   const goHome = () => {
-    setIsRoundComplete(false);
-    setIsPaused(false);
+    if (window.confirm && (appState === 'vocab_playing' || appState === 'verb_playing')) {
+      if (!window.confirm('確定要回首頁嗎？目前的測驗進度將會遺失。')) return;
+    }
+    setSearchTerm('');
     setAppState('home');
   };
 
@@ -1339,13 +1434,16 @@ return parsed;
     let availablePool = [];
     const validTargets = targetForms.filter(form => form !== sourceForm);
 
-    if (mode === 'grammar') {
-      if (customGrammars.length === 0) { alert('您的自訂文法庫為空！請先新增。'); goHome(); return; }
+            if (mode === 'grammar') {
+      if (customGrammars.length === 0) { alert('文法公式庫為空！請先建立公式。'); goHome(); return; }
+      const now = Date.now();
+      const dueGrammars = customGrammars.filter(g => g.status === 'new' || (g.nextReview || 0) <= now);
+      if (dueGrammars.length === 0) { alert('🎉 今日文法複習已完畢！'); goHome(); return; }
+
       verbDB.forEach(word => {
-        customGrammars.forEach(grammar => { 
+        dueGrammars.forEach(grammar => { 
           if (onlyImportantVerbTest && !word.isImportant) return;
           if (onlyImportantGrammarTest && !grammar.isImportant) return;
-          if (onlyLearnedGrammarTest && !((grammarProgress[grammar.id]?.repetitions || 0) >= 3 || grammar.learnStatus === 'learned')) return;
           if (grammar.appliesTo.includes(word.type) && word[grammar.baseForm]) { availablePool.push({ word, target: grammar.id, grammarDef: grammar }); } 
         });
       });
@@ -1486,6 +1584,41 @@ return parsed;
           }
         };
       });
+    } else {
+      setCustomGrammars(prev => prev.map(g => {
+        if (g.id !== currentGrammarDef.id) return g;
+        const timeSpent = actualTimeLimit - timeLeft;
+        let quality = 0;
+        if (isCorrect) {
+          if (timeSpent <= actualTimeLimit / 2) quality = 5;
+          else if (timeSpent <= actualTimeLimit * 0.8) quality = 4;
+          else quality = 3;
+        }
+        let ef = g.ef || 2.5; let interval = g.interval || 0; let reps = g.repetitions || 0; let status = g.status || 'new';
+        if (quality >= 3) {
+          ef = ef + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
+          if (ef < 1.3) ef = 1.3;
+          if (reps === 0) interval = 1;
+          else if (reps === 1) interval = 2;
+          else if (reps === 2) interval = 3;
+          else if (reps === 3) interval = 5;
+          else if (reps === 4) interval = 10;
+          else interval = Math.round(interval * ef);
+          reps++;
+          if (reps >= 5) status = 'mastered';
+          else status = 'learning';
+        } else {
+          reps = 0; interval = 0; status = 'learning';
+        }
+        return {
+          ...g,
+          ef, interval, repetitions: reps,
+          nextReview: Date.now() + interval * 86400000,
+          totalAttempts: (g.totalAttempts || 0) + 1,
+          totalCorrect: (g.totalCorrect || 0) + (isCorrect ? 1 : 0),
+          status
+        };
+      }));
     }
 
     if (autoAdvance && isCorrect) setTimeout(() => advanceVerbRound(), 800);
@@ -2233,6 +2366,105 @@ return parsed;
     }
   };
 
+  const dashboardStats = React.useMemo(() => {
+     const now = Date.now();
+     const vocabDue = vocabDB.filter(v => v.status !== 'new' && (v.nextReview || 0) <= now).length;
+     const grammarDue = customGrammars.filter(g => g.status !== 'new' && (g.nextReview || 0) <= now).length;
+     const totalDue = vocabDue + todayQueue.length + grammarDue;
+
+     const vocabMistakesCount = Object.keys(vocabMistakes).length;
+     const otherMistakesCount = Object.keys(mistakeBank).length;
+     const totalMistakes = vocabMistakesCount + otherMistakesCount;
+
+     return {
+        totalDue, totalMistakes,
+        vocabTotal: vocabDB.length, verbTotal: verbDB.length, grammarTotal: customGrammars.length, kanjiTotal: kanjiDB.length
+     };
+  }, [vocabDB, verbDB, customGrammars, kanjiDB, vocabMistakes, mistakeBank, todayQueue]);
+
+  const globalSearchResults = React.useMemo(() => {
+     if (!globalSearchTerm.trim()) return null;
+     const q = globalSearchTerm.trim().toLowerCase();
+     
+     const scoreMatch = (target, query) => {
+         if (!target) return 0;
+         const t = target.toLowerCase();
+         if (t === query) return 100;
+         if (t.startsWith(query)) return 50;
+         if (t.includes(query)) return 10;
+         return 0;
+     };
+
+     const results = { vocab: [], verb: [], grammar: [], kanji: [] };
+
+     vocabDB.forEach(v => {
+         let maxScore = Math.max(scoreMatch(v.word, q), scoreMatch(v.reading, q), scoreMatch(v.meaning, q));
+         if (maxScore > 0) results.vocab.push({ item: v, score: maxScore });
+     });
+     verbDB.forEach(v => {
+         let maxScore = Math.max(scoreMatch(v.jisho, q), scoreMatch(v.meaning, q));
+         if (maxScore > 0) results.verb.push({ item: v, score: maxScore });
+     });
+     customGrammars.forEach(g => {
+         let maxScore = Math.max(scoreMatch(g.name, q), scoreMatch(g.suffix, q));
+         if (maxScore > 0) results.grammar.push({ item: g, score: maxScore });
+     });
+     kanjiDB.forEach(k => {
+         let maxScore = Math.max(scoreMatch(k.kanji, q), scoreMatch(k.meaning, q));
+         if (maxScore > 0) results.kanji.push({ item: k, score: maxScore });
+     });
+
+     results.vocab.sort((a, b) => b.score - a.score);
+     results.verb.sort((a, b) => b.score - a.score);
+     results.grammar.sort((a, b) => b.score - a.score);
+     results.kanji.sort((a, b) => b.score - a.score);
+
+     return results;
+  }, [globalSearchTerm, vocabDB, verbDB, customGrammars, kanjiDB]);
+
+  const handleGlobalSearchClick = (type, term) => {
+      setRecentSearches(prev => {
+          const newArr = [term, ...prev.filter(t => t !== term)].slice(0, 10);
+          return newArr;
+      });
+      setShowGlobalSearch(false);
+      setGlobalSearchTerm('');
+
+      if (type === 'vocab') {
+         setVocabManageTab('vocab');
+         setSearchTerm(term);
+         setAppState('vocab_manage');
+      } else if (type === 'kanji') {
+         setVocabManageTab('kanji');
+         setSearchTerm(term);
+         setAppState('vocab_manage');
+      } else if (type === 'verb') {
+         setSearchTerm(term);
+         setAppState('verb_manage');
+      } else if (type === 'grammar') {
+         setSearchTerm(term);
+         setAppState('grammar_manage');
+      }
+  };
+
+  const grammarStats = React.useMemo(() => {
+    let newCount = 0; let learningCount = 0; let masteredCount = 0; let dueCount = 0;
+    let totalAttempts = 0; let totalCorrect = 0;
+    const now = Date.now();
+    customGrammars.forEach(g => {
+       if (g.status === 'new') newCount++;
+       else if (g.status === 'learning') learningCount++;
+       else if (g.status === 'mastered') masteredCount++;
+       
+       if (g.status !== 'new' && (g.nextReview || 0) <= now) dueCount++;
+       totalAttempts += (g.totalAttempts || 0);
+       totalCorrect += (g.totalCorrect || 0);
+    });
+    const dueTotal = newCount + dueCount;
+    const mistakeGrammarsCount = new Set(Object.values(mistakeBank).filter(m => m.grammarDef).map(m => m.grammarDef.id)).size;
+    const accuracy = totalAttempts >= 20 ? Math.round((totalCorrect / totalAttempts) * 100) : null;
+    return { newCount, learningCount, masteredCount, dueTotal, mistakeGrammarsCount, totalAttempts, accuracy };
+  }, [customGrammars, mistakeBank]);
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 p-4 font-sans selection:bg-blue-200 pb-20">
@@ -2472,15 +2704,15 @@ return parsed;
               <div className="grid grid-cols-3 gap-3">
                 <div className="bg-orange-50 border border-orange-100 rounded-2xl p-4 text-center">
                   <div className="text-3xl font-black text-orange-600 leading-none mb-1.5">{todayQueue.length}</div>
-                  <div className="text-xs font-bold text-orange-700/70">單字待複習</div>
+                  <div className="text-xs font-bold text-orange-700/70">🗓️ 單字待複習</div>
                 </div>
                 <div className="bg-fuchsia-50 border border-fuchsia-100 rounded-2xl p-4 text-center">
                   <div className="text-3xl font-black text-fuchsia-600 leading-none mb-1.5">{todaySentenceQueue.length}</div>
-                  <div className="text-xs font-bold text-fuchsia-700/70">例句待複習</div>
+                  <div className="text-xs font-bold text-fuchsia-700/70">💬 例句待複習</div>
                 </div>
                 <div className="bg-red-50 border border-red-100 rounded-2xl p-4 text-center">
                   <div className="text-3xl font-black text-red-500 leading-none mb-1.5">{Object.keys(vocabMistakes).length}</div>
-                  <div className="text-xs font-bold text-red-400">累積錯題</div>
+                  <div className="text-xs font-bold text-red-400">📒 錯題本</div>
                 </div>
               </div>
 
@@ -2554,26 +2786,34 @@ return parsed;
 
               {/* Grammar Stats Cards */}
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                 <div className="bg-green-50 border border-green-100 rounded-2xl p-4 text-center">
-                   <div className="text-3xl font-black text-green-600 leading-none mb-1.5">{verbDB.filter(v => v.learnStatus === 'learned').length}</div>
-                   <div className="text-xs font-bold text-green-700/70">已學習詞彙</div>
-                 </div>
-                <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 text-center">
-                  <div className="text-3xl font-black text-blue-600 leading-none mb-1.5">{todayGrammarQueue.length}</div>
-                  <div className="text-xs font-bold text-blue-700/70">待複習</div>
-                </div>
-                <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 text-center">
-                  <div className="text-3xl font-black text-emerald-600 leading-none mb-1.5">{Object.values(grammarProgress).filter(p => p.repetitions >= 5).length}</div>
-                  <div className="text-xs font-bold text-emerald-400">已掌握</div>
-                </div>
-                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-center">
-                  <div className="text-3xl font-black text-slate-700 leading-none mb-1.5">{Object.keys(grammarProgress).length}</div>
-                  <div className="text-xs font-bold text-slate-400">已練習</div>
-                </div>
-                <div className="bg-red-50 border border-red-100 rounded-2xl p-4 text-center">
-                  <div className="text-3xl font-black text-red-500 leading-none mb-1.5">{Object.keys(mistakeBank).length}</div>
-                  <div className="text-xs font-bold text-red-400">累積錯題</div>
-                </div>
+                 {(() => {
+                    const totalVerbAttempts = verbDB.reduce((acc, v) => acc + (v.stats ? Object.values(v.stats).reduce((s, fs) => s + (fs.correct || 0) + (fs.wrong || 0), 0) : 0), 0);
+                    const totalVerbMistakes = verbDB.reduce((acc, v) => acc + (v.stats ? Object.values(v.stats).reduce((s, fs) => s + (fs.wrong || 0), 0) : 0), 0);
+                    return (
+                      <>
+                        <div className="bg-green-50 border border-green-100 rounded-2xl p-4 text-center">
+                          <div className="text-3xl font-black text-green-600 leading-none mb-1.5">{verbDB.filter(v => v.status === 'not_started').length}</div>
+                          <div className="text-xs font-bold text-green-700/70">📚 待學習</div>
+                        </div>
+                        <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 text-center">
+                          <div className="text-3xl font-black text-blue-600 leading-none mb-1.5">{verbDB.filter(v => v.status === 'learning').length}</div>
+                          <div className="text-xs font-bold text-blue-700/70">🗓️ 待複習</div>
+                        </div>
+                        <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 text-center">
+                          <div className="text-3xl font-black text-emerald-600 leading-none mb-1.5">{verbDB.filter(v => v.status === 'mastered').length}</div>
+                          <div className="text-xs font-bold text-emerald-400">🏆 精通</div>
+                        </div>
+                        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-center">
+                          <div className="text-3xl font-black text-slate-700 leading-none mb-1.5">{totalVerbAttempts}</div>
+                          <div className="text-xs font-bold text-slate-400">📈 累積練習</div>
+                        </div>
+                        <div className="bg-red-50 border border-red-100 rounded-2xl p-4 text-center">
+                          <div className="text-3xl font-black text-red-500 leading-none mb-1.5">{totalVerbMistakes}</div>
+                          <div className="text-xs font-bold text-red-400">❌ 累積錯題</div>
+                        </div>
+                      </>
+                    );
+                 })()}
               </div>
 
               {/* Grammar SRS Primary Action */}
@@ -2592,7 +2832,12 @@ return parsed;
               <button onClick={() => setAppState('verb_learning_dashboard')}
                 className="w-full py-5 rounded-2xl font-bold text-lg flex justify-center items-center gap-2 transition-all bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm hover:shadow-md active:scale-[0.98] mt-4"
               >
-                🎓 動詞變化特訓 (N5-N2 弱點分析)
+                {(() => {
+                   const weakest = getWeakestVerbForms(verbDB)[0];
+                   const formLabel = DEFAULT_FORM_OPTIONS.find(o => o.id === weakest[0])?.label || weakest[0];
+                   const acc = Math.round(weakest[1] * 100);
+                   return `🎯 動詞弱點特訓( 錯題與弱項補強 ) 最弱：${formLabel}（${acc}%）`;
+                })()}
               </button>
 
               {/* Practice Modes */}
@@ -2607,12 +2852,20 @@ return parsed;
                 </button>
 
                 <button onClick={() => startVerbRound('grammar')}
-                  className="p-5 bg-white border-2 border-slate-100 hover:border-emerald-300 hover:bg-emerald-50 rounded-2xl transition-all text-left group active:scale-[0.97]">
-                  <div className="p-2 bg-emerald-100 text-emerald-600 rounded-xl w-fit mb-3 group-hover:bg-emerald-500 group-hover:text-white transition-colors">
-                    <Puzzle className="w-5 h-5"/>
+                  className="p-5 bg-white border-2 border-slate-100 hover:border-emerald-300 hover:bg-emerald-50 rounded-2xl transition-all text-left group active:scale-[0.97] flex flex-col justify-between h-full">
+                  <div>
+                    <div className="p-2 bg-emerald-100 text-emerald-600 rounded-xl w-fit mb-3 group-hover:bg-emerald-500 group-hover:text-white transition-colors">
+                      <Puzzle className="w-5 h-5"/>
+                    </div>
+                    <div className="font-bold text-slate-800 mb-1 leading-tight">文法測驗</div>
+                    <div className="text-xs text-slate-400 mt-1 leading-relaxed">專注集中練習您建立的「自訂文法公式」</div>
                   </div>
-                  <div className="font-bold text-slate-800 mb-1 leading-tight">文法測驗</div>
-                  <div className="text-xs text-slate-400 mt-1 leading-relaxed">專門集中練習您建立的「自訂文法公式」</div>
+                  <div className="mt-4 flex flex-wrap items-center gap-2">
+                     <span className="text-xs font-bold text-emerald-700 bg-emerald-100 px-2 py-1 rounded-md">待複習 {grammarStats.dueTotal} 題</span>
+                     <span className={`text-xs font-bold px-2 py-1 rounded-md ${grammarStats.accuracy !== null ? 'text-blue-700 bg-blue-100' : 'text-slate-500 bg-slate-100'}`}>
+                        {grammarStats.accuracy !== null ? `正確率 ${grammarStats.accuracy}%` : '正確率：資料不足'}
+                     </span>
+                  </div>
                 </button>
               </div>
 
@@ -2950,28 +3203,52 @@ return parsed;
       {appState === 'vocab_manage' && (
         <div className="w-[95vw] max-w-[1600px] mx-auto mt-4 animate-in fade-in">
            <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-100">
-             <div className="flex justify-between items-center mb-6">
-  <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2"><BookType className="w-6 h-6 text-amber-500"/> 管理單字記憶庫</h2>
-  <div className="flex items-center gap-4 ml-4">
-      <label className="flex items-center gap-2 cursor-pointer select-none bg-amber-50 text-amber-700 px-3 py-1.5 rounded-xl font-bold border border-amber-200 hover:bg-amber-100 transition-colors">
-          <input type="checkbox" checked={showOnlyImportantVocab} onChange={(e)=>setShowOnlyImportantVocab(e.target.checked)} className="hidden"/>
-          <Star className={`w-4 h-4 ${showOnlyImportantVocab ? 'fill-amber-500 text-amber-500' : 'text-amber-500/50'}`}/>
-          只顯示重要
-      </label>
-  </div>
-  <button onClick={() => {
-    if(window.confirm('確定要將所有單字的複習進度重置為今天嗎？這將會讓所有單字出現在今日待複習清單中！')) {
-      setVocabDB(vocabDB.map(v => ({ ...v, status: 'learning', interval: 0, repetitions: 0, nextReview: Date.now() })));
-      alert('已強制解鎖並重置所有單字！請回首頁開始複習。');
-      setAppState('home');
-    }
-  }} className="px-4 py-2 bg-red-50 text-red-600 rounded-xl font-bold hover:bg-red-500 hover:text-white transition-colors flex items-center gap-2 text-sm shadow-sm">
-    <RefreshCcw className="w-4 h-4"/> 從今天重新計算
-  </button>
-</div>
+             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+                <div className="flex items-center gap-4">
+                    <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2"><BookType className="w-6 h-6 text-amber-500"/> 單字記憶庫</h2>
+                    <div className="flex bg-slate-100 p-1 rounded-xl">
+                        <button onClick={() => setVocabManageTab('vocab')} className={`px-4 py-1.5 rounded-lg font-bold text-sm transition-colors ${vocabManageTab === 'vocab' ? 'bg-white text-amber-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>📝 單字列表</button>
+                        <button onClick={() => setVocabManageTab('kanji')} className={`px-4 py-1.5 rounded-lg font-bold text-sm transition-colors ${vocabManageTab === 'kanji' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>🈶 漢字索引</button>
+                    </div>
+                </div>
+                
+                <div className="flex flex-1 max-w-xs relative ml-4">
+                        {vocabManageTab === 'vocab' && (
+                           <>
+                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"/>
+                             <input type="text" value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} placeholder="搜尋單字..." className="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-200 rounded-xl text-sm focus:border-amber-500 focus:ring-2 focus:ring-amber-100 transition-all outline-none"/>
+                             {searchTerm && <button onClick={()=>setSearchTerm('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"><XCircle className="w-4 h-4"/></button>}
+                           </>
+                        )}
+                    </div>
+                <div className="flex items-center gap-4">
+                    <div className="text-sm font-bold text-slate-400 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100 hidden lg:block">
+                        單字: <span className="text-slate-700">{vocabDB.length}</span> | 漢字: <span className="text-slate-700">{kanjiDB.length}</span>
+                    </div>
+                    {vocabManageTab === 'vocab' && (
+                        <label className="flex items-center gap-2 cursor-pointer select-none bg-amber-50 text-amber-700 px-3 py-1.5 rounded-xl font-bold border border-amber-200 hover:bg-amber-100 transition-colors">
+                            <input type="checkbox" checked={showOnlyImportantVocab} onChange={(e)=>setShowOnlyImportantVocab(e.target.checked)} className="hidden"/>
+                            <Star className={`w-4 h-4 ${showOnlyImportantVocab ? 'fill-amber-500 text-amber-500' : 'text-amber-500/50'}`}/>
+                            只顯示重要
+                        </label>
+                    )}
+                    {vocabManageTab === 'vocab' && (
+                        <button onClick={() => {
+                          if(window.confirm('確定要將所有單字的複習進度重置為今天嗎？這將會讓所有單字出現在今日待複習清單中！')) {
+                            setVocabDB(vocabDB.map(v => ({ ...v, status: 'learning', interval: 0, repetitions: 0, nextReview: Date.now() })));
+                            alert('已強制解鎖並重置所有單字！請回首頁開始複習。');
+                            setAppState('home');
+                          }
+                        }} className="px-4 py-2 bg-red-50 text-red-600 rounded-xl font-bold hover:bg-red-500 hover:text-white transition-colors flex items-center gap-2 text-sm shadow-sm hidden sm:flex">
+                          <RefreshCcw className="w-4 h-4"/> 重置
+                        </button>
+                    )}
+                </div>
+             </div>
              
              
-             <div className="bg-slate-800 p-6 rounded-3xl border border-slate-700 mb-8 shadow-lg">
+             {vocabManageTab === 'vocab' && (
+             <><div className="bg-slate-800 p-6 rounded-3xl border border-slate-700 mb-8 shadow-lg">
                 <div className="flex justify-between items-center mb-4"><h3 className="font-bold text-white text-lg flex items-center gap-2"><Sparkles className="w-5 h-5 text-purple-400"/> Obsidian 智慧同步 (僅支援單字與例句)</h3></div>
                 <div className="bg-slate-700/50 p-5 rounded-2xl border border-slate-600">
                   <p className="text-slate-300 text-sm mb-4 leading-relaxed">選擇筆記檔案，系統會自動轉換 🟡【單字】、#### 📝 例句 結構，並過濾重複項目匯入。</p>
@@ -3230,7 +3507,18 @@ return parsed;
                                 </td>;
                              }
                              if (colId === 'word') {
-                                return <td key={colId} className="p-4"><div className="font-bold text-slate-800 text-base">{v.word || v.reading}</div>{v.word && <div className="text-slate-500 text-xs mt-0.5">{v.reading}</div>}</td>;
+                                const kanjis = extractKanjiFromWord(v.word);
+                                return <td key={colId} className="p-4">
+                                  <div className="font-bold text-slate-800 text-base">{v.word || v.reading}</div>
+                                  {v.word && <div className="text-slate-500 text-xs mt-0.5 mb-1.5">{v.reading}</div>}
+                                  {kanjis.length > 0 && (
+                                    <div className="flex flex-wrap gap-1 mt-1">
+                                      {kanjis.map(k => (
+                                        <button key={k} onClick={() => { setSearchTerm(k); setVocabManageTab('kanji'); }} className="px-1.5 py-0.5 text-[10px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-md hover:bg-indigo-500 hover:text-white transition-colors" title={`查看漢字: ${k}`}>{k}</button>
+                                      ))}
+                                    </div>
+                                  )}
+                                </td>;
                              }
                              if (colId === 'meaning') {
                                 return <td key={colId} className="p-4"><div className="font-bold text-slate-700">{v.meaning}</div>{v.example && <div className="text-slate-500 text-xs mt-1 bg-slate-100 p-1.5 rounded inline-block">{renderRuby(v.example)}</div>}</td>;
@@ -3265,7 +3553,63 @@ return parsed;
                     ))}
                  </tbody>
                </table>
-             </div>
+             </div></>)}
+
+             {vocabManageTab === 'kanji' && (
+                <div className="mt-2 animate-in fade-in">
+                   <div className="flex items-center gap-4 mb-6">
+                      <div className="flex-1 relative">
+                         <Search className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                         <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="搜尋漢字或意思..." className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:border-indigo-500 transition-colors" />
+                      </div>
+                   </div>
+                   
+                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
+                      {kanjiDB.filter(k => k.kanji.includes(searchTerm) || (k.meaning && k.meaning.includes(searchTerm))).map(kanji => {
+                         const associated = vocabDB.filter(v => v.word.includes(kanji.kanji));
+                         const masteredCount = associated.filter(v => v.repetitions >= 5 || v.interval >= 30).length;
+                         return (
+                           <div key={kanji.id} className="bg-slate-50 border border-slate-200 rounded-3xl p-5 hover:border-indigo-300 hover:shadow-md transition-all flex flex-col h-72">
+                              <div className="flex items-start justify-between mb-4">
+                                 <div className="text-5xl font-black text-slate-800 leading-none">{kanji.kanji}</div>
+                                 <div className="text-right flex flex-col items-end">
+                                   <input type="text" value={kanji.meaning} onChange={e => setKanjiDB(prev => prev.map(k => k.id === kanji.id ? {...k, meaning: e.target.value} : k))} placeholder="新增意思..." className="text-right text-sm font-bold text-slate-600 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-indigo-500 focus:outline-none w-24 placeholder:text-slate-400 mb-1"/>
+                                   <select value={kanji.jlptLevel} onChange={e => setKanjiDB(prev => prev.map(k => k.id === kanji.id ? {...k, jlptLevel: e.target.value} : k))} className="text-xs font-bold text-slate-400 bg-transparent outline-none cursor-pointer hover:text-slate-600">
+                                       <option value="Unknown">--</option>
+                                       <option value="N5">N5</option>
+                                       <option value="N4">N4</option>
+                                       <option value="N3">N3</option>
+                                       <option value="N2">N2</option>
+                                       <option value="N1">N1</option>
+                                   </select>
+                                 </div>
+                              </div>
+                              
+                              <div className="bg-white rounded-2xl p-4 border border-slate-100 flex-1 overflow-y-auto">
+                                 <div className="flex justify-between items-center mb-2">
+                                   <div className="text-xs font-bold text-slate-500">關聯單字 ({associated.length})</div>
+                                   {associated.length > 0 && <div className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">已掌握 {masteredCount}/{associated.length}</div>}
+                                 </div>
+                                 {associated.length === 0 ? <div className="text-xs text-slate-400 italic">無關聯單字</div> : (
+                                   <div className="space-y-2">
+                                     {associated.map(v => (
+                                       <div key={v.id} className="flex flex-col text-sm border-b border-slate-50 pb-2 last:border-0 last:pb-0">
+                                         <div className="flex justify-between items-center">
+                                           <span className="font-bold text-slate-700">{v.word} <span className="text-slate-400 text-xs font-normal ml-1">({v.reading})</span></span>
+                                           {(v.repetitions >= 5 || v.interval >= 30) && <div className="w-4 h-4 rounded-full bg-emerald-100 flex items-center justify-center"><CheckCircle2 className="w-3 h-3 text-emerald-500"/></div>}
+                                         </div>
+                                         <div className="text-xs text-slate-500 mt-0.5">{v.meaning}</div>
+                                       </div>
+                                     ))}
+                                   </div>
+                                 )}
+                              </div>
+                           </div>
+                         );
+                      })}
+                   </div>
+                </div>
+             )}
            </div>
         </div>
       )}
@@ -3273,7 +3617,44 @@ return parsed;
       {appState === 'grammar_manage' && (
         <div className="w-[95vw] max-w-[1600px] mx-auto mt-4 animate-in fade-in">
            <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-100">
-              <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2 mb-8"><Puzzle className="w-6 h-6 text-emerald-600"/> 文法公式庫</h2>
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2"><Puzzle className="w-6 h-6 text-emerald-600"/> 文法公式庫</h2>
+                <div className="relative w-64">
+                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"/>
+                   <input type="text" value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} placeholder="搜尋文法公式..." className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 transition-all outline-none"/>
+                   {searchTerm && <button onClick={()=>setSearchTerm('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"><XCircle className="w-4 h-4"/></button>}
+                </div>
+              </div>
+              
+              {/* Grammar SRS Dashboard */}
+              <div className="mb-8 p-6 bg-slate-50 rounded-3xl border border-slate-100">
+                <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2"><BarChart2 className="w-5 h-5 text-indigo-500"/>文法學習進度總覽 (Grammar SRS)</h3>
+                <div className="grid grid-cols-3 gap-3 mb-3">
+                  <div className="bg-white border border-slate-200 rounded-2xl p-3 text-center shadow-sm">
+                    <div className="text-sm font-bold text-slate-500 mb-1">📚 待學習</div>
+                    <div className="text-2xl font-black text-slate-700">{grammarStats.newCount} <span className="text-sm font-normal text-slate-400">公式</span></div>
+                  </div>
+                  <div className="bg-blue-50 border border-blue-100 rounded-2xl p-3 text-center shadow-sm">
+                    <div className="text-sm font-bold text-blue-600 mb-1">🎯 已學習</div>
+                    <div className="text-2xl font-black text-blue-700">{grammarStats.learningCount} <span className="text-sm font-normal text-blue-500/60">公式</span></div>
+                  </div>
+                  <div className="bg-amber-50 border border-amber-100 rounded-2xl p-3 text-center shadow-sm">
+                    <div className="text-sm font-bold text-amber-600 mb-1">🏆 精通</div>
+                    <div className="text-2xl font-black text-amber-700">{grammarStats.masteredCount} <span className="text-sm font-normal text-amber-500/60">公式</span></div>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-3 text-center shadow-sm">
+                    <div className="text-sm font-bold text-emerald-600 mb-1">🗓️ 待複習</div>
+                    <div className="text-xl font-black text-emerald-700">{grammarStats.dueTotal} <span className="text-sm font-normal text-emerald-500/60">公式</span></div>
+                  </div>
+                  <div className="bg-rose-50 border border-rose-100 rounded-2xl p-3 text-center shadow-sm">
+                    <div className="text-sm font-bold text-rose-600 mb-1">📒 錯題本</div>
+                    <div className="text-xl font-black text-rose-700">{grammarStats.mistakeGrammarsCount} <span className="text-sm font-normal text-rose-500/60">公式</span></div>
+                  </div>
+                </div>
+              </div>
+
               <div className="grid lg:grid-cols-[1.2fr_1fr] gap-8">
                  <div className="space-y-4">
                    <div className="flex justify-between items-center mb-4">
@@ -3737,7 +4118,7 @@ return parsed;
           </div>
 
           <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 mb-8">
-             <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2"><Target className="w-6 h-6 text-indigo-500" />最弱項目分析排行榜</h2>
+             <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2"><Target className="w-6 h-6 text-indigo-500" />動詞變化弱點排行</h2>
              <div className="space-y-3">
                {getWeakestVerbForms(verbDB).map((item, idx) => {
                   const formLabel = DEFAULT_FORM_OPTIONS.find(o => o.id === item[0])?.label || item[0];
