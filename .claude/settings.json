@@ -6,7 +6,8 @@
       "Bash(node C:/Users/qaqa4/AppData/Local/Temp/pw_verb_table.cjs)",
       "Bash(node C:/Users/qaqa4/AppData/Local/Temp/pw_verb_check_tag.cjs)",
       "Bash(node C:/Users/qaqa4/AppData/Local/Temp/pw_ls_keys.cjs)",
-      "Bash(node C:/Users/qaqa4/AppData/Local/Temp/pw_tags_color.cjs)"
+      "Bash(node C:/Users/qaqa4/AppData/Local/Temp/pw_tags_color.cjs)",
+      "Bash(grep -v \"//\\\\|setAppState\\(prev\")"
     ]
   }
 }

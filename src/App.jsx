@@ -11,7 +11,8 @@ import {
   MessageSquareQuote, PenTool, RefreshCcw, Save, Pencil, Search, GripHorizontal, Star,
   Target,
   BarChart2,
-  History
+  History,
+  ChevronUp
 } from 'lucide-react';
 
 const renderTextWithStrikethrough = (text) => {
@@ -345,16 +346,23 @@ const TagEditor = ({ tags, onChange, tagStats }) => {
         onChange(current);
     };
 
+    const [isOpen, setIsOpen] = React.useState(false);
     return (
         <div className="mt-2 mb-2 p-3 bg-slate-50 border border-slate-200 rounded-xl">
             <label className="block text-xs font-bold text-slate-500 mb-1">標籤 (可用半形逗號分隔)</label>
             <input type="text" value={inputValue} onChange={e => setInputValue(e.target.value)} onBlur={handleBlur} onKeyDown={e => e.key === 'Enter' && handleBlur()} placeholder="例如: N4, 重要, 學校" className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all outline-none mb-2"/>
-            <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-1">
-               {suggestions.map(t => {
-                   const isActive = processTags(inputValue).includes(t);
-                   return <button key={t} onClick={(e) => { e.preventDefault(); toggleTag(t); }} className={`px-2 py-1 text-[11px] font-bold rounded-lg border transition-colors ${isActive ? 'bg-indigo-500 text-white border-indigo-500 shadow-sm' : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'}`}>{t} {tagStats[t] ? <span className="opacity-70 font-normal ml-1">({tagStats[t]})</span> : ''}</button>
-               })}
-            </div>
+            <button type="button" onClick={() => setIsOpen(v => !v)} className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-xs font-bold text-slate-500 hover:bg-slate-200 transition-colors">
+                <span>建議標籤 ({suggestions.length} 個)</span>
+                <span className="text-slate-400">{isOpen ? '▲' : '▼'}</span>
+            </button>
+            {isOpen && (
+                <div className="flex flex-wrap gap-1.5 mt-2 p-1">
+                    {suggestions.map(t => {
+                        const isActive = processTags(inputValue).includes(t);
+                        return <button key={t} onClick={(e) => { e.preventDefault(); toggleTag(t); }} className={`px-2 py-1 text-[11px] font-bold rounded-lg border transition-colors ${isActive ? 'bg-indigo-500 text-white border-indigo-500 shadow-sm' : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'}`}>{t} {tagStats[t] ? <span className="opacity-70 font-normal ml-1">({tagStats[t]})</span> : ''}</button>
+                    })}
+                </div>
+            )}
         </div>
     );
 };
@@ -647,9 +655,15 @@ const generateSentenceDistractors = (correctVocab, allVocabs, direction = 'j2c')
 
 export default function App() {
 
-  const [appState, setAppState] = useState('home'); 
+  const [appState, setAppState] = useState('home');
   const [vocabManageTab, setVocabManageTab] = useState('vocab');
   const [searchTerm, setSearchTerm] = useState('');
+  const [showScrollTop, setShowScrollTop] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setShowScrollTop(window.scrollY > 300);
+    window.addEventListener('scroll', onScroll);
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
   
   // ==== 全域搜尋 State ====
   const [globalSearchTerm, setGlobalSearchTerm] = useState('');
@@ -1190,7 +1204,7 @@ return parsed;
       return 0;
     });
     return sorted;
-  }, [vocabDB, vocabSortConfig]);
+  }, [vocabDB, vocabSortConfig, searchTerm, vocabManageTab]);
 
   const handleSort = (key) => {
     setVocabSortConfig(prev => ({
@@ -1239,7 +1253,7 @@ return parsed;
       return 0;
     });
     return sorted;
-  }, [verbDB, verbSortConfig, verbManageTypeTab, showOnlyImportantVerb]);
+  }, [verbDB, verbSortConfig, verbManageTypeTab, showOnlyImportantVerb, searchTerm]);
 
   const handleVerbSort = (key) => {
     setVerbSortConfig(prev => ({
@@ -1839,7 +1853,11 @@ return parsed;
   const handleRematchBatchTheme = (idx) => {
     const n = [...batchInputs];
     if (n[idx].meaning) {
-        n[idx].tag = guessThemeByMeaning(n[idx].meaning, vocabDB);
+        const newTag = guessThemeByMeaning(n[idx].meaning, vocabDB);
+        const cleanedTags = (n[idx].tags || []).filter(t => t !== n[idx].tag);
+        const newTags = (newTag && newTag !== '自訂') ? [...cleanedTags, newTag] : cleanedTags;
+        n[idx].tag = newTag;
+        n[idx].tags = newTags;
         setBatchInputs(n);
     }
   };
@@ -3454,7 +3472,7 @@ return parsed;
                         {vocabManageTab === 'vocab' && (
                            <>
                              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"/>
-                             <input type="text" value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} placeholder="搜尋單字..." className="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-200 rounded-xl text-sm focus:border-amber-500 focus:ring-2 focus:ring-amber-100 transition-all outline-none"/>
+                             <input type="text" value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} placeholder="單字,主題標籤 搜尋..." className="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-200 rounded-xl text-sm focus:border-amber-500 focus:ring-2 focus:ring-amber-100 transition-all outline-none"/>
                              {searchTerm && <button onClick={()=>setSearchTerm('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"><XCircle className="w-4 h-4"/></button>}
                            </>
                         )}
@@ -3726,16 +3744,19 @@ return parsed;
                                    <input type="text" value={vocabEditForm.meaning} onChange={e=>setVocabEditForm({...vocabEditForm, meaning: e.target.value})} placeholder="中文意思" className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:border-amber-500 font-bold text-sm"/>
                                  </div>
                                </div>
-                               <div className="flex gap-3">
-                                 <div className="flex-1">
+                               <div className="flex flex-col gap-2">
+                                 <div>
                                    <label className="block text-xs font-bold text-amber-600 mb-1 ml-1">例句 (選填)</label>
                                    <input type="text" value={vocabEditForm.example} onChange={e=>setVocabEditForm({...vocabEditForm, example: e.target.value})} placeholder="例句" className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:border-amber-500 text-sm"/>
-                                 </div>\n<div className="w-full mt-2 col-span-full"><TagEditor tags={vocabEditForm.tags} onChange={tags => setVocabEditForm({...vocabEditForm, tags})} tagStats={globalTagStats} /></div>
-                                 <button onClick={()=>{
-                                     setVocabDB(prev => prev.map(x => x.id === v.id ? { ...x, ...vocabEditForm, isSentence: (vocabEditForm.example && vocabEditForm.example.trim().length > 0) || (vocabEditForm.reading && vocabEditForm.reading.includes('。')) } : x));
-                                     setEditingVocabId(null);
-                                 }} className="px-4 py-2 bg-amber-500 text-white rounded-lg font-bold text-sm hover:bg-amber-600 transition-colors flex items-center gap-1"><Save className="w-4 h-4"/> 儲存</button>
-                                 <button onClick={()=>setEditingVocabId(null)} className="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg font-bold text-sm hover:bg-slate-300 transition-colors">取消</button>
+                                 </div>
+                                 <TagEditor tags={vocabEditForm.tags} onChange={tags => setVocabEditForm({...vocabEditForm, tags})} tagStats={globalTagStats} />
+                                 <div className="flex gap-3">
+                                   <button onClick={()=>{
+                                       setVocabDB(prev => prev.map(x => x.id === v.id ? { ...x, ...vocabEditForm, isSentence: (vocabEditForm.example && vocabEditForm.example.trim().length > 0) || (vocabEditForm.reading && vocabEditForm.reading.includes('。')) } : x));
+                                       setEditingVocabId(null);
+                                   }} className="flex-1 py-3 bg-amber-500 text-white rounded-xl font-bold text-base hover:bg-amber-600 transition-colors flex items-center justify-center gap-2"><Save className="w-5 h-5"/> 儲存</button>
+                                   <button onClick={()=>setEditingVocabId(null)} className="flex-1 py-3 bg-slate-200 text-slate-700 rounded-xl font-bold text-base hover:bg-slate-300 transition-colors">取消</button>
+                                 </div>
                                </div>
                              </div>
                           </td>
@@ -3998,10 +4019,11 @@ return parsed;
                             }
                         }
                         return 0;
-                    }).map(g => (
+                    }).map((g, idx) => (
                       <div key={g.id} id={"item-" + g.id} className={"p-5 bg-white border border-slate-200 rounded-2xl flex justify-between items-center shadow-sm hover:border-emerald-300 transition-colors " + (targetId === g.id ? "bg-emerald-100 ring-2 ring-emerald-500" : "")}>
                          <div className="flex-1 min-w-0 pr-4">
                            <div className="flex items-center gap-2 mb-1.5 flex-nowrap">
+                               <span className="text-xs font-bold text-slate-400 bg-slate-100 border border-slate-200 rounded-md px-1.5 py-0.5 shrink-0">#{idx + 1}</span>
                                <div className="font-bold text-slate-800 text-lg whitespace-nowrap">{g.name}</div>
                                <>{renderTags(g.tags, (tag) => setSearchTerm(tag))}</>
                                {g.id.startsWith('g_custom_') && !isNaN(parseInt(g.id.replace('g_custom_', ''))) ? (
@@ -4668,6 +4690,15 @@ return parsed;
             )}
 
          </div>
+      )}
+      {showScrollTop && (
+        <button
+          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          className="fixed bottom-6 right-6 z-50 p-3 bg-slate-700 text-white rounded-full shadow-lg hover:bg-slate-900 active:scale-95 transition-all"
+          title="回到頂端"
+        >
+          <ChevronUp className="w-5 h-5" />
+        </button>
       )}
     </div>
   );
