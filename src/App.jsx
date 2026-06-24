@@ -359,11 +359,19 @@ const TagEditor = ({ tags, onChange, tagStats }) => {
     );
 };
 
-const renderTags = (tags) => {
+const renderTags = (tags, onTagClick) => {
     if (!tags || !Array.isArray(tags) || tags.length === 0) return null;
     return (
         <div className="flex flex-wrap gap-1 mt-1">
-            {tags.map(t => <span key={t} className="px-1.5 py-0.5 text-[10px] font-bold text-slate-500 bg-slate-200 rounded-md border border-slate-300">{t}</span>)}
+            {tags.map(t => (
+                <span
+                  key={t}
+                  onClick={onTagClick ? (e) => { e.stopPropagation(); onTagClick(t); } : undefined}
+                  className={`px-1.5 py-0.5 text-[10px] font-bold rounded-md border ${getTagStyle(t)}${onTagClick ? ' cursor-pointer hover:opacity-75 transition-opacity' : ''}`}
+                >
+                  {t}
+                </span>
+            ))}
         </div>
     );
 };
@@ -371,33 +379,54 @@ const renderTags = (tags) => {
 const getTagStyle = (tag) => {
     if (!tag) return 'bg-slate-50 text-slate-600 border-slate-200';
     if (tag === '自訂') return 'bg-slate-100 text-slate-700 border-slate-300';
-    if (tag.includes('飲食')) return 'bg-amber-50 text-amber-700 border-amber-200';
-    if (tag.includes('交通')) return 'bg-blue-50 text-blue-700 border-blue-200';
-    if (tag.includes('服裝')) return 'bg-pink-50 text-pink-700 border-pink-200';
-    if (tag.includes('身體')) return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-    if (tag.includes('想法')) return 'bg-purple-50 text-purple-700 border-purple-200';
-    if (tag.includes('購物') || tag.includes('金錢')) return 'bg-rose-50 text-rose-700 border-rose-200';
-    if (tag.includes('居住') || tag.includes('生活')) return 'bg-teal-50 text-teal-700 border-teal-200';
-    if (tag.includes('工作') || tag.includes('職場')) return 'bg-cyan-50 text-cyan-700 border-cyan-200';
-    if (tag.includes('娛樂') || tag.includes('休閒')) return 'bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200';
-    if (tag.includes('學習') || tag.includes('教育')) return 'bg-indigo-50 text-indigo-700 border-indigo-200';
-    if (tag.includes('自然') || tag.includes('天氣')) return 'bg-lime-50 text-lime-700 border-lime-200';
-    if (tag.includes('時間') || tag.includes('日期')) return 'bg-sky-50 text-sky-700 border-sky-200';
-    if (tag.includes('問候') || tag.includes('社交')) return 'bg-violet-50 text-violet-700 border-violet-200';
-    
+    // JLPT 等級
+    if (tag === 'N5') return 'bg-green-100 text-green-700 border-green-300';
+    if (tag === 'N4') return 'bg-blue-100 text-blue-700 border-blue-300';
+    if (tag === 'N3') return 'bg-yellow-100 text-yellow-700 border-yellow-300';
+    if (tag === 'N2') return 'bg-orange-100 text-orange-700 border-orange-300';
+    if (tag === 'N1') return 'bg-red-100 text-red-700 border-red-300';
+    // 學習優先度
+    if (tag === '重要') return 'bg-amber-100 text-amber-700 border-amber-300';
+    if (tag === '易錯') return 'bg-red-100 text-red-700 border-red-300';
+    if (tag === '必背') return 'bg-rose-100 text-rose-700 border-rose-300';
+    // 情境
+    if (tag === '留學' || tag === '學校') return 'bg-indigo-100 text-indigo-700 border-indigo-300';
+    if (tag === '打工') return 'bg-cyan-100 text-cyan-700 border-cyan-300';
+    if (tag === '生活') return 'bg-teal-100 text-teal-700 border-teal-300';
+    // 字典主題
+    if (tag === '考駕照') return 'bg-orange-100 text-orange-700 border-orange-300';
+    if (tag.includes('專門學校') || tag.includes('語言學校')) return 'bg-indigo-100 text-indigo-700 border-indigo-300';
+    if (tag.includes('職場打工')) return 'bg-cyan-100 text-cyan-700 border-cyan-300';
+    if (tag.includes('生活形容詞')) return 'bg-slate-100 text-slate-700 border-slate-300';
+    if (tag === 'JLPT') return 'bg-purple-100 text-purple-700 border-purple-300';
+    // THEME_KEYWORDS 主題
+    if (tag.includes('飲食')) return 'bg-amber-100 text-amber-700 border-amber-300';
+    if (tag.includes('交通')) return 'bg-blue-100 text-blue-700 border-blue-300';
+    if (tag.includes('服裝')) return 'bg-pink-100 text-pink-700 border-pink-300';
+    if (tag.includes('身體')) return 'bg-emerald-100 text-emerald-700 border-emerald-300';
+    if (tag.includes('想法')) return 'bg-purple-100 text-purple-700 border-purple-300';
+    if (tag.includes('購物') || tag.includes('金錢')) return 'bg-rose-100 text-rose-700 border-rose-300';
+    if (tag.includes('居住') || tag.includes('生活')) return 'bg-teal-100 text-teal-700 border-teal-300';
+    if (tag.includes('工作') || tag.includes('職場')) return 'bg-cyan-100 text-cyan-700 border-cyan-300';
+    if (tag.includes('娛樂') || tag.includes('休閒')) return 'bg-fuchsia-100 text-fuchsia-700 border-fuchsia-300';
+    if (tag.includes('學習') || tag.includes('教育')) return 'bg-indigo-100 text-indigo-700 border-indigo-300';
+    if (tag.includes('自然') || tag.includes('天氣')) return 'bg-lime-100 text-lime-700 border-lime-300';
+    if (tag.includes('時間') || tag.includes('日期')) return 'bg-sky-100 text-sky-700 border-sky-300';
+    if (tag.includes('問候') || tag.includes('社交')) return 'bg-violet-100 text-violet-700 border-violet-300';
+    // 其他：固定 hash
     const colors = [
-        'bg-indigo-50 text-indigo-700 border-indigo-200', 
-        'bg-rose-50 text-rose-700 border-rose-200',
-        'bg-teal-50 text-teal-700 border-teal-200', 
-        'bg-orange-50 text-orange-700 border-orange-200',
-        'bg-cyan-50 text-cyan-700 border-cyan-200',
-        'bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200',
-        'bg-lime-50 text-lime-700 border-lime-200',
-        'bg-sky-50 text-sky-700 border-sky-200',
-        'bg-violet-50 text-violet-700 border-violet-200',
-        'bg-emerald-50 text-emerald-700 border-emerald-200',
-        'bg-pink-50 text-pink-700 border-pink-200',
-        'bg-amber-50 text-amber-700 border-amber-200'
+        'bg-indigo-100 text-indigo-700 border-indigo-300',
+        'bg-rose-100 text-rose-700 border-rose-300',
+        'bg-teal-100 text-teal-700 border-teal-300',
+        'bg-orange-100 text-orange-700 border-orange-300',
+        'bg-cyan-100 text-cyan-700 border-cyan-300',
+        'bg-fuchsia-100 text-fuchsia-700 border-fuchsia-300',
+        'bg-lime-100 text-lime-700 border-lime-300',
+        'bg-sky-100 text-sky-700 border-sky-300',
+        'bg-violet-100 text-violet-700 border-violet-300',
+        'bg-emerald-100 text-emerald-700 border-emerald-300',
+        'bg-pink-100 text-pink-700 border-pink-300',
+        'bg-amber-100 text-amber-700 border-amber-300'
     ];
     let hash = 5381;
     for (let i = 0; i < tag.length; i++) { hash = ((hash << 5) + hash) + tag.charCodeAt(i); }
@@ -686,6 +715,8 @@ return parsed;
   const [currentFlashcardIndex, setCurrentFlashcardIndex] = useState(0);
   const [showOnlyImportantVocab, setShowOnlyImportantVocab] = useState(false);
   const [showOnlyImportantVerb, setShowOnlyImportantVerb] = useState(false);
+  const [verbManageTypeTab, setVerbManageTypeTab] = useState('all');
+  const [showVerbAddSection, setShowVerbAddSection] = useState(false);
   const [onlyImportantVocabTest, setOnlyImportantVocabTest] = useState(false);
   const [onlyImportantVerbTest, setOnlyImportantVerbTest] = useState(false);
   const [onlyImportantGrammarTest, setOnlyImportantGrammarTest] = useState(false);
@@ -763,8 +794,7 @@ return parsed;
        let newOrder = [...prev].filter(id => defaultCols.includes(id) || formIds.includes(id));
        
        if (!newOrder.includes('isImportant')) newOrder.splice(0, 0, 'isImportant');
-       if (!newOrder.includes('learnStatus')) newOrder.splice(1, 0, 'learnStatus');
-       if (!newOrder.includes('type')) newOrder.splice(2, 0, 'type');
+       if (!newOrder.includes('type')) newOrder.splice(1, 0, 'type');
        if (!newOrder.includes('tag')) newOrder.splice(1, 0, 'tag');
        
        let insertIdx = newOrder.indexOf('tag') + 1;
@@ -1177,10 +1207,14 @@ return parsed;
   const [verbSortConfig, setVerbSortConfig] = useState({ key: 'dateAdded', direction: 'desc' });
   const sortedVerbDB = useMemo(() => {
     let sorted = [...verbDB];
+    if (verbManageTypeTab !== 'all') {
+      sorted = sorted.filter(v => verbManageTypeTab === 'verb' ? v.type === 'verb' : (v.type === 'adj_i' || v.type === 'adj_na'));
+    }
+    if (showOnlyImportantVerb) sorted = sorted.filter(v => v.isImportant);
       if (searchTerm.trim()) {
           const q = searchTerm.toLowerCase();
-          sorted = sorted.filter(v => 
-              (v.jisho && v.jisho.toLowerCase().includes(q)) || 
+          sorted = sorted.filter(v =>
+              (v.jisho && v.jisho.toLowerCase().includes(q)) ||
               (v.meaning && v.meaning.toLowerCase().includes(q)) ||
               (v.tags && v.tags.some(t => t.toLowerCase().includes(q)))
           );
@@ -1205,7 +1239,7 @@ return parsed;
       return 0;
     });
     return sorted;
-  }, [verbDB, verbSortConfig]);
+  }, [verbDB, verbSortConfig, verbManageTypeTab, showOnlyImportantVerb]);
 
   const handleVerbSort = (key) => {
     setVerbSortConfig(prev => ({
@@ -1767,7 +1801,8 @@ return parsed;
     return id;
   };
 
-  const [batchInputs, setBatchInputs] = useState(Array.from({ length: 5 }, () => ({ word: '', reading: '', meaning: '', tag: '自訂', example: '', isSentence: false })));
+  const [batchInputs, setBatchInputs] = useState(Array.from({ length: 5 }, () => ({ word: '', reading: '', meaning: '', tag: '自訂', tags: [], example: '', isSentence: false })));
+  const [editingKanjiId, setEditingKanjiId] = useState(null);
   const [autoUnlock, setAutoUnlock] = useState(false);
   const obsidianFileRef = React.useRef(null);
   const [obsidianScannedWords, setObsidianScannedWords] = useState([]);
@@ -1811,16 +1846,25 @@ return parsed;
 
   const handleRematchDbTheme = (id, meaning) => {
     if (!meaning) return;
-    // 排除自己，避免自我參照（如果自己被改成奇怪的 tag，不要再匹配到自己）
     const otherVocabs = vocabDB.filter(v => v.id !== id);
     const newTag = guessThemeByMeaning(meaning, otherVocabs);
-    setVocabDB(prev => prev.map(v => v.id === id ? { ...v, tag: newTag } : v));
+    setVocabDB(prev => prev.map(v => {
+      if (v.id !== id) return v;
+      const cleanedTags = (v.tags || []).filter(t => t !== v.tag);
+      const newTags = (newTag && newTag !== '自訂') ? [...cleanedTags, newTag] : cleanedTags;
+      return { ...v, tag: newTag, tags: newTags };
+    }));
   };
 
   const handleRematchVerbDbTheme = (id, meaning) => {
     if (!meaning) return;
     const newTag = guessThemeByMeaning(meaning, vocabDB);
-    setVerbDB(prev => prev.map(v => v.id === id ? { ...v, tag: newTag } : v));
+    setVerbDB(prev => prev.map(v => {
+      if (v.id !== id) return v;
+      const cleanedTags = (v.tags || []).filter(t => t !== v.tag);
+      const newTags = (newTag && newTag !== '自訂') ? [...cleanedTags, newTag] : cleanedTags;
+      return { ...v, tag: newTag, tags: newTags };
+    }));
   };
 
 
@@ -1988,7 +2032,8 @@ return parsed;
         word: v.word.trim(), 
         reading: v.reading.trim() || v.word.trim(), 
         meaning: v.meaning.trim(), 
-        tag: v.tag || '自訂', 
+        tag: v.tag || '自訂',
+        tags: v.tags || [],
         example: v.example.trim(),
         isSentence: !!v.isSentence,
         ef: 2.5, interval: 0, repetitions: 0, nextReview: 0, status: addToReviewNow ? 'learning' : 'new'
@@ -2007,7 +2052,7 @@ return parsed;
 
     if (newVocabs.length > 0) {
         setVocabDB(prev => [...prev, ...newVocabs]);
-        setBatchInputs(Array.from({ length: 5 }, () => ({ word: '', reading: '', meaning: '', tag: '自訂', example: '', isSentence: false })));
+        setBatchInputs(Array.from({ length: 5 }, () => ({ word: '', reading: '', meaning: '', tag: '自訂', tags: [], example: '', isSentence: false })));
         alert(`成功加入 ${newVocabs.length} 個單字/例句到學習序列！`);
     } else alert('沒有找到可儲存的內容，請確認至少填寫「中文」與「平假名」或「例句」。');
   };
@@ -2208,7 +2253,7 @@ return parsed;
   };
 
   const getInitialVerbInputs = () => {
-      const base = { type: 'verb', group: '1', difficulty: 'n5', masu: '', meaning: '' };
+      const base = { type: 'verb', group: '1', difficulty: 'n5', masu: '', meaning: '', tags: [] };
       verbForms.forEach(f => { base[f.id] = ''; });
       return base;
   };
@@ -2298,7 +2343,7 @@ return parsed;
         return;
     }
     const newTag = guessThemeByMeaning(verbInputs.meaning, vocabDB);
-    setVerbDB(prev => [...prev, { ...verbInputs, tag: newTag, id: `${verbInputs.type}_custom_${Date.now()}` }]);
+    setVerbDB(prev => [...prev, { ...verbInputs, tag: newTag, tags: newTag && newTag !== '自訂' ? [newTag] : [], id: `${verbInputs.type}_custom_${Date.now()}` }]);
     setVerbInputs(getInitialVerbInputs());
   };
 
@@ -3727,7 +3772,7 @@ return parsed;
                                        className="w-28 px-2 py-1 text-xs font-bold rounded-lg border-2 border-amber-400 outline-none bg-amber-50"
                                      />
                                    ) : (
-                                       <>{renderTags(v.tags)}</>
+                                       <>{renderTags(v.tags, (tag) => setSearchTerm(tag))}</>
                                      )}
                                    <button onClick={() => handleRematchDbTheme(v.id, v.meaning)} title="根據中文重新自動配對主題" className="p-1 text-slate-300 hover:text-amber-500 transition-colors"><Sparkles className="w-4 h-4"/></button>
                                  </div>
@@ -3743,7 +3788,7 @@ return parsed;
                                 return <td key={colId} className="p-4">
                                   <div className="font-bold text-slate-800 text-base">{v.word || v.reading}</div>
                                   {v.word && <div className="text-slate-500 text-xs mt-0.5 mb-1.5">{v.reading}</div>}
-{renderTags(v.tags)}
+{renderTags(v.tags, (tag) => setSearchTerm(tag))}
                                   {kanjis.length > 0 && (
                                     <div className="flex flex-wrap gap-1 mt-1">
                                       {kanjis.map(k => (
@@ -3802,12 +3847,14 @@ return parsed;
                          const associated = vocabDB.filter(v => v.word.includes(kanji.kanji));
                          const masteredCount = associated.filter(v => v.repetitions >= 5 || v.interval >= 30).length;
                          return (
-                           <div key={kanji.id} id={"item-" + kanji.id} className={"bg-slate-50 border border-slate-200 rounded-3xl p-5 hover:border-indigo-300 hover:shadow-md transition-all flex flex-col h-72 " + (targetId === kanji.id ? "bg-indigo-100 ring-2 ring-indigo-500" : "")}>
-                              <div className="flex items-start justify-between mb-4">
-                                 <div className="text-5xl font-black text-slate-800 leading-none">{kanji.kanji}</div>
-<div className="mt-2"><input type="text" value={(kanji.tags||[]).join(', ')} onChange={e => setKanjiDB(prev => prev.map(k => k.id === kanji.id ? {...k, tags: e.target.value.split(',').map(s=>s.trim()).filter(Boolean)} : k))} onBlur={e => setKanjiDB(prev => prev.map(k => k.id === kanji.id ? {...k, tags: processTags(e.target.value)} : k))} placeholder="標籤(逗號分隔)" className="text-xs font-bold text-slate-400 bg-transparent outline-none w-24 border-b border-transparent hover:border-slate-200 focus:border-indigo-500 mt-2 placeholder:text-slate-300"/></div>{renderTags(kanji.tags)}
-                                 <div className="text-right flex flex-col items-end">
-                                   <input type="text" value={kanji.meaning} onChange={e => setKanjiDB(prev => prev.map(k => k.id === kanji.id ? {...k, meaning: e.target.value} : k))} placeholder="新增意思..." className="text-right text-sm font-bold text-slate-600 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-indigo-500 focus:outline-none w-24 placeholder:text-slate-400 mb-1"/>
+                           <div key={kanji.id} id={"item-" + kanji.id} className={"bg-slate-50 border border-slate-200 rounded-3xl p-5 hover:border-indigo-300 hover:shadow-md transition-all flex flex-col " + (editingKanjiId === kanji.id ? "" : "h-72 ") + (targetId === kanji.id ? "bg-indigo-100 ring-2 ring-indigo-500" : "")}>
+                              <div className="flex items-start justify-between mb-3">
+                                 <div>
+                                   <div className="text-5xl font-black text-slate-800 leading-none">{kanji.kanji}</div>
+                                   <div className="mt-2">{renderTags(kanji.tags, (tag) => setSearchTerm(tag))}</div>
+                                 </div>
+                                 <div className="text-right flex flex-col items-end gap-1">
+                                   <input type="text" value={kanji.meaning} onChange={e => setKanjiDB(prev => prev.map(k => k.id === kanji.id ? {...k, meaning: e.target.value} : k))} placeholder="備註..." className="text-right text-sm font-bold text-slate-600 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-indigo-500 focus:outline-none w-24 placeholder:text-slate-400"/>
                                    <select value={kanji.jlptLevel} onChange={e => setKanjiDB(prev => prev.map(k => k.id === kanji.id ? {...k, jlptLevel: e.target.value} : k))} className="text-xs font-bold text-slate-400 bg-transparent outline-none cursor-pointer hover:text-slate-600">
                                        <option value="Unknown">--</option>
                                        <option value="N5">N5</option>
@@ -3816,9 +3863,16 @@ return parsed;
                                        <option value="N2">N2</option>
                                        <option value="N1">N1</option>
                                    </select>
+                                   <button onClick={() => setEditingKanjiId(editingKanjiId === kanji.id ? null : kanji.id)} className={`mt-1 flex items-center gap-1 text-[11px] font-bold px-2 py-1 rounded-lg transition-colors ${editingKanjiId === kanji.id ? 'bg-indigo-500 text-white' : 'text-indigo-500 hover:bg-indigo-50 border border-indigo-200'}`} title="編輯標籤"><Pencil className="w-3 h-3"/> 標籤</button>
                                  </div>
                               </div>
-                              
+
+                              {editingKanjiId === kanji.id ? (
+                                <div className="mt-1">
+                                  <TagEditor tags={kanji.tags} onChange={tags => setKanjiDB(prev => prev.map(k => k.id === kanji.id ? {...k, tags} : k))} tagStats={globalTagStats} />
+                                  <button onClick={() => setEditingKanjiId(null)} className="w-full mt-2 py-2 bg-indigo-500 text-white rounded-xl font-bold text-sm hover:bg-indigo-600 transition-colors">完成</button>
+                                </div>
+                              ) : (
                               <div className="bg-white rounded-2xl p-4 border border-slate-100 flex-1 overflow-y-auto">
                                  <div className="flex justify-between items-center mb-2">
                                    <div className="text-xs font-bold text-slate-500">關聯單字 ({associated.length})</div>
@@ -3838,6 +3892,7 @@ return parsed;
                                    </div>
                                  )}
                               </div>
+                              )}
                            </div>
                          );
                       })}
@@ -3948,7 +4003,7 @@ return parsed;
                          <div className="flex-1 min-w-0 pr-4">
                            <div className="flex items-center gap-2 mb-1.5 flex-nowrap">
                                <div className="font-bold text-slate-800 text-lg whitespace-nowrap">{g.name}</div>
-                               <>{renderTags(g.tags)}</>
+                               <>{renderTags(g.tags, (tag) => setSearchTerm(tag))}</>
                                {g.id.startsWith('g_custom_') && !isNaN(parseInt(g.id.replace('g_custom_', ''))) ? (
                                   <div className="text-[11px] text-slate-400 font-medium bg-slate-50 px-2 py-0.5 rounded-full border border-slate-100 flex items-center gap-1 shrink-0">
                                      <Timer className="w-3 h-3"/>{new Date(parseInt(g.id.replace('g_custom_', ''))).toLocaleDateString('zh-TW', { month: '2-digit', day: '2-digit' })}
@@ -3999,6 +4054,7 @@ return parsed;
                       </div>
                       <div><label className="block text-sm font-bold text-emerald-700 mb-1.5">變化筆記 (選填)</label><input type="text" value={newGrammar.processExample || ''} onChange={e => setNewGrammar(p => ({...p, processExample: e.target.value}))} placeholder="自由輸入，例如：飲む ➔ 飲んで ➔ 飲んでください" className="w-full p-4 rounded-xl border border-emerald-200 outline-none focus:border-emerald-500"/></div>
                       <div><label className="block text-sm font-bold text-emerald-700 mb-1.5">分類標籤 (選填)</label><input type="text" value={newGrammar.tag || ''} onChange={e => setNewGrammar(p => ({...p, tag: e.target.value}))} placeholder="例：N5、接續詞" className="w-full p-4 rounded-xl border border-emerald-200 outline-none focus:border-emerald-500" list="grammar-tags-list"/></div>
+                      <TagEditor tags={newGrammar.tags} onChange={tags => setNewGrammar(p => ({...p, tags}))} tagStats={globalTagStats} />
                       <div><label className="block text-sm font-bold text-emerald-700 mb-1.5">個人備註 (選填)</label><input type="text" value={newGrammar.note || ''} onChange={e => setNewGrammar(p => ({...p, note: e.target.value}))} placeholder="記錄自己的心得或注意事項..." className="w-full p-4 rounded-xl border border-emerald-200 outline-none focus:border-emerald-500"/></div>
                       <div><label className="block text-sm font-bold text-emerald-700 mb-1.5">例句 (選填)</label><input type="text" value={newGrammar.example || ''} onChange={e => setNewGrammar(p => ({...p, example: e.target.value}))} placeholder="例：ここでタバコを吸わないでください" className="w-full p-4 rounded-xl border border-emerald-200 outline-none focus:border-emerald-500"/></div>
                       <div><label className="block text-sm font-bold text-emerald-700 mb-1.5">例句中文翻譯 (選填)</label><input type="text" value={newGrammar.exampleTranslation || ''} onChange={e => setNewGrammar(p => ({...p, exampleTranslation: e.target.value}))} placeholder="例：請不要在這裡吸菸" className="w-full p-4 rounded-xl border border-emerald-200 outline-none focus:border-emerald-500"/></div>
@@ -4016,7 +4072,7 @@ return parsed;
       {appState === 'verb_manage' && (
         <div className="w-[95vw] max-w-[1600px] mx-auto mt-4 animate-in fade-in">
            <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-100">
-              <div className="flex justify-between items-center mb-6">
+              <div className="flex justify-between items-center mb-4">
                 <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2"><Library className="w-6 h-6 text-indigo-600"/> 動詞與形容詞庫</h2>
            <div className="relative flex-1 max-w-md mx-4">
              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -4024,6 +4080,7 @@ return parsed;
              {searchTerm && <button onClick={()=>setSearchTerm('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"><XCircle className="w-4 h-4"/></button>}
            </div>
                  <div className="flex items-center gap-4 ml-4">
+                     <span className="text-sm font-bold text-slate-500">動詞: {verbDB.filter(v=>v.type==='verb').length} | 形容詞: {verbDB.filter(v=>v.type==='adj_i'||v.type==='adj_na').length}</span>
                      <label className="flex items-center gap-2 cursor-pointer select-none bg-amber-50 text-amber-700 px-3 py-1.5 rounded-xl font-bold border border-amber-200 hover:bg-amber-100 transition-colors">
                          <input type="checkbox" checked={showOnlyImportantVerb} onChange={(e)=>setShowOnlyImportantVerb(e.target.checked)} className="hidden"/>
                          <Star className={`w-4 h-4 ${showOnlyImportantVerb ? 'fill-amber-500 text-amber-500' : 'text-amber-500/50'}`}/>
@@ -4031,8 +4088,17 @@ return parsed;
                      </label>
                  </div>
               </div>
-              <div className="bg-indigo-50 p-6 rounded-3xl border border-indigo-100 mb-8">
-                                  <div className="flex justify-between items-center mb-4"><h3 className="font-bold text-indigo-800 text-lg">批次與單筆新增動詞/形容詞</h3></div>
+              <div className="flex gap-1 bg-slate-100 p-1 rounded-xl mb-6 w-fit">
+                {[{id:'all',label:'全部'},{id:'verb',label:'🏃 動詞'},{id:'adj',label:'✨ 形容詞'}].map(({id,label})=>(
+                  <button key={id} onClick={()=>setVerbManageTypeTab(id)} className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-colors ${verbManageTypeTab===id?'bg-white text-indigo-700 shadow-sm':'text-slate-500 hover:text-slate-700'}`}>{label}</button>
+                ))}
+              </div>
+              <div className="bg-indigo-50 rounded-3xl border border-indigo-100 mb-8">
+                 <button onClick={() => setShowVerbAddSection(prev => !prev)} className="w-full flex justify-between items-center px-6 py-4">
+                   <h3 className="font-bold text-indigo-800 text-lg">批次與單筆新增動詞/形容詞</h3>
+                   <span className="text-indigo-600 text-sm font-bold">{showVerbAddSection ? '▲ 收起' : '▼ 展開'}</span>
+                 </button>
+                 {showVerbAddSection && <div className="px-6 pb-6">
                  <div className="mb-6 bg-white p-5 rounded-2xl border border-indigo-200 shadow-sm">
                    <div className="flex items-center gap-2 mb-3 text-sm font-bold text-indigo-700"><Sparkles className="w-5 h-5"/> 快速貼上區 (智慧解析與自動變化)</div>
                    <textarea value={verbImportText} onChange={e => setVerbImportText(e.target.value)} placeholder="支援群組標籤與例句！例如：&#10;【第一類動詞】&#10;飲[の]む&#10;喝&#10;💬 水を飲む。&#10;&#10;【第二類動詞】&#10;食[た]べる&#10;吃" className="w-full p-4 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 text-sm h-32 resize-y placeholder:text-slate-400 leading-relaxed"/>
@@ -4097,6 +4163,7 @@ return parsed;
                     </div>
                  </div>
                  </div><button onClick={handleAddVerb} className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold text-lg hover:bg-indigo-700 transition-colors shadow-sm">新增至記憶庫</button>
+                 </div>}
               </div>
 
               <div className="overflow-x-auto">
@@ -4258,7 +4325,7 @@ return parsed;
                   {getAvailableThemes().map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
               ) : (
-                                       <>{renderTags(v.tags)}</>
+                                       <>{renderTags(v.tags, (tag) => setSearchTerm(tag))}</>
                                      )}
               <button onClick={() => handleRematchVerbDbTheme(v.id, v.meaning)} title="自動配對主題" className="p-1 text-slate-300 hover:text-indigo-500 transition-colors"><Sparkles className="w-4 h-4"/></button>
             </div>
@@ -4277,6 +4344,8 @@ return parsed;
         </td>;
     }
     
+    // Skip any column not recognized as built-in or verb form (e.g. legacy learnStatus)
+    if (!colDefinitions[colId] && !verbForms.find(f => f.id === colId)) return null;
     // Default to rendering verb form
     if (colId === 'masu' && (v.type === 'adj_i' || v.type === 'adj_na')) {
         return <td key={colId} className="p-4 font-bold text-slate-300">-</td>;
