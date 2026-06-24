@@ -111,8 +111,9 @@ const migrateVerb = (v) => {
     ...v,
     status: v.status || 'not_started',
     recentHistory: v.recentHistory || [],
-    stats: v.stats || createDefaultVerbStats()
-  };
+    stats: v.stats || createDefaultVerbStats(),
+      tags: v.tags || (v.tag ? [v.tag] : [])
+    };
   
   if (newV.stats && newV.stats.dictionary) {
     if (!newV.stats.jisho) {
@@ -145,9 +146,10 @@ const syncKanjiDB = (vocabDB, currentKanjiDB) => {
       if (!existingKanjis.has(k)) {
         existingKanjis.add(k);
         newKanjiDB.push({
-          id: `k_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          kanji: k,
-          meaning: '',
+            id: `k_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            kanji: k,
+            meaning: '',
+            tags: [],
           jlptLevel: 'Unknown',
           dateAdded: Date.now()
         });
@@ -638,6 +640,7 @@ export default function App() {
          if (!Array.isArray(parsed)) throw new Error('Invalid DB');
          parsed = parsed.filter(v => v !== null && v !== undefined).map(v => {
            let updatedV = { ...v, correctDates: v.correctDates || [] };
+             if (!updatedV.tags) updatedV.tags = updatedV.tag ? [updatedV.tag] : [];
            if (updatedV.learnStatus === 'learned' && updatedV.status === 'new') updatedV.status = 'learning';
            if (updatedV.repetitions >= 5 && updatedV.status !== 'mastered' && updatedV.status !== 'learning') updatedV.status = 'learning';
            if (!updatedV.status) updatedV.status = 'new';
@@ -647,8 +650,8 @@ export default function App() {
          });
 return parsed;
       }
-      return INITIAL_VOCAB_DB.map(v => ({ ...v, status: 'new', correctDates: [] }));
-    } catch { return INITIAL_VOCAB_DB.map(v => ({ ...v, status: 'new', correctDates: [] })); }
+      return INITIAL_VOCAB_DB.map(v => ({ ...v, status: 'new', correctDates: [], tags: v.tag ? [v.tag] : [] }));
+    } catch { return INITIAL_VOCAB_DB.map(v => ({ ...v, status: 'new', correctDates: [], tags: v.tag ? [v.tag] : [] })); }
   });
   const [vocabMistakes, setVocabMistakes] = useState({});
   const [vocabTestMode, setVocabTestMode] = useState('srs'); 
@@ -717,7 +720,7 @@ return parsed;
   const [kanjiDB, setKanjiDB] = useState(() => {
     try {
       const saved = localStorage.getItem('verbApp_kanjiDB');
-      if (saved) return JSON.parse(saved);
+      if (saved) return JSON.parse(saved).map(k => ({ ...k, tags: k.tags || [] }));
     } catch {}
     return [];
   });
@@ -929,9 +932,10 @@ return parsed;
                   repetitions: g.repetitions || 0,
                   totalAttempts: g.totalAttempts || 0,
                   totalCorrect: g.totalCorrect || 0,
-                  nextReview: g.nextReview || 0
-                };
-                delete ng.learnStatus;
+                  nextReview: g.nextReview || 0,
+                    tags: g.tags || (g.tag ? [g.tag] : [])
+                  };
+                  delete ng.learnStatus;
                 if (ng && ng.name && ng.name.includes('〜')) {
                     ng = { ...ng, name: ng.name.replace(/〜/g, ' ＿') };
                 }
@@ -940,8 +944,8 @@ return parsed;
             return parsed;
         }
       }
-      return DEFAULT_GRAMMARS.map(g => ({ ...g, status: 'new', ef: 2.5, interval: 0, repetitions: 0, totalAttempts: 0, totalCorrect: 0, nextReview: 0 }));
-    } catch { return DEFAULT_GRAMMARS.map(g => ({ ...g, status: 'new', ef: 2.5, interval: 0, repetitions: 0, totalAttempts: 0, totalCorrect: 0, nextReview: 0 })); }
+      return DEFAULT_GRAMMARS.map(g => ({ ...g, status: 'new', ef: 2.5, interval: 0, repetitions: 0, totalAttempts: 0, totalCorrect: 0, nextReview: 0, tags: g.tag ? [g.tag] : [] }));
+    } catch { return DEFAULT_GRAMMARS.map(g => ({ ...g, status: 'new', ef: 2.5, interval: 0, repetitions: 0, totalAttempts: 0, totalCorrect: 0, nextReview: 0, tags: g.tag ? [g.tag] : [] })); }
   });
   useEffect(() => { localStorage.setItem('verbApp_customGrammars', JSON.stringify(customGrammars)); }, [customGrammars]);
 
@@ -2172,7 +2176,7 @@ return parsed;
   const [editingGrammarId, setEditingGrammarId] = useState(null);
   const [grammarSortConfig, setGrammarSortConfig] = useState({ key: null, direction: null });
   const [grammarFilterTag, setGrammarFilterTag] = useState('');
-  const [newGrammar, setNewGrammar] = useState({ name: '', baseForm: 'te', removeStr: '', appendStr: '', appliesTo: ['verb'], example: '', exampleTranslation: '', processExample: '', note: '', tag: '' });
+  const [newGrammar, setNewGrammar] = useState({ name: '', baseForm: 'te', removeStr: '', appendStr: '', appliesTo: ['verb'], example: '', exampleTranslation: '', processExample: '', note: '', tag: '', tags: [] });
   
   const handleEditGrammar = (g) => {
     setEditingGrammarId(g.id);
@@ -2182,7 +2186,7 @@ return parsed;
       removeStr: g.removeStr || '',
       appendStr: g.appendStr || '',
       appliesTo: g.appliesTo || ['verb'],
-      example: g.example || '', processExample: g.processExample || '', note: g.note || '', tag: g.tag || ''
+      example: g.example || '', processExample: g.processExample || '', note: g.note || '', tag: g.tag || '', tags: g.tags || []
     });
   };
 
@@ -2195,7 +2199,7 @@ return parsed;
     } else {
         setCustomGrammars(prev => [...prev, { ...newGrammar, id: `g_custom_${Date.now()}` }]);
     }
-    setNewGrammar({ name: '', baseForm: 'te', removeStr: '', appendStr: '', appliesTo: ['verb'], example: '', exampleTranslation: '', processExample: '', note: '', tag: '' });
+    setNewGrammar({ name: '', baseForm: 'te', removeStr: '', appendStr: '', appliesTo: ['verb'], example: '', exampleTranslation: '', processExample: '', note: '', tag: '', tags: [] });
   };
 
   const getInitialVerbInputs = () => {
@@ -2528,14 +2532,30 @@ return parsed;
          if (s > 0) results.grammar.push({ item: g, score: s });
      });
      kanjiDB.forEach(k => {
-         let s = calculateScore([k.kanji], [k.meaning], k.tags);
-         if (s > 0) results.kanji.push({ item: k, score: s });
-     });
+           let s = calculateScore([k.kanji], [k.meaning], k.tags);
+           if (s > 0) results.kanji.push({ item: k, score: s });
+       });
+       
+       // Override scoring to heavily prioritize Title > Tag > Content
+       const adjustScore = (r, titleStr, tags) => {
+           let finalScore = 0;
+           const q = globalSearchTerm.trim().toLowerCase();
+           if (!q) return;
+           if (titleStr && titleStr.toLowerCase().includes(q)) finalScore += 100;
+           if (tags && tags.some(t => t.toLowerCase().includes(q))) finalScore += 50;
+           if (finalScore === 0) finalScore = r.score; // fallback to content match
+           r.score = finalScore;
+       };
+       
+       results.vocab.forEach(r => adjustScore(r, r.item.word || r.item.reading, r.item.tags));
+       results.verb.forEach(r => adjustScore(r, r.item.jisho, r.item.tags));
+       results.grammar.forEach(r => adjustScore(r, r.item.name, r.item.tags));
+       results.kanji.forEach(r => adjustScore(r, r.item.kanji, r.item.tags));
 
-     results.vocab.sort((a, b) => b.score - a.score);
-     results.verb.sort((a, b) => b.score - a.score);
-     results.grammar.sort((a, b) => b.score - a.score);
-     results.kanji.sort((a, b) => b.score - a.score);
+       results.vocab.sort((a, b) => b.score - a.score);
+       results.verb.sort((a, b) => b.score - a.score);
+       results.grammar.sort((a, b) => b.score - a.score);
+       results.kanji.sort((a, b) => b.score - a.score);
 
      return results;
   }, [globalSearchTerm, vocabDB, verbDB, customGrammars, kanjiDB]);
@@ -3478,8 +3498,8 @@ return parsed;
                 <div className="flex justify-between items-center mb-4 mt-8 border-t border-amber-200 pt-6">
                   <h4 className="font-bold text-amber-800">確認與編輯區</h4>
                   <div className="flex gap-2">
-                    <button onClick={() => { if(window.confirm('確定要清空確認與編輯區的所有內容嗎？')) setBatchInputs([{word:'', reading:'', meaning:'', tag: '自訂', example: '', isSentence: false}]) }} className="text-sm text-red-600 bg-red-50 px-4 py-2 rounded-xl font-bold hover:bg-red-100 flex items-center gap-1"><Trash2 className="w-4 h-4"/> 全部清空</button>
-                    <button onClick={() => setBatchInputs([...batchInputs, {word:'', reading:'', meaning:'', tag: '自訂', example: '', isSentence: false}])} className="text-sm text-amber-700 bg-amber-100 px-4 py-2 rounded-xl font-bold hover:bg-amber-200 flex items-center gap-1"><Plus className="w-4 h-4"/> 新增一列</button>
+                    <button onClick={() => { if(window.confirm('確定要清空確認與編輯區的所有內容嗎？')) setBatchInputs([{word:'', reading:'', meaning:'', tag: '未知', tags: [], example: '', isSentence: false}]) }} className="text-sm text-red-600 bg-red-50 px-4 py-2 rounded-xl font-bold hover:bg-red-100 flex items-center gap-1"><Trash2 className="w-4 h-4"/> 全部清空</button>
+                    <button onClick={() => setBatchInputs([...batchInputs, {word:'', reading:'', meaning:'', tag: '未知', tags: [], example: '', isSentence: false}])} className="text-sm text-amber-700 bg-amber-100 px-4 py-2 rounded-xl font-bold hover:bg-amber-200 flex items-center gap-1"><Plus className="w-4 h-4"/> 新增一列</button>
                   </div>
                 </div>
                 <datalist id="theme-suggestions">{Array.from(new Set(vocabDB.map(v => v.tag))).filter(Boolean).map(tag => <option key={tag} value={tag} />)}</datalist>
@@ -3659,12 +3679,8 @@ return parsed;
                                        className="w-28 px-2 py-1 text-xs font-bold rounded-lg border-2 border-amber-400 outline-none bg-amber-50"
                                      />
                                    ) : (
-                                     <span
-                                       onClick={() => setEditingTagId(v.id)}
-                                       className={`inline-block px-2.5 py-1 text-xs font-bold rounded-lg border whitespace-nowrap cursor-pointer hover:ring-2 hover:ring-amber-300 transition-all ${getTagStyle(v.tag)}`}
-                                       title="點擊編輯主題標籤"
-                                     >{v.tag}</span>
-                                   )}
+                                       <>{renderTags(v.tags)}</>
+                                     )}
                                    <button onClick={() => handleRematchDbTheme(v.id, v.meaning)} title="根據中文重新自動配對主題" className="p-1 text-slate-300 hover:text-amber-500 transition-colors"><Sparkles className="w-4 h-4"/></button>
                                  </div>
                                 </td>;
@@ -3884,7 +3900,7 @@ return parsed;
                          <div className="flex-1 min-w-0 pr-4">
                            <div className="flex items-center gap-2 mb-1.5 flex-nowrap">
                                <div className="font-bold text-slate-800 text-lg whitespace-nowrap">{g.name}</div>
-                               {g.tag && <span className={`px-2 py-0.5 rounded-full text-[12px] font-bold border ${getTagStyle(g.tag)}`}>{g.tag}</span>}
+                               <>{renderTags(g.tags)}</>
                                {g.id.startsWith('g_custom_') && !isNaN(parseInt(g.id.replace('g_custom_', ''))) ? (
                                   <div className="text-[11px] text-slate-400 font-medium bg-slate-50 px-2 py-0.5 rounded-full border border-slate-100 flex items-center gap-1 shrink-0">
                                      <Timer className="w-3 h-3"/>{new Date(parseInt(g.id.replace('g_custom_', ''))).toLocaleDateString('zh-TW', { month: '2-digit', day: '2-digit' })}
@@ -3940,7 +3956,7 @@ return parsed;
                       <div><label className="block text-sm font-bold text-emerald-700 mb-1.5">例句中文翻譯 (選填)</label><input type="text" value={newGrammar.exampleTranslation || ''} onChange={e => setNewGrammar(p => ({...p, exampleTranslation: e.target.value}))} placeholder="例：請不要在這裡吸菸" className="w-full p-4 rounded-xl border border-emerald-200 outline-none focus:border-emerald-500"/></div>
                       <div className="flex gap-4 mt-4">
                           <button onClick={handleAddGrammar} className="flex-1 py-4 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition-colors shadow-sm text-lg">{editingGrammarId ? '儲存編輯' : '儲存新文法'}</button>
-                          {editingGrammarId && <button onClick={() => { setEditingGrammarId(null); setNewGrammar({ name: '', baseForm: 'te', removeStr: '', appendStr: '', appliesTo: ['verb'], example: '', exampleTranslation: '', processExample: '', note: '', tag: '' }); }} className="py-4 px-6 bg-slate-200 text-slate-700 font-bold rounded-xl hover:bg-slate-300 transition-colors shadow-sm text-lg">取消</button>}
+                          {editingGrammarId && <button onClick={() => { setEditingGrammarId(null); setNewGrammar({ name: '', baseForm: 'te', removeStr: '', appendStr: '', appliesTo: ['verb'], example: '', exampleTranslation: '', processExample: '', note: '', tag: '', tags: [] }); }} className="py-4 px-6 bg-slate-200 text-slate-700 font-bold rounded-xl hover:bg-slate-300 transition-colors shadow-sm text-lg">取消</button>}
                       </div>
                     </div>
                  </div>
@@ -4194,10 +4210,8 @@ return parsed;
                   {getAvailableThemes().map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
               ) : (
-                <span onClick={() => setEditingTagId(v.id)} className={`inline-block px-2.5 py-1 text-xs font-bold rounded-lg border whitespace-nowrap cursor-pointer hover:ring-2 hover:ring-indigo-300 transition-all ${getTagStyle(v.tag)}`}>
-                  {v.tag || '無'}
-                </span>
-              )}
+                                       <>{renderTags(v.tags)}</>
+                                     )}
               <button onClick={() => handleRematchVerbDbTheme(v.id, v.meaning)} title="自動配對主題" className="p-1 text-slate-300 hover:text-indigo-500 transition-colors"><Sparkles className="w-4 h-4"/></button>
             </div>
         </td>;
