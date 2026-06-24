@@ -1780,7 +1780,11 @@ return parsed;
 
   const [verbImportText, setVerbImportText] = useState(''); 
   const [addToReviewNow, setAddToReviewNow] = useState(true);
+  const [batchLayoutMode, setBatchLayoutMode] = useState(() => localStorage.getItem('verbApp_batchLayoutMode') || 'grid3');
   const [showObsidianHelp, setShowObsidianHelp] = useState(false);
+  const [showObsidianSection, setShowObsidianSection] = useState(() => localStorage.getItem('verbApp_showObsidian') === 'true');
+  const [showQuickPasteSection, setShowQuickPasteSection] = useState(() => localStorage.getItem('verbApp_showQuickPaste') === 'true');
+  const [showBatchSection, setShowBatchSection] = useState(() => localStorage.getItem('verbApp_showBatch') === 'true');
 
   const obsidianTemplate = `### 🚗 交通工具 (這個會變成標籤)
 - くるま（車）
@@ -1938,6 +1942,7 @@ return parsed;
 
           setObsidianScannedWords(uniqueNewWords);
           setObsidianScannedGrammar(uniqueNewGrammars);
+          if (uniqueNewWords.length > 0 || uniqueNewGrammars.length > 0) { setShowObsidianSection(true); localStorage.setItem('verbApp_showObsidian', 'true'); }
           
           if (uniqueNewWords.length === 0 && uniqueNewGrammars.length === 0) {
               alert('掃描完成！沒有找到新單字與文法，或均已在字庫中。');
@@ -3437,8 +3442,11 @@ return parsed;
              
              {vocabManageTab === 'vocab' && (
              <><div className="bg-slate-800 p-6 rounded-3xl border border-slate-700 mb-8 shadow-lg">
-                <div className="flex justify-between items-center mb-4"><h3 className="font-bold text-white text-lg flex items-center gap-2"><Sparkles className="w-5 h-5 text-purple-400"/> Obsidian 智慧同步 (僅支援單字與例句)</h3></div>
-                <div className="bg-slate-700/50 p-5 rounded-2xl border border-slate-600">
+                <button onClick={() => { const next = !showObsidianSection; setShowObsidianSection(next); localStorage.setItem('verbApp_showObsidian', String(next)); }} className="w-full flex justify-between items-center">
+                  <h3 className="font-bold text-white text-lg flex items-center gap-2"><Sparkles className="w-5 h-5 text-purple-400"/> Obsidian 智慧同步 (僅支援單字與例句)</h3>
+                  <span className="text-slate-400 text-sm font-bold">{showObsidianSection ? '▲ 收起' : '▼ 展開'}</span>
+                </button>
+                {showObsidianSection && <div className="bg-slate-700/50 p-5 rounded-2xl border border-slate-600 mt-4">
                   <p className="text-slate-300 text-sm mb-4 leading-relaxed">選擇筆記檔案，系統會自動轉換 🟡【單字】、#### 📝 例句 結構，並過濾重複項目匯入。</p>
                   
                   {(obsidianScannedWords.length > 0) ? (
@@ -3484,19 +3492,35 @@ return parsed;
                         )}
                       </>
                   )}
-                </div>
+                </div>}
              </div>
 
-             <div className="bg-amber-50 p-6 rounded-3xl border border-amber-100 mb-8">
-                <div className="flex justify-between items-center mb-4"><h3 className="font-bold text-amber-800 text-lg">批次新增單字/例句</h3></div>
-                <div className="mb-6 bg-white p-5 rounded-2xl border border-amber-200 shadow-sm">
-                  <div className="flex items-center gap-2 mb-3 text-sm font-bold text-amber-700"><Sparkles className="w-5 h-5"/> 快速貼上區 (智能過濾 Emoji)</div>
-                  <textarea value={importText} onChange={e => setImportText(e.target.value)} placeholder="支援加上主題標籤與例句！例如：&#10;【交通與地點】&#10;くるま（車）&#10;➜ 汽車&#10;💬 新しい車を買いました。（買了新車。）" className="w-full p-4 rounded-xl border border-slate-200 outline-none focus:border-amber-500 text-sm h-32 resize-y placeholder:text-slate-400 leading-relaxed"/>
-                  <button onClick={handleSmartImport} className="mt-3 w-full py-3 bg-amber-100 text-amber-800 rounded-xl font-bold hover:bg-amber-200 transition-colors flex items-center justify-center gap-2">解析文字並套用到下方表格</button>
+             <div className="bg-amber-50 rounded-3xl border border-amber-100 mb-8">
+                <button onClick={() => { const next = !showBatchSection; setShowBatchSection(next); localStorage.setItem('verbApp_showBatch', String(next)); }} className="w-full flex justify-between items-center px-6 py-4">
+                  <h3 className="font-bold text-amber-800 text-lg">批次新增單字/例句</h3>
+                  <span className="text-amber-600 text-sm font-bold">{showBatchSection ? '▲ 收起' : '▼ 展開'}</span>
+                </button>
+                {showBatchSection && <div className="px-6 pb-6">
+                <div className="mb-6 bg-white rounded-2xl border border-amber-200 shadow-sm overflow-hidden">
+                  <button onClick={() => { const next = !showQuickPasteSection; setShowQuickPasteSection(next); localStorage.setItem('verbApp_showQuickPaste', String(next)); }} className="w-full flex justify-between items-center p-5">
+                    <div className="flex items-center gap-2 text-sm font-bold text-amber-700"><Sparkles className="w-5 h-5"/> 快速貼上區 (智能過濾 Emoji)</div>
+                    <span className="text-amber-600 text-xs font-bold">{showQuickPasteSection ? '▲ 收起' : '▼ 展開'}</span>
+                  </button>
+                  {showQuickPasteSection && <div className="px-5 pb-5">
+                    <textarea value={importText} onChange={e => setImportText(e.target.value)} placeholder="支援加上主題標籤與例句！例如：&#10;【交通與地點】&#10;くるま（車）&#10;➜ 汽車&#10;💬 新しい車を買いました。（買了新車。）" className="w-full p-4 rounded-xl border border-slate-200 outline-none focus:border-amber-500 text-sm h-32 resize-y placeholder:text-slate-400 leading-relaxed"/>
+                    <button onClick={handleSmartImport} className="mt-3 w-full py-3 bg-amber-100 text-amber-800 rounded-xl font-bold hover:bg-amber-200 transition-colors flex items-center justify-center gap-2">解析文字並套用到下方表格</button>
+                  </div>}
                 </div>
 
                 <div className="flex justify-between items-center mb-4 mt-8 border-t border-amber-200 pt-6">
-                  <h4 className="font-bold text-amber-800">確認與編輯區</h4>
+                  <div className="flex items-center gap-3">
+                    <h4 className="font-bold text-amber-800">確認與編輯區</h4>
+                    <div className="flex gap-1 bg-slate-100 p-1 rounded-xl">
+                      {[{mode:'list',label:'☰ 清單'},{mode:'grid2',label:'▪▪ 2欄'},{mode:'grid3',label:'▪▪▪ 3欄'}].map(({mode,label}) => (
+                        <button key={mode} onClick={() => { setBatchLayoutMode(mode); localStorage.setItem('verbApp_batchLayoutMode', mode); }} className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${batchLayoutMode === mode ? 'bg-white text-amber-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>{label}</button>
+                      ))}
+                    </div>
+                  </div>
                   <div className="flex gap-2">
                     <button onClick={() => { if(window.confirm('確定要清空確認與編輯區的所有內容嗎？')) setBatchInputs([{word:'', reading:'', meaning:'', tag: '未知', tags: [], example: '', isSentence: false}]) }} className="text-sm text-red-600 bg-red-50 px-4 py-2 rounded-xl font-bold hover:bg-red-100 flex items-center gap-1"><Trash2 className="w-4 h-4"/> 全部清空</button>
                     <button onClick={() => setBatchInputs([...batchInputs, {word:'', reading:'', meaning:'', tag: '未知', tags: [], example: '', isSentence: false}])} className="text-sm text-amber-700 bg-amber-100 px-4 py-2 rounded-xl font-bold hover:bg-amber-200 flex items-center gap-1"><Plus className="w-4 h-4"/> 新增一列</button>
@@ -3504,13 +3528,14 @@ return parsed;
                 </div>
                 <datalist id="theme-suggestions">{Array.from(new Set(vocabDB.map(v => v.tag))).filter(Boolean).map(tag => <option key={tag} value={tag} />)}</datalist>
 
-                <div className="space-y-4 mb-6 max-h-96 overflow-y-auto pr-2">
+                <div className={batchLayoutMode === 'list' ? 'space-y-3 mb-6 max-h-[640px] overflow-y-auto pr-2' : batchLayoutMode === 'grid2' ? 'grid grid-cols-2 gap-3 mb-6 max-h-[640px] overflow-y-auto pr-2' : 'grid grid-cols-3 gap-3 mb-6 max-h-[640px] overflow-y-auto pr-2'}>
                    {batchInputs.map((item, idx) => (
+                     batchLayoutMode === 'list' ? (
                       <div key={idx} className="flex flex-col gap-3 p-4 bg-white rounded-2xl border border-amber-100 shadow-sm transition-all focus-within:border-amber-400 focus-within:shadow-md">
                         <div className="flex gap-2">
                           <div className="relative w-40 flex items-center">
-                              <input type="text" placeholder="主題/標籤" value={item.tag} onChange={e => {const n=[...batchInputs]; n[idx].tag=e.target.value; setBatchInputs(n);}} className={`w-full pl-3 pr-8 py-3 rounded-xl outline-none text-sm font-bold border ${getTagStyle(item.tag)}`} list="theme-suggestions" />
-                              <button onClick={() => handleRematchBatchTheme(idx)} title="自動重配主題" className="absolute right-2 p-1 text-slate-400 hover:text-amber-500 transition-colors"><Sparkles className="w-4 h-4"/></button>
+                            <input type="text" placeholder="主題/標籤" value={item.tag} onChange={e => {const n=[...batchInputs]; n[idx].tag=e.target.value; setBatchInputs(n);}} className={`w-full pl-3 pr-8 py-3 rounded-xl outline-none text-sm font-bold border ${getTagStyle(item.tag)}`} list="theme-suggestions" />
+                            <button onClick={() => handleRematchBatchTheme(idx)} title="自動重配主題" className="absolute right-2 p-1 text-slate-400 hover:text-amber-500 transition-colors"><Sparkles className="w-4 h-4"/></button>
                           </div>
                           <input type="text" placeholder="漢字/原形 (留空即純假名)" value={item.word} onChange={e => {const n=[...batchInputs]; n[idx].word=e.target.value; setBatchInputs(n);}} className="flex-1 p-3 rounded-xl border border-slate-200 outline-none focus:border-amber-500 text-sm font-bold"/>
                           <input type="text" placeholder="平假名 (例: たべる)" value={item.reading} onChange={e => {const n=[...batchInputs]; n[idx].reading=e.target.value; setBatchInputs(n);}} className="flex-1 p-3 rounded-xl border border-slate-200 outline-none focus:border-amber-500 text-sm font-bold"/>
@@ -3528,6 +3553,28 @@ return parsed;
                           </label>
                         </div>
                       </div>
+                     ) : (
+                      <div key={idx} className="flex flex-col gap-2 p-4 bg-white rounded-2xl border border-amber-100 shadow-sm transition-all focus-within:border-amber-400 focus-within:shadow-md">
+                        <div className="flex items-center gap-2">
+                          <div className="relative flex-1">
+                            <input type="text" placeholder="主題/標籤" value={item.tag} onChange={e => {const n=[...batchInputs]; n[idx].tag=e.target.value; setBatchInputs(n);}} className={`w-full pl-3 pr-8 py-2 rounded-xl outline-none text-sm font-bold border ${getTagStyle(item.tag)}`} list="theme-suggestions" />
+                            <button onClick={() => handleRematchBatchTheme(idx)} title="自動重配主題" className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-amber-500 transition-colors"><Sparkles className="w-4 h-4"/></button>
+                          </div>
+                          <button onClick={() => setBatchInputs(batchInputs.filter((_, i) => i !== idx))} className="shrink-0 p-2 text-red-400 hover:text-white hover:bg-red-500 bg-red-50 rounded-xl transition-colors"><Trash2 className="w-4 h-4"/></button>
+                        </div>
+                        <input type="text" placeholder="漢字/原形 (留空即純假名)" value={item.word} onChange={e => {const n=[...batchInputs]; n[idx].word=e.target.value; setBatchInputs(n);}} className="w-full p-2.5 rounded-xl border border-slate-200 outline-none focus:border-amber-500 text-sm font-bold"/>
+                        <input type="text" placeholder="平假名 (例: たべる)" value={item.reading} onChange={e => {const n=[...batchInputs]; n[idx].reading=e.target.value; setBatchInputs(n);}} className="w-full p-2.5 rounded-xl border border-slate-200 outline-none focus:border-amber-500 text-sm font-bold"/>
+                        <input type="text" placeholder="中文 (例: 吃)" value={item.meaning} onChange={e => {const n=[...batchInputs]; n[idx].meaning=e.target.value; setBatchInputs(n);}} className="w-full p-2.5 rounded-xl border border-slate-200 outline-none focus:border-amber-500 text-sm font-bold"/>
+                        <div className="relative">
+                          <MessageSquareQuote className="w-4 h-4 text-amber-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                          <input type="text" placeholder="附加例句 (選填)" value={item.example} onChange={e => {const n=[...batchInputs]; n[idx].example=e.target.value; setBatchInputs(n);}} className="w-full pl-8 pr-3 py-2.5 bg-slate-50 rounded-xl border border-slate-200 outline-none focus:border-amber-500 focus:bg-white text-sm text-slate-600"/>
+                        </div>
+                        <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-500 hover:text-fuchsia-600 transition-colors px-1">
+                          <input type="checkbox" checked={!!item.isSentence} onChange={e => {const n=[...batchInputs]; n[idx].isSentence=e.target.checked; setBatchInputs(n);}} className="w-4 h-4 accent-fuchsia-600"/>
+                          <span>✅ 完整例句（啟用例句特訓）</span>
+                        </label>
+                      </div>
+                     )
                    ))}
                 </div>
                 <div className="mb-4 mt-2">
@@ -3537,6 +3584,7 @@ return parsed;
                    </label>
                 </div>
                 <button onClick={handleBatchSave} className="w-full py-4 bg-amber-600 text-white rounded-2xl font-bold text-lg hover:bg-amber-700 transition-colors shadow-sm">批次儲存到資料庫</button>
+                </div>}
              </div>
 
              <datalist id="db-theme-suggestions">{Array.from(new Set(vocabDB.map(v => v.tag))).filter(Boolean).map(tag => <option key={tag} value={tag} />)}</datalist>
