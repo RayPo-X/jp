@@ -1860,6 +1860,10 @@ return parsed;
   const [verbEditForm, setVerbEditForm] = useState({ masu: '', jisho: '', te: '', meaning: '', tags: [] });
   const [verbEditExpanded, setVerbEditExpanded] = useState(false);
   useEffect(() => { setVerbEditExpanded(false); }, [editingVerbId]);
+  useEffect(() => {
+    document.body.style.overflow = editingVerbId ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [editingVerbId]);
 
   const [verbImportText, setVerbImportText] = useState('');
   const [verbBatchItems, setVerbBatchItems] = useState([]);
@@ -4702,62 +4706,20 @@ return parsed;
                  </tr></thead>
                  <tbody>
                     {sortedVerbDB.map(v => editingVerbId === v.id ? (
-                       <tr key={'edit-'+v.id} className="border-b border-indigo-200 bg-indigo-50">
-                          <td colSpan={verbTableColumnOrder.length} className="px-4 py-3">
-                             {(() => {
-                               const jishoForm = verbForms.find(f => f.id === 'jisho') || verbForms[0];
-                               const otherForms = verbForms.filter(f => f.id !== (jishoForm?.id));
-                               return (
-                               <div className="flex flex-col gap-2 max-h-[65vh] overflow-y-auto pr-1">
-                                 {/* 永遠顯示：辭書形 + 中文意思 */}
-                                 <div className="flex flex-wrap gap-2">
-                                   {jishoForm && (
-                                     <div className="flex-1 min-w-[160px]">
-                                       <label className="block text-xs font-bold text-indigo-600 mb-1 ml-1">{jishoForm.label}</label>
-                                       <input type="text" value={verbEditForm[jishoForm.id] || ''} onChange={e=>setVerbEditForm({...verbEditForm, [jishoForm.id]: e.target.value})} placeholder={jishoForm.label} className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:border-indigo-500 font-bold text-sm"/>
-                                     </div>
-                                   )}
-                                   <div className="flex-1 min-w-[160px]">
-                                     <label className="block text-xs font-bold text-slate-500 mb-1 ml-1">中文意思</label>
-                                     <input type="text" value={verbEditForm.meaning || ''} onChange={e=>setVerbEditForm({...verbEditForm, meaning: e.target.value})} placeholder="中文意思" className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:border-indigo-500 text-sm"/>
-                                   </div>
-                                 </div>
-                                 {/* 標籤（永遠可見，移到展開按鈕上方） */}
-                                 <div className="w-full">
-                                   <TagEditor tags={verbEditForm.tags} onChange={tags => setVerbEditForm({...verbEditForm, tags})} tagStats={globalTagStats} />
-                                 </div>
-                                 {/* 折疊切換按鈕 */}
-                                 {otherForms.length > 0 && (
-                                   <button type="button" onClick={() => setVerbEditExpanded(v => !v)}
-                                     className="self-start flex items-center gap-1.5 text-xs font-bold text-indigo-500 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg px-3 py-1.5 transition-colors">
-                                     <span>{verbEditExpanded ? '▲' : '▼'}</span>
-                                     <span>{verbEditExpanded ? '收起活用型' : '展開活用型'} ({otherForms.length} 個)</span>
-                                   </button>
-                                 )}
-                                 {/* 可捲動的活用型區塊 */}
-                                 {verbEditExpanded && otherForms.length > 0 && (
-                                   <div className="max-h-[168px] overflow-y-auto border border-indigo-100 rounded-xl bg-white p-2">
-                                     <div className="flex flex-wrap gap-2">
-                                       {otherForms.map(f => (
-                                         <div key={f.id} className="flex-1 min-w-[140px]">
-                                           <label className="block text-xs font-bold text-indigo-600 mb-1 ml-1">{f.label}</label>
-                                           <input type="text" value={verbEditForm[f.id] || ''} onChange={e=>setVerbEditForm({...verbEditForm, [f.id]: e.target.value})} placeholder={f.label} className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:border-indigo-500 font-bold text-sm"/>
-                                         </div>
-                                       ))}
-                                     </div>
-                                   </div>
-                                 )}
-                                 <div className="flex justify-center gap-2">
-                                   <button onClick={()=>{
-                                       setVerbDB(prev => prev.map(x => x.id === v.id ? { ...x, ...verbEditForm } : x));
-                                       setEditingVerbId(null);
-                                   }} className="px-6 py-2 bg-indigo-500 text-white rounded-lg font-bold text-sm hover:bg-indigo-600 transition-colors flex items-center gap-1"><Save className="w-4 h-4"/> 儲存</button>
-                                   <button onClick={()=>setEditingVerbId(null)} className="px-6 py-2 bg-slate-200 text-slate-700 rounded-lg font-bold text-sm hover:bg-slate-300 transition-colors">取消</button>
-                                 </div>
-                               </div>
-                               );
-                             })()}
-                          </td>
+                       /* 編輯中的列：只標記高亮，實際編輯在 Modal */
+                       <tr key={'edit-'+v.id} className="border-b-2 border-indigo-400 bg-indigo-50/60 ring-2 ring-inset ring-indigo-300">
+                          {verbTableColumnOrder.map(colId => {
+                            if (colId === 'actions') return (
+                              <td key={colId} className="p-4 text-center">
+                                <span className="text-xs font-bold text-indigo-500 animate-pulse">編輯中…</span>
+                              </td>
+                            );
+                            const isVerbFormCol = verbForms.some(f => f.id === colId);
+                            if (isVerbFormCol && (v.type === 'adj_i' || v.type === 'adj_na')) {
+                              if (!v[colId]) return <td key={colId} className="bg-indigo-50/60"></td>;
+                            }
+                            return <td key={colId} className="p-4 text-slate-400 text-sm">{v[colId] ? <span className="font-bold">{v[colId]}</span> : ''}</td>;
+                          })}
                        </tr>
                      ) : (
                        <tr key={v.id} id={"item-" + v.id} className={"border-b border-slate-50 hover:bg-slate-50/50 transition-colors " + (selectedVerbIds.has(v.id) ? "bg-indigo-50 " : "") + (targetId === v.id ? "bg-amber-100 ring-2 ring-amber-400" : "")}>
@@ -5173,6 +5135,71 @@ return parsed;
           <ChevronUp className="w-5 h-5" />
         </button>
       )}
+
+      {/* ===== 動詞/形容詞編輯 Modal ===== */}
+      {editingVerbId && (() => {
+        const jishoForm = verbForms.find(f => f.id === 'jisho') || verbForms[0];
+        const otherForms = verbForms.filter(f => f.id !== jishoForm?.id);
+        const title = verbEditForm[jishoForm?.id] || verbEditForm.masu || verbEditForm.meaning || '編輯';
+        return (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" onClick={() => setEditingVerbId(null)}>
+            {/* 背景（無半透明效果） */}
+            <div className="absolute inset-0"/>
+            {/* 卡片 */}
+            <div className="relative z-10 bg-white rounded-2xl w-full max-w-2xl flex flex-col max-h-[85vh]" style={{boxShadow:'0 32px 80px -8px rgba(0,0,0,0.28), 0 8px 24px -4px rgba(0,0,0,0.14), 0 0 0 1.5px rgba(99,102,241,0.18)'}} onClick={e => e.stopPropagation()}>
+              {/* 標題列 */}
+              <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 shrink-0">
+                <span className="font-black text-indigo-700 text-base">✏ 編輯：{title}</span>
+                <button onClick={() => setEditingVerbId(null)} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">✕</button>
+              </div>
+              {/* 可捲動內容區 */}
+              <div className="flex flex-col gap-3 px-5 py-4 overflow-y-auto flex-1">
+                {/* 辭書形 + 中文意思 */}
+                <div className="flex flex-wrap gap-3">
+                  {jishoForm && (
+                    <div className="flex-1 min-w-[160px]">
+                      <label className="block text-xs font-bold text-indigo-600 mb-1">{jishoForm.label}</label>
+                      <input type="text" value={verbEditForm[jishoForm.id] || ''} onChange={e=>setVerbEditForm({...verbEditForm, [jishoForm.id]: e.target.value})} placeholder={jishoForm.label} className="w-full p-2.5 border border-slate-300 rounded-xl outline-none focus:border-indigo-500 font-bold text-sm"/>
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-[160px]">
+                    <label className="block text-xs font-bold text-slate-500 mb-1">中文意思</label>
+                    <input type="text" value={verbEditForm.meaning || ''} onChange={e=>setVerbEditForm({...verbEditForm, meaning: e.target.value})} placeholder="中文意思" className="w-full p-2.5 border border-slate-300 rounded-xl outline-none focus:border-indigo-500 text-sm"/>
+                  </div>
+                </div>
+                {/* 標籤 */}
+                <TagEditor tags={verbEditForm.tags} onChange={tags => setVerbEditForm({...verbEditForm, tags})} tagStats={globalTagStats} />
+                {/* 活用型折疊 */}
+                {otherForms.length > 0 && (
+                  <button type="button" onClick={() => setVerbEditExpanded(prev => !prev)}
+                    className="self-start flex items-center gap-1.5 text-xs font-bold text-indigo-500 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg px-3 py-1.5 transition-colors">
+                    <span>{verbEditExpanded ? '▲' : '▼'}</span>
+                    <span>{verbEditExpanded ? '收起活用型' : '展開活用型'} ({otherForms.length} 個)</span>
+                  </button>
+                )}
+                {verbEditExpanded && otherForms.length > 0 && (
+                  <div className="flex flex-wrap gap-3 p-3 border border-indigo-100 rounded-xl bg-indigo-50/40">
+                    {otherForms.map(f => (
+                      <div key={f.id} className="flex-1 min-w-[140px]">
+                        <label className="block text-xs font-bold text-indigo-600 mb-1">{f.label}</label>
+                        <input type="text" value={verbEditForm[f.id] || ''} onChange={e=>setVerbEditForm({...verbEditForm, [f.id]: e.target.value})} placeholder={f.label} className="w-full p-2.5 border border-slate-300 rounded-xl outline-none focus:border-indigo-500 font-bold text-sm"/>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {/* 固定底部按鈕 */}
+              <div className="flex justify-center gap-3 px-5 py-3 border-t border-slate-100 shrink-0">
+                <button onClick={()=>{ setVerbDB(prev => prev.map(x => x.id === editingVerbId ? { ...x, ...verbEditForm } : x)); setEditingVerbId(null); }}
+                  className="px-8 py-2.5 bg-indigo-500 text-white rounded-xl font-bold text-sm hover:bg-indigo-600 transition-colors flex items-center gap-2 shadow-sm">
+                  <Save className="w-4 h-4"/> 儲存
+                </button>
+                <button onClick={() => setEditingVerbId(null)} className="px-8 py-2.5 bg-slate-200 text-slate-700 rounded-xl font-bold text-sm hover:bg-slate-300 transition-colors">取消</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
