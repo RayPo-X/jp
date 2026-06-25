@@ -462,8 +462,8 @@ const THEME_KEYWORDS = {
     '學習與教育': /學|讀|書|寫|教|課|字|文|語|算|數|考|試|題|答|分|成績|合格|畢業|入|班|級|校|師|生|先|筆|紙|本|黑板|作業|練|複|預|背|查|典|翻|譯|文法|單字|漢字|假名|片假名|平假名|難|易|簡|單/,
     '工作與職場': /工|班|職|業|勤|休|假|會|議|辦|公|社|長|部|課|組|報|告|計|畫|案|客|戶|電話|郵|信|寄|收|打|印|複|掃|傳|真|上班|下班|加班|出差|薪|資|履歷|面試|同事|老闆|主管|員|做|作|急|忙/,
     '娛樂與休閒': /玩|遊|樂|歌|休|唱|跑|游|泳|爬|山|海|旅|行|拍|照|影|畫|看|聽|電影|電視|音|漫|動|網|遊戲|運動|球|棒|籃|足|網球|釣|散步|野餐|露營|節|祭|派對|舞|跳|演|練/,
-    '自然與天氣': /天|雨|雪|風|雲|晴|陰|霧|雷|暴|溫|熱|冷|涼|暖|春|夏|秋|冬|花|草|木|林|森|山|川|河|海|湖|島|石|土|星|月|日|空|地|水|火|光|暗|色|紅|藍|綠|黃|白|黑|動物|貓|狗|鳥|蟲/,
-    '時間與日期': /時|分|秒|點|年|月|日|週|曜|今|昨|明|後|前|早|晚|午|夜|朝|夕|間|期|始|終|久|短|長|快|慢|新|舊|古|先|次|每|常|常常|偶|總|已|還|才|剛|馬上|立刻|將|要|過去|未來|現在|等|待/,
+    '自然與天氣': /天|雨|雪|風|雲|晴|陰|霧|雷|暴|溫|熱|冷|涼|暖|春|夏|秋|冬|花|草|木|林|森|山|川|河|海|湖|島|石|土|月|日|空|地|水|火|光|暗|色|紅|藍|綠|黃|白|黑|動物|貓|狗|鳥|蟲/,
+    '時間與日期': /星期|時|分|秒|點|年|月|日|週|曜|今|昨|明|後|前|早|晚|午|夜|朝|夕|間|期|始|終|久|短|長|快|慢|新|舊|古|先|次|每|常|常常|偶|總|已|還|才|剛|馬上|立刻|將|要|過去|未來|現在|等|待/,
     '問候與社交': /你|我|他|她|們|人|名|姓|歲|男|女|子|父|母|兄|弟|姐|妹|友|家人|親|戚|夫|妻|孩|老|少|先生|小姐|同|伴|見面|打招呼|介紹|謝|歉|拜託|請|好|再見|歡迎|祝|福|禮|邀|約|聚|說|講|談/,
     '感情與心情': /高興|開心|快樂|幸福|興奮|感動|滿足|舒適|愉快|難過|悲傷|傷心|痛苦|絕望|失望|後悔|寂寞|孤獨|害怕|恐懼|緊張|不安|擔心|焦慮|憤怒|生氣|煩躁|羞恥|害羞|尷尬|嫉妒|羨慕|驚訝|震驚|感激|懷念|思念|無聊|疲憊|輕鬆|平靜|溫暖|冷漠|憂鬱/,
     '人物個性': /親切|溫柔|善良|友善|熱情|體貼|細心|耐心|真誠|誠實|正直|謙虛|謙遜|禮貌|有禮|認真|勤勞|努力|積極|主動|冷靜|沉著|成熟|穩重|嚴格|嚴厲|傲慢|自大|懶惰|粗心|粗魯|固執|任性|敏感|脆弱|堅強|勇敢|膽小|樂觀|悲觀|聰明|聰穎|笨|優秀|有才|創意|幽默|風趣|老實|坦率/,
@@ -899,6 +899,8 @@ return parsed;
   const [verbColWidths, setVerbColWidths] = useState(() => {
     try { return JSON.parse(localStorage.getItem('verbApp_verbColWidths')) || {}; } catch { return {}; }
   });
+  const [vocabAutoFit, setVocabAutoFit] = useState(() => localStorage.getItem('verbApp_vocabAutoFit') !== 'false');
+  const [verbAutoFit, setVerbAutoFit] = useState(() => localStorage.getItem('verbApp_verbAutoFit') !== 'false');
 
   useEffect(() => {
     localStorage.setItem('verbApp_vocabColWidths', JSON.stringify(vocabColWidths));
@@ -906,6 +908,8 @@ return parsed;
   useEffect(() => {
     localStorage.setItem('verbApp_verbColWidths', JSON.stringify(verbColWidths));
   }, [verbColWidths]);
+  useEffect(() => { localStorage.setItem('verbApp_vocabAutoFit', vocabAutoFit); }, [vocabAutoFit]);
+  useEffect(() => { localStorage.setItem('verbApp_verbAutoFit', verbAutoFit); }, [verbAutoFit]);
 
   useEffect(() => {
     const handleMouseMove = (e) => {
@@ -914,8 +918,8 @@ return parsed;
       let diffX = e.clientX - startX;
       diffX = Math.min(diffX, Math.max(0, maxAllowedDiff || 0));
       let newWidth = Math.max(15, startWidth + diffX);
-      if (tableType === 'vocab') setVocabColWidths(prev => ({ ...prev, [colId]: newWidth }));
-      else setVerbColWidths(prev => ({ ...prev, [colId]: newWidth }));
+      if (tableType === 'vocab') { setVocabColWidths(prev => ({ ...prev, [colId]: newWidth })); setVocabAutoFit(false); }
+      else { setVerbColWidths(prev => ({ ...prev, [colId]: newWidth })); setVerbAutoFit(false); }
     };
     const handleMouseUp = () => {
       if (resizingRef.current) {
@@ -1854,6 +1858,8 @@ return parsed;
   const [vocabEditForm, setVocabEditForm] = useState({ word: '', reading: '', meaning: '', example: '', tags: [] });
   const [editingVerbId, setEditingVerbId] = useState(null);
   const [verbEditForm, setVerbEditForm] = useState({ masu: '', jisho: '', te: '', meaning: '', tags: [] });
+  const [verbEditExpanded, setVerbEditExpanded] = useState(false);
+  useEffect(() => { setVerbEditExpanded(false); }, [editingVerbId]);
 
   const [verbImportText, setVerbImportText] = useState('');
   const [verbBatchItems, setVerbBatchItems] = useState([]);
@@ -1912,6 +1918,66 @@ return parsed;
     }
   };
 
+  const [selectedBatchIds, setSelectedBatchIds] = useState(new Set());
+  const toggleBatchSelect = (idx) => setSelectedBatchIds(prev => { const n = new Set(prev); n.has(idx) ? n.delete(idx) : n.add(idx); return n; });
+
+  const handleBatchRematchSelected = () => {
+    setBatchInputs(prev => prev.map((item, idx) => {
+      if (!selectedBatchIds.has(idx)) return item;
+      if (item.meaning) {
+        const newTag = guessThemeByMeaning(item.meaning, vocabDB);
+        const cleanedTags = (item.tags || []).filter(t => t !== item.tag);
+        const newTags = (newTag && newTag !== '自訂') ? [...cleanedTags, newTag] : cleanedTags;
+        return { ...item, tag: newTag, tags: newTags };
+      } else if (item.word || item.reading) {
+        const jWord = (item.word || item.reading).trim();
+        const match = vocabDB.find(v => (v.word === jWord || v.reading === jWord) && v.tag && v.tag !== '自訂' && v.tag !== '未知');
+        if (match) return { ...item, tag: match.tag, tags: [match.tag] };
+      }
+      return item;
+    }));
+    setSelectedBatchIds(new Set());
+  };
+
+  const handleBatchDeleteSelected = () => {
+    setBatchInputs(prev => prev.filter((_, i) => !selectedBatchIds.has(i)));
+    setSelectedBatchIds(new Set());
+  };
+
+  const handleRematchAllBatchThemes = () => {
+    setBatchInputs(prev => prev.map(item => {
+      if (item.meaning) {
+        const newTag = guessThemeByMeaning(item.meaning, vocabDB);
+        const cleanedTags = (item.tags || []).filter(t => t !== item.tag);
+        const newTags = (newTag && newTag !== '自訂') ? [...cleanedTags, newTag] : cleanedTags;
+        return { ...item, tag: newTag, tags: newTags };
+      } else if (item.word || item.reading) {
+        const jWord = (item.word || item.reading).trim();
+        const existingMatch = vocabDB.find(v =>
+          (v.word === jWord || v.reading === jWord) &&
+          v.tag && v.tag !== '自訂' && v.tag !== '未分類' && v.tag !== '未知'
+        );
+        if (existingMatch) return { ...item, tag: existingMatch.tag, tags: [existingMatch.tag] };
+      }
+      return item;
+    }));
+  };
+
+  const [selectedVocabIds, setSelectedVocabIds] = useState(new Set());
+  const toggleVocabSelect = (id) => setSelectedVocabIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const handleBatchRematchThemes = () => {
+    if (selectedVocabIds.size === 0) return;
+    setVocabDB(prev => prev.map(v => {
+      if (!selectedVocabIds.has(v.id) || !v.meaning) return v;
+      const others = prev.filter(x => x.id !== v.id);
+      const newTag = guessThemeByMeaning(v.meaning, others);
+      const cleanedTags = (v.tags || []).filter(t => t !== v.tag);
+      const newTags = (newTag && newTag !== '自訂') ? [...cleanedTags, newTag] : cleanedTags;
+      return { ...v, tag: newTag, tags: newTags };
+    }));
+    setSelectedVocabIds(new Set());
+  };
+
   const handleRematchDbTheme = (id, meaning) => {
     if (!meaning) return;
     const otherVocabs = vocabDB.filter(v => v.id !== id);
@@ -1933,6 +1999,20 @@ return parsed;
       const newTags = (newTag && newTag !== '自訂') ? [...cleanedTags, newTag] : cleanedTags;
       return { ...v, tag: newTag, tags: newTags };
     }));
+  };
+
+  const [selectedVerbIds, setSelectedVerbIds] = useState(new Set());
+  const toggleVerbSelect = (id) => setSelectedVerbIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const handleBatchRematchVerbThemes = () => {
+    if (selectedVerbIds.size === 0) return;
+    setVerbDB(prev => prev.map(v => {
+      if (!selectedVerbIds.has(v.id) || !v.meaning) return v;
+      const newTag = guessThemeByMeaning(v.meaning, vocabDB);
+      const cleanedTags = (v.tags || []).filter(t => t !== v.tag);
+      const newTags = (newTag && newTag !== '自訂') ? [...cleanedTags, newTag] : cleanedTags;
+      return { ...v, tag: newTag, tags: newTags };
+    }));
+    setSelectedVerbIds(new Set());
   };
 
 
@@ -2183,6 +2263,16 @@ return parsed;
         let japSide = left, meanSide = right;
         if (!isJapanese(left) && isJapanese(right)) { japSide = right; meanSide = left; }
         const { word, reading } = parseJapaneseSide(japSide);
+        const tag = currentTheme || guessThemeByMeaning(meanSide, vocabDB);
+        newItems.push({ word, reading, meaning: meanSide, tag, tags: currentTheme ? [currentTheme] : [], example: '', isSentence: false });
+        return;
+      }
+
+      // 空白分隔：「たべる 食べること」（左側有假名、右側無假名）
+      const spaceSep = trimmed.match(/^(\S+)\s+(.+)$/);
+      if (spaceSep && isJapanese(spaceSep[1]) && !isJapanese(spaceSep[2])) {
+        const { word, reading } = parseJapaneseSide(spaceSep[1].trim());
+        const meanSide = spaceSep[2].trim();
         const tag = currentTheme || guessThemeByMeaning(meanSide, vocabDB);
         newItems.push({ word, reading, meaning: meanSide, tag, tags: currentTheme ? [currentTheme] : [], example: '', isSentence: false });
         return;
@@ -2456,6 +2546,15 @@ return parsed;
         if (sepMatch) {
             let japSide = sepMatch[1].trim(), meanSide = stripTypeHint(sepMatch[2].trim());
             if (!isJapanese(japSide) && isJapanese(meanSide)) { [japSide, meanSide] = [meanSide, japSide]; }
+            const detected = headerSet ? { type: currentType, group: currentGroup } : autoDetectVerbType(japSide);
+            pushVerb(japSide, meanSide, detected.type, detected.group);
+            return;
+        }
+
+        // 空白分隔：「すずしい 涼快的」（左側有假名、右側無假名）
+        const spaceSepMatch = trimmed.match(/^(\S+)\s+(.+)$/);
+        if (spaceSepMatch && isJapanese(spaceSepMatch[1]) && !isJapanese(spaceSepMatch[2])) {
+            let japSide = spaceSepMatch[1].trim(), meanSide = stripTypeHint(spaceSepMatch[2].trim());
             const detected = headerSet ? { type: currentType, group: currentGroup } : autoDetectVerbType(japSide);
             pushVerb(japSide, meanSide, detected.type, detected.group);
             return;
@@ -3744,9 +3843,20 @@ return parsed;
                       ))}
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    <button onClick={() => { if(window.confirm('確定要清空確認與編輯區的所有內容嗎？')) setBatchInputs([{word:'', reading:'', meaning:'', tag: '未知', tags: [], example: '', isSentence: false}]) }} className="text-sm text-red-600 bg-red-50 px-4 py-2 rounded-xl font-bold hover:bg-red-100 flex items-center gap-1"><Trash2 className="w-4 h-4"/> 全部清空</button>
-                    <button onClick={() => setBatchInputs([...batchInputs, {word:'', reading:'', meaning:'', tag: '未知', tags: [], example: '', isSentence: false}])} className="text-sm text-amber-700 bg-amber-100 px-4 py-2 rounded-xl font-bold hover:bg-amber-200 flex items-center gap-1"><Plus className="w-4 h-4"/> 新增一列</button>
+                  <div className="flex flex-col gap-2">
+                    <div className="flex gap-2">
+                      <button onClick={handleRematchAllBatchThemes} className="text-sm text-amber-700 bg-amber-50 border border-amber-200 px-4 py-2 rounded-xl font-bold hover:bg-amber-100 flex items-center gap-1"><Sparkles className="w-4 h-4"/> 全部重配主題</button>
+                      <button onClick={() => { if(window.confirm('確定要清空確認與編輯區的所有內容嗎？')) { setBatchInputs([{word:'', reading:'', meaning:'', tag: '未知', tags: [], example: '', isSentence: false}]); setSelectedBatchIds(new Set()); }}} className="text-sm text-red-600 bg-red-50 px-4 py-2 rounded-xl font-bold hover:bg-red-100 flex items-center gap-1"><Trash2 className="w-4 h-4"/> 全部清空</button>
+                      <button onClick={() => setBatchInputs([...batchInputs, {word:'', reading:'', meaning:'', tag: '未知', tags: [], example: '', isSentence: false}])} className="text-sm text-amber-700 bg-amber-100 px-4 py-2 rounded-xl font-bold hover:bg-amber-200 flex items-center gap-1"><Plus className="w-4 h-4"/> 新增一列</button>
+                    </div>
+                    {selectedBatchIds.size > 0 && (
+                      <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-xl">
+                        <span className="text-sm font-bold text-amber-700">已選 {selectedBatchIds.size} 筆</span>
+                        <button onClick={handleBatchRematchSelected} className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors"><Sparkles className="w-3.5 h-3.5"/> 重配選取主題</button>
+                        <button onClick={handleBatchDeleteSelected} className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"><Trash2 className="w-3.5 h-3.5"/> 刪除選取</button>
+                        <button onClick={() => setSelectedBatchIds(new Set())} className="text-xs font-bold text-slate-500 hover:text-slate-700 px-2 py-1.5 rounded-lg hover:bg-slate-100 transition-colors">✕ 取消</button>
+                      </div>
+                    )}
                   </div>
                 </div>
                 <datalist id="theme-suggestions">{Array.from(new Set([...Object.keys(THEME_KEYWORDS), ...vocabDB.map(v => v.tag)])).filter(Boolean).map(tag => <option key={tag} value={tag} />)}</datalist>
@@ -3754,8 +3864,9 @@ return parsed;
                 <div className={batchLayoutMode === 'list' ? 'space-y-3 mb-6 max-h-[640px] overflow-y-auto pr-2' : batchLayoutMode === 'grid2' ? 'grid grid-cols-2 gap-3 mb-6 max-h-[640px] overflow-y-auto pr-2' : 'grid grid-cols-3 gap-3 mb-6 max-h-[640px] overflow-y-auto pr-2'}>
                    {batchInputs.map((item, idx) => (
                      batchLayoutMode === 'list' ? (
-                      <div key={idx} className="flex flex-col gap-3 p-4 bg-white rounded-2xl border border-amber-100 shadow-sm transition-all focus-within:border-amber-400 focus-within:shadow-md">
-                        <div className="flex gap-2">
+                      <div key={idx} className={`flex flex-col gap-3 p-4 bg-white rounded-2xl border shadow-sm transition-all focus-within:shadow-md ${selectedBatchIds.has(idx) ? 'border-amber-400 bg-amber-50' : 'border-amber-100 focus-within:border-amber-400'}`}>
+                        <div className="flex gap-2 items-center">
+                          <input type="checkbox" checked={selectedBatchIds.has(idx)} onChange={() => toggleBatchSelect(idx)} className="w-4 h-4 cursor-pointer accent-amber-500 shrink-0"/>
                           <div className="relative w-40 flex items-center">
                             <input type="text" placeholder="主題/標籤" value={item.tag} onChange={e => {const n=[...batchInputs]; n[idx].tag=e.target.value; setBatchInputs(n);}} className={`w-full pl-3 pr-8 py-3 rounded-xl outline-none text-sm font-bold border ${getTagStyle(item.tag)}`} list="theme-suggestions" />
                             <button onClick={() => handleRematchBatchTheme(idx)} title="自動重配主題" className="absolute right-2 p-1 text-slate-400 hover:text-amber-500 transition-colors"><Sparkles className="w-4 h-4"/></button>
@@ -3777,8 +3888,9 @@ return parsed;
                         </div>
                       </div>
                      ) : (
-                      <div key={idx} className="flex flex-col gap-2 p-4 bg-white rounded-2xl border border-amber-100 shadow-sm transition-all focus-within:border-amber-400 focus-within:shadow-md">
+                      <div key={idx} className={`flex flex-col gap-2 p-4 bg-white rounded-2xl border shadow-sm transition-all focus-within:shadow-md ${selectedBatchIds.has(idx) ? 'border-amber-400 bg-amber-50' : 'border-amber-100 focus-within:border-amber-400'}`}>
                         <div className="flex items-center gap-2">
+                          <input type="checkbox" checked={selectedBatchIds.has(idx)} onChange={() => toggleBatchSelect(idx)} className="w-4 h-4 cursor-pointer accent-amber-500 shrink-0"/>
                           <div className="relative flex-1">
                             <input type="text" placeholder="主題/標籤" value={item.tag} onChange={e => {const n=[...batchInputs]; n[idx].tag=e.target.value; setBatchInputs(n);}} className={`w-full pl-3 pr-8 py-2 rounded-xl outline-none text-sm font-bold border ${getTagStyle(item.tag)}`} list="theme-suggestions" />
                             <button onClick={() => handleRematchBatchTheme(idx)} title="自動重配主題" className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-amber-500 transition-colors"><Sparkles className="w-4 h-4"/></button>
@@ -3814,12 +3926,17 @@ return parsed;
              <div className="overflow-x-auto">
                <div className="flex justify-end mb-2 gap-2">
                  <button
-                   onClick={(e) => { 
-                     const cWidth = e.currentTarget.closest('.overflow-x-auto').clientWidth; 
-                     const avg = Math.max(50, cWidth / vocabTableColumnOrder.length); 
-                     const nw = {}; 
-                     vocabTableColumnOrder.forEach(id => nw[id] = avg); 
-                     setVocabColWidths(nw); 
+                   onClick={() => { setVocabAutoFit(v => !v); }}
+                   className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border transition-colors ${vocabAutoFit ? 'bg-amber-500 text-white border-amber-500 hover:bg-amber-600' : 'text-slate-500 hover:text-amber-600 bg-slate-100 hover:bg-amber-50 border-slate-200 hover:border-amber-300'}`}
+                   title={vocabAutoFit ? '自動適應視窗（點擊關閉）' : '自動適應視窗（點擊開啟）'}
+                 >⚡ 自動適應</button>
+                 <button
+                   onClick={(e) => {
+                     const cWidth = e.currentTarget.closest('.overflow-x-auto').clientWidth;
+                     const avg = Math.max(50, cWidth / vocabTableColumnOrder.length);
+                     const nw = {};
+                     vocabTableColumnOrder.forEach(id => nw[id] = avg);
+                     setVocabColWidths(nw);
                    }}
                    className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-amber-600 bg-slate-100 hover:bg-amber-50 border border-slate-200 hover:border-amber-300 px-3 py-1.5 rounded-lg transition-colors"
                    title="平均分配所有欄位寬度"
@@ -3834,7 +3951,7 @@ return parsed;
                    ↩ 重設欄寬
                  </button>
                </div>
-               <table className="text-left text-sm table-fixed" style={{ width: vocabTableColumnOrder.reduce((acc, colId) => acc + (vocabColWidths[colId] ?? VOCAB_DEFAULT_WIDTHS[colId] ?? 100), 0) }}>
+               <table className="text-left text-sm table-fixed" style={vocabAutoFit ? { width: '100%' } : { width: vocabTableColumnOrder.reduce((acc, colId) => acc + (vocabColWidths[colId] ?? VOCAB_DEFAULT_WIDTHS[colId] ?? 100), 0) }}>
                  <thead className="bg-slate-50 text-slate-600"><tr>
                     {vocabTableColumnOrder.map((colId, idx) => {
                         const def = vocabColDefinitions[colId];
@@ -3842,7 +3959,7 @@ return parsed;
                         return (
                                                                                     <th key={colId} 
                                 className={`p-0 relative bg-slate-50 text-slate-600 select-none ${dragVocabColIdx === idx ? 'opacity-30' : ''} ${dragOverVocabColIdx === idx && dragVocabColIdx !== idx ? (dragVocabColIdx < dragOverVocabColIdx ? 'border-r-4 border-r-amber-500' : 'border-l-4 border-l-amber-500') : ''}`}
-                                style={{ width: vocabColWidths[colId] ?? VOCAB_DEFAULT_WIDTHS[colId] }}
+                                style={vocabAutoFit ? { width: `${((vocabColWidths[colId] ?? VOCAB_DEFAULT_WIDTHS[colId] ?? 100) / vocabTableColumnOrder.reduce((s,c) => s+(vocabColWidths[c] ?? VOCAB_DEFAULT_WIDTHS[c] ?? 100),0)*100).toFixed(1)}%` } : { width: vocabColWidths[colId] ?? VOCAB_DEFAULT_WIDTHS[colId] }}
                             >
                                 <div 
                                   draggable
@@ -3862,9 +3979,30 @@ return parsed;
                                   onClick={() => { if(!resizingRef.current) { def.sortable && handleSort(colId); } }}
                                 >
                                    <GripHorizontal className="w-3 h-3 text-slate-300 shrink-0"/>
-                                   {def.label}{def.sortable && renderSortIcon(colId)}
+                                   {colId === 'tag' ? (
+                                     <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
+                                       <input type="checkbox"
+                                         checked={sortedVocabDB.length > 0 && sortedVocabDB.every(v => selectedVocabIds.has(v.id))}
+                                         onChange={e => setSelectedVocabIds(e.target.checked ? new Set(sortedVocabDB.map(v => v.id)) : new Set())}
+                                         className="w-3.5 h-3.5 cursor-pointer accent-amber-500 shrink-0"
+                                       />
+                                       <span>{def.label}</span>{def.sortable && renderSortIcon(colId)}
+                                     </div>
+                                   ) : (
+                                     <>{def.label}{def.sortable && renderSortIcon(colId)}</>
+                                   )}
                                 </div>
-                                <div 
+                                {colId === 'tag' && selectedVocabIds.size > 0 && (
+                                  <div className="absolute left-0 top-1/2 -translate-y-1/2 min-w-max bg-amber-50 border-2 border-amber-300 rounded-lg flex flex-col items-center px-3 py-1.5 gap-2 z-10 shadow-md" onClick={e => e.stopPropagation()}>
+                                    <div className="flex items-center gap-1.5">
+                                      <input type="checkbox" checked onChange={() => setSelectedVocabIds(new Set())} className="w-3 h-3 cursor-pointer accent-amber-500 shrink-0"/>
+                                      <span className="text-xs font-bold text-amber-700 whitespace-nowrap">已選{selectedVocabIds.size}筆</span>
+                                      <button onClick={() => setSelectedVocabIds(new Set())} className="shrink-0 text-xs font-bold text-slate-400 hover:text-slate-700 transition-colors px-0.5">✕</button>
+                                    </div>
+                                    <button onClick={handleBatchRematchThemes} className="text-xs font-bold px-2 py-0.5 bg-amber-500 text-white rounded-md hover:bg-amber-600 transition-colors whitespace-nowrap">重配主題</button>
+                                  </div>
+                                )}
+                                <div
                                   onMouseDown={(e) => {
                                     e.preventDefault();
                                     e.stopPropagation();
@@ -3922,7 +4060,7 @@ return parsed;
                           </td>
                        </tr>
                      ) : (
-                       <tr key={v.id} id={"item-" + v.id} className={"border-b border-slate-50 hover:bg-slate-50/50 transition-colors " + (targetId === v.id ? "bg-amber-100 ring-2 ring-amber-400" : "")}>
+                       <tr key={v.id} id={"item-" + v.id} className={"border-b border-slate-50 hover:bg-slate-50/50 transition-colors " + (selectedVocabIds.has(v.id) ? "bg-amber-50 " : "") + (targetId === v.id ? "bg-amber-100 ring-2 ring-amber-400" : "")}>
                           {vocabTableColumnOrder.map(colId => {
                              if (colId === 'isImportant') {
                                 return <td key={colId} className="p-4 text-center">
@@ -3933,6 +4071,7 @@ return parsed;
                              if (colId === 'tag') {
                                 return <td key={colId} className="p-4">
                                   <div className="flex items-center gap-1.5">
+                                   <input type="checkbox" checked={selectedVocabIds.has(v.id)} onChange={() => toggleVocabSelect(v.id)} className="w-3.5 h-3.5 cursor-pointer accent-amber-500 shrink-0"/>
                                    {editingTagId === v.id ? (
                                      <input
                                        type="text"
@@ -4459,12 +4598,17 @@ return parsed;
               <div className="overflow-x-auto">
                  <div className="flex justify-end mb-2 gap-2">
                    <button
-                     onClick={(e) => { 
-                       const cWidth = e.currentTarget.closest('.overflow-x-auto').clientWidth; 
-                       const avg = Math.max(50, cWidth / verbTableColumnOrder.length); 
-                       const nw = {}; 
-                       verbTableColumnOrder.forEach(id => nw[id] = avg); 
-                       setVerbColWidths(nw); 
+                     onClick={() => { setVerbAutoFit(v => !v); }}
+                     className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border transition-colors ${verbAutoFit ? 'bg-indigo-500 text-white border-indigo-500 hover:bg-indigo-600' : 'text-slate-500 hover:text-indigo-600 bg-slate-100 hover:bg-indigo-50 border-slate-200 hover:border-indigo-300'}`}
+                     title={verbAutoFit ? '自動適應視窗（點擊關閉）' : '自動適應視窗（點擊開啟）'}
+                   >⚡ 自動適應</button>
+                   <button
+                     onClick={(e) => {
+                       const cWidth = e.currentTarget.closest('.overflow-x-auto').clientWidth;
+                       const avg = Math.max(50, cWidth / verbTableColumnOrder.length);
+                       const nw = {};
+                       verbTableColumnOrder.forEach(id => nw[id] = avg);
+                       setVerbColWidths(nw);
                      }}
                      className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-indigo-600 bg-slate-100 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-300 px-3 py-1.5 rounded-lg transition-colors"
                      title="平均分配所有欄位寬度"
@@ -4479,7 +4623,7 @@ return parsed;
                      ↩ 重設欄寬
                    </button>
                  </div>
-               <table className="text-left text-sm table-fixed" style={{ width: verbTableColumnOrder.reduce((acc, colId) => acc + (verbColWidths[colId] ?? (VERB_DEFAULT_WIDTHS[colId] || (verbForms.find(f => f.id === colId) ? 120 : 100))), 0) }}>
+               <table className="text-left text-sm table-fixed" style={verbAutoFit ? { width: '100%' } : { width: verbTableColumnOrder.reduce((acc, colId) => acc + (verbColWidths[colId] ?? (VERB_DEFAULT_WIDTHS[colId] || (verbForms.find(f => f.id === colId) ? 120 : 100))), 0) }}>
                  <thead className="bg-slate-50 text-slate-600"><tr>
                     {verbTableColumnOrder.map((colId, idx) => {
         const isBuiltIn = colDefinitions[colId];
@@ -4492,7 +4636,7 @@ return parsed;
         return (
                                     <th key={colId} 
                 className={`p-0 relative bg-slate-50 text-slate-600 select-none ${dragTableColIdx === idx ? 'opacity-30' : ''} ${dragOverTableColIdx === idx && dragTableColIdx !== idx ? (dragTableColIdx < dragOverTableColIdx ? 'border-r-4 border-r-indigo-500' : 'border-l-4 border-l-indigo-500') : ''}`}
-                style={{ width: verbColWidths[colId] ?? (VERB_DEFAULT_WIDTHS[colId] || (verbForms.find(f => f.id === colId) ? 120 : undefined)) }}
+                style={verbAutoFit ? { width: `${((verbColWidths[colId] ?? (VERB_DEFAULT_WIDTHS[colId] || (verbForms.find(f=>f.id===colId)?120:100))) / verbTableColumnOrder.reduce((s,c)=>s+(verbColWidths[c]??(VERB_DEFAULT_WIDTHS[c]||(verbForms.find(f=>f.id===c)?120:100))),0)*100).toFixed(1)}%` } : { width: verbColWidths[colId] ?? (VERB_DEFAULT_WIDTHS[colId] || (verbForms.find(f => f.id === colId) ? 120 : undefined)) }}
             >
                 <div 
                   draggable
@@ -4512,9 +4656,30 @@ return parsed;
                   onClick={() => { if(!resizingRef.current) { sortable && handleVerbSort(colId); } }}
                 >
                    <GripHorizontal className="w-3 h-3 text-slate-300 shrink-0"/>
-                   {label}{sortable && renderVerbSortIcon(colId)}
+                   {colId === 'tag' ? (
+                     <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
+                       <input type="checkbox"
+                         checked={sortedVerbDB.length > 0 && sortedVerbDB.every(v => selectedVerbIds.has(v.id))}
+                         onChange={e => setSelectedVerbIds(e.target.checked ? new Set(sortedVerbDB.map(v => v.id)) : new Set())}
+                         className="w-3.5 h-3.5 cursor-pointer accent-indigo-500 shrink-0"
+                       />
+                       <span>{label}</span>{sortable && renderVerbSortIcon(colId)}
+                     </div>
+                   ) : (
+                     <>{label}{sortable && renderVerbSortIcon(colId)}</>
+                   )}
                 </div>
-                <div 
+                {colId === 'tag' && selectedVerbIds.size > 0 && (
+                  <div className="absolute left-0 top-1/2 -translate-y-1/2 min-w-max bg-indigo-50 border-2 border-indigo-300 rounded-lg flex flex-col items-center px-3 py-1.5 gap-2 z-10 shadow-md" onClick={e => e.stopPropagation()}>
+                    <div className="flex items-center gap-1.5">
+                      <input type="checkbox" checked onChange={() => setSelectedVerbIds(new Set())} className="w-3 h-3 cursor-pointer accent-indigo-500 shrink-0"/>
+                      <span className="text-xs font-bold text-indigo-700 whitespace-nowrap">已選{selectedVerbIds.size}筆</span>
+                      <button onClick={() => setSelectedVerbIds(new Set())} className="shrink-0 text-xs font-bold text-slate-400 hover:text-slate-700 transition-colors px-0.5">✕</button>
+                    </div>
+                    <button onClick={handleBatchRematchVerbThemes} className="text-xs font-bold px-2 py-0.5 bg-indigo-500 text-white rounded-md hover:bg-indigo-600 transition-colors whitespace-nowrap">重配主題</button>
+                  </div>
+                )}
+                <div
                   onMouseDown={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
@@ -4538,35 +4703,64 @@ return parsed;
                  <tbody>
                     {sortedVerbDB.map(v => editingVerbId === v.id ? (
                        <tr key={'edit-'+v.id} className="border-b border-indigo-200 bg-indigo-50">
-                          <td colSpan={5 + verbForms.length} className="p-4">
-                             <div className="flex flex-col gap-2">
-                               <div className="flex flex-wrap gap-3">
-                                 
-                                 {verbForms.map(f => {
-                                   if ((verbEditForm.type === 'adj_i' || verbEditForm.type === 'adj_na') && f.id === 'masu') return null;
-                                   return (
-                                   <div key={f.id} className="flex-1 min-w-[120px]">
-                                     <label className="block text-xs font-bold text-indigo-600 mb-1 ml-1">{f.label}</label>
-                                     <input type="text" value={verbEditForm[f.id] || ''} onChange={e=>setVerbEditForm({...verbEditForm, [f.id]: e.target.value})} placeholder={f.label} className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:border-indigo-500 font-bold text-sm"/>
+                          <td colSpan={verbTableColumnOrder.length} className="px-4 py-3">
+                             {(() => {
+                               const jishoForm = verbForms.find(f => f.id === 'jisho') || verbForms[0];
+                               const otherForms = verbForms.filter(f => f.id !== (jishoForm?.id));
+                               return (
+                               <div className="flex flex-col gap-2 max-h-[65vh] overflow-y-auto pr-1">
+                                 {/* 永遠顯示：辭書形 + 中文意思 */}
+                                 <div className="flex flex-wrap gap-2">
+                                   {jishoForm && (
+                                     <div className="flex-1 min-w-[160px]">
+                                       <label className="block text-xs font-bold text-indigo-600 mb-1 ml-1">{jishoForm.label}</label>
+                                       <input type="text" value={verbEditForm[jishoForm.id] || ''} onChange={e=>setVerbEditForm({...verbEditForm, [jishoForm.id]: e.target.value})} placeholder={jishoForm.label} className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:border-indigo-500 font-bold text-sm"/>
+                                     </div>
+                                   )}
+                                   <div className="flex-1 min-w-[160px]">
+                                     <label className="block text-xs font-bold text-slate-500 mb-1 ml-1">中文意思</label>
+                                     <input type="text" value={verbEditForm.meaning || ''} onChange={e=>setVerbEditForm({...verbEditForm, meaning: e.target.value})} placeholder="中文意思" className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:border-indigo-500 text-sm"/>
                                    </div>
-                                 );})}
-                                 <div className="flex-1 min-w-[120px]">
-                                   <label className="block text-xs font-bold text-slate-500 mb-1 ml-1">中文意思</label>
-                                   <input type="text" value={verbEditForm.meaning || ''} onChange={e=>setVerbEditForm({...verbEditForm, meaning: e.target.value})} placeholder="中文意思" className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:border-indigo-500 text-sm"/>
-                                 </div>\n                                   <div className="w-full mt-2 col-span-full"><TagEditor tags={verbEditForm.tags} onChange={tags => setVerbEditForm({...verbEditForm, tags})} tagStats={globalTagStats} /></div>
+                                 </div>
+                                 {/* 標籤（永遠可見，移到展開按鈕上方） */}
+                                 <div className="w-full">
+                                   <TagEditor tags={verbEditForm.tags} onChange={tags => setVerbEditForm({...verbEditForm, tags})} tagStats={globalTagStats} />
+                                 </div>
+                                 {/* 折疊切換按鈕 */}
+                                 {otherForms.length > 0 && (
+                                   <button type="button" onClick={() => setVerbEditExpanded(v => !v)}
+                                     className="self-start flex items-center gap-1.5 text-xs font-bold text-indigo-500 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg px-3 py-1.5 transition-colors">
+                                     <span>{verbEditExpanded ? '▲' : '▼'}</span>
+                                     <span>{verbEditExpanded ? '收起活用型' : '展開活用型'} ({otherForms.length} 個)</span>
+                                   </button>
+                                 )}
+                                 {/* 可捲動的活用型區塊 */}
+                                 {verbEditExpanded && otherForms.length > 0 && (
+                                   <div className="max-h-[168px] overflow-y-auto border border-indigo-100 rounded-xl bg-white p-2">
+                                     <div className="flex flex-wrap gap-2">
+                                       {otherForms.map(f => (
+                                         <div key={f.id} className="flex-1 min-w-[140px]">
+                                           <label className="block text-xs font-bold text-indigo-600 mb-1 ml-1">{f.label}</label>
+                                           <input type="text" value={verbEditForm[f.id] || ''} onChange={e=>setVerbEditForm({...verbEditForm, [f.id]: e.target.value})} placeholder={f.label} className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:border-indigo-500 font-bold text-sm"/>
+                                         </div>
+                                       ))}
+                                     </div>
+                                   </div>
+                                 )}
+                                 <div className="flex justify-center gap-2">
+                                   <button onClick={()=>{
+                                       setVerbDB(prev => prev.map(x => x.id === v.id ? { ...x, ...verbEditForm } : x));
+                                       setEditingVerbId(null);
+                                   }} className="px-6 py-2 bg-indigo-500 text-white rounded-lg font-bold text-sm hover:bg-indigo-600 transition-colors flex items-center gap-1"><Save className="w-4 h-4"/> 儲存</button>
+                                   <button onClick={()=>setEditingVerbId(null)} className="px-6 py-2 bg-slate-200 text-slate-700 rounded-lg font-bold text-sm hover:bg-slate-300 transition-colors">取消</button>
+                                 </div>
                                </div>
-                               <div className="flex justify-end gap-2 mt-1">
-                                 <button onClick={()=>{
-                                     setVerbDB(prev => prev.map(x => x.id === v.id ? { ...x, ...verbEditForm } : x));
-                                     setEditingVerbId(null);
-                                 }} className="px-5 py-2 bg-indigo-500 text-white rounded-lg font-bold text-sm hover:bg-indigo-600 transition-colors flex items-center gap-1"><Save className="w-4 h-4"/> 儲存</button>
-                                 <button onClick={()=>setEditingVerbId(null)} className="px-5 py-2 bg-slate-200 text-slate-700 rounded-lg font-bold text-sm hover:bg-slate-300 transition-colors">取消</button>
-                               </div>
-                             </div>
+                               );
+                             })()}
                           </td>
                        </tr>
                      ) : (
-                       <tr key={v.id} id={"item-" + v.id} className={"border-b border-slate-50 hover:bg-slate-50/50 transition-colors " + (targetId === v.id ? "bg-amber-100 ring-2 ring-amber-400" : "")}>
+                       <tr key={v.id} id={"item-" + v.id} className={"border-b border-slate-50 hover:bg-slate-50/50 transition-colors " + (selectedVerbIds.has(v.id) ? "bg-indigo-50 " : "") + (targetId === v.id ? "bg-amber-100 ring-2 ring-amber-400" : "")}>
                           {verbTableColumnOrder.map(colId => {
     if (colId === 'isImportant') {
         return <td key={colId} className="p-4 text-center">
@@ -4605,6 +4799,7 @@ return parsed;
     if (colId === 'tag') {
         return <td key={colId} className="p-4">
             <div className="flex items-center gap-2">
+              <input type="checkbox" checked={selectedVerbIds.has(v.id)} onChange={() => toggleVerbSelect(v.id)} className="w-3.5 h-3.5 cursor-pointer accent-indigo-500 shrink-0"/>
               {editingTagId === v.id ? (
                 <select autoFocus onBlur={() => setEditingTagId(null)} onChange={(e) => {
                   const newTag = e.target.value;
@@ -4641,9 +4836,14 @@ return parsed;
     
     // Skip any column not recognized as built-in or verb form (e.g. legacy learnStatus)
     if (!colDefinitions[colId] && !verbForms.find(f => f.id === colId)) return null;
-    // Default to rendering verb form
-    if (colId === 'masu' && (v.type === 'adj_i' || v.type === 'adj_na')) {
-        return <td key={colId} className="p-4 font-bold text-slate-300">-</td>;
+    // 形容詞：有資料的格子照常顯示，空白格子灰底 + 每格都顯示徽章
+    if (verbForms.some(f => f.id === colId) && (v.type === 'adj_i' || v.type === 'adj_na')) {
+        if (v[colId]) {
+            return <td key={colId} className="p-4 font-bold text-slate-700">{renderRuby(v[colId])}</td>;
+        }
+        return <td key={colId} className="p-4 bg-slate-150 text-center" style={{backgroundColor:'#eaecf0'}}>
+            <span className="inline-block text-xs font-bold text-slate-500 bg-slate-200 border border-slate-300 rounded-full px-2 py-0.5 select-none">形容詞</span>
+        </td>;
     }
     return <td key={colId} className="p-4 font-bold text-slate-700">{renderRuby(v[colId])}</td>;
 })}

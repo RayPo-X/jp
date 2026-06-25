@@ -8,7 +8,8 @@
       "Bash(node C:/Users/qaqa4/AppData/Local/Temp/pw_ls_keys.cjs)",
       "Bash(node C:/Users/qaqa4/AppData/Local/Temp/pw_tags_color.cjs)",
       "Bash(grep -v \"//\\\\|setAppState\\(prev\")",
-      "Bash(node -e ' *)"
+      "Bash(node -e ' *)",
+      "Bash(grep -E \"^[0-9]{2,4}:\")"
     ]
   }
 }
