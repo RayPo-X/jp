@@ -421,6 +421,16 @@ const getTagStyle = (tag) => {
     if (tag.includes('自然') || tag.includes('天氣')) return 'bg-lime-100 text-lime-700 border-lime-300';
     if (tag.includes('時間') || tag.includes('日期')) return 'bg-sky-100 text-sky-700 border-sky-300';
     if (tag.includes('問候') || tag.includes('社交')) return 'bg-violet-100 text-violet-700 border-violet-300';
+    if (tag.includes('感情') || tag.includes('心情')) return 'bg-pink-100 text-pink-700 border-pink-300';
+    if (tag.includes('人物') || tag.includes('個性')) return 'bg-amber-100 text-amber-700 border-amber-300';
+    if (tag.includes('外觀') || tag.includes('形狀')) return 'bg-purple-100 text-purple-700 border-purple-300';
+    if (tag.includes('狀態') || tag.includes('程度')) return 'bg-cyan-100 text-cyan-700 border-cyan-300';
+    if (tag.includes('美感') || tag.includes('藝術')) return 'bg-fuchsia-100 text-fuchsia-700 border-fuchsia-300';
+    if (tag.includes('社會') || tag.includes('人際')) return 'bg-emerald-100 text-emerald-700 border-emerald-300';
+    if (tag.includes('科技') || tag.includes('媒體')) return 'bg-blue-100 text-blue-700 border-blue-300';
+    if (tag.includes('政治') || tag.includes('法律')) return 'bg-red-100 text-red-700 border-red-300';
+    if (tag.includes('醫療') || tag.includes('科學')) return 'bg-teal-100 text-teal-700 border-teal-300';
+    if (tag.includes('環境') || tag.includes('資源')) return 'bg-lime-100 text-lime-700 border-lime-300';
     // 其他：固定 hash
     const colors = [
         'bg-indigo-100 text-indigo-700 border-indigo-300',
@@ -454,7 +464,17 @@ const THEME_KEYWORDS = {
     '娛樂與休閒': /玩|遊|樂|歌|休|唱|跑|游|泳|爬|山|海|旅|行|拍|照|影|畫|看|聽|電影|電視|音|漫|動|網|遊戲|運動|球|棒|籃|足|網球|釣|散步|野餐|露營|節|祭|派對|舞|跳|演|練/,
     '自然與天氣': /天|雨|雪|風|雲|晴|陰|霧|雷|暴|溫|熱|冷|涼|暖|春|夏|秋|冬|花|草|木|林|森|山|川|河|海|湖|島|石|土|星|月|日|空|地|水|火|光|暗|色|紅|藍|綠|黃|白|黑|動物|貓|狗|鳥|蟲/,
     '時間與日期': /時|分|秒|點|年|月|日|週|曜|今|昨|明|後|前|早|晚|午|夜|朝|夕|間|期|始|終|久|短|長|快|慢|新|舊|古|先|次|每|常|常常|偶|總|已|還|才|剛|馬上|立刻|將|要|過去|未來|現在|等|待/,
-    '問候與社交': /你|我|他|她|們|人|名|姓|歲|男|女|子|父|母|兄|弟|姐|妹|友|家人|親|戚|夫|妻|孩|老|少|先生|小姐|同|伴|見面|打招呼|介紹|謝|歉|拜託|請|好|再見|歡迎|祝|福|禮|邀|約|聚|說|講|談/
+    '問候與社交': /你|我|他|她|們|人|名|姓|歲|男|女|子|父|母|兄|弟|姐|妹|友|家人|親|戚|夫|妻|孩|老|少|先生|小姐|同|伴|見面|打招呼|介紹|謝|歉|拜託|請|好|再見|歡迎|祝|福|禮|邀|約|聚|說|講|談/,
+    '感情與心情': /高興|開心|快樂|幸福|興奮|感動|滿足|舒適|愉快|難過|悲傷|傷心|痛苦|絕望|失望|後悔|寂寞|孤獨|害怕|恐懼|緊張|不安|擔心|焦慮|憤怒|生氣|煩躁|羞恥|害羞|尷尬|嫉妒|羨慕|驚訝|震驚|感激|懷念|思念|無聊|疲憊|輕鬆|平靜|溫暖|冷漠|憂鬱/,
+    '人物個性': /親切|溫柔|善良|友善|熱情|體貼|細心|耐心|真誠|誠實|正直|謙虛|謙遜|禮貌|有禮|認真|勤勞|努力|積極|主動|冷靜|沉著|成熟|穩重|嚴格|嚴厲|傲慢|自大|懶惰|粗心|粗魯|固執|任性|敏感|脆弱|堅強|勇敢|膽小|樂觀|悲觀|聰明|聰穎|笨|優秀|有才|創意|幽默|風趣|老實|坦率/,
+    '外觀與形狀': /大|小|長|短|高|低|矮|胖|瘦|粗|細|寬|窄|厚|薄|圓|方|扁|尖|平|彎|直|重|輕|硬|軟|粗糙|光滑|整齊|凌亂|透明|不透明|鮮豔|暗淡|明亮|黑暗|清晰|模糊|深|淺|遠|近|廣|狹|巨大|微小|高大|矮小|苗條|肥胖/,
+    '狀態與程度': /嚴重|輕微|嚴格|寬鬆|複雜|簡單|困難|容易|特殊|普通|正常|異常|奇怪|奇特|特別|一般|常見|罕見|重要|次要|必要|不必要|有用|無用|有效|無效|完整|不完整|充分|不足|過多|過少|剛好|適當|不當|合適|不合適|正確|錯誤|準確|模糊|曖昧|微妙|徹底|完全|部分|暫時|永久/,
+    '美感與藝術': /美麗|美觀|好看|漂亮|醜陋|難看|優雅|雅致|精緻|精美|粗糙|樸素|素雅|簡約|華麗|豪華|鮮豔|色彩|鮮明|暗沉|清爽|清新|自然|人工|古典|現代|傳統|流行|時髦|老舊|陳舊|新穎|獨特|平凡|出色|驚豔|賞心悅目|細膩|生動|栩栩如生/,
+    '社會與人際': /社會|文化|傳統|習俗|禮節|禮儀|規矩|規則|法律|道德|倫理|公平|不公|平等|不平等|自由|限制|民主|權利|義務|責任|合法|違法|安全|危險|和平|戰爭|合作|競爭|衝突|矛盾|和諧|穩定|動盪|進步|落後|發展|保守|開放|保護|破壞|珍貴|珍惜|浪費/,
+    '科技與媒體': /電腦|手機|網路|軟體|程式|系統|數位|螢幕|鍵盤|滑鼠|應用|APP|社群|平台|網站|搜尋|下載|上傳|資料|密碼|帳號|登入|登出|更新|安裝|病毒|駭客|人工智慧|機器人|自動|電子|訊號|無線|藍牙|衛星|新聞|報紙|雜誌|廣播|電視台|媒體|記者|報導|採訪|直播|頻道|訂閱/,
+    '政治與法律': /政治|選舉|投票|政府|議會|國會|法院|法官|律師|警察|憲法|法律|條約|協議|政策|制度|改革|革命|獨立|統一|外交|大使|邊境|移民|難民|稅金|預算|補助|腐敗|貪污|抗議|示威|戰爭|軍隊|和平|裁軍|聯合國|主權|領土|判決|起訴|犯罪|刑罰|禁止|允許|批准/,
+    '醫療與科學': /醫療|手術|治療|診斷|處方|藥物|疫苗|注射|病毒|細菌|感染|傳染|免疫|過敏|症狀|發病|康復|住院|出院|急救|手術室|醫師|護士|研究|實驗|分析|數據|結果|理論|假設|證明|發現|發明|科技|化學|物理|生物|遺傳|基因|細胞|分子|元素|反應|能量|輻射|太空|宇宙/,
+    '環境與資源': /環境|生態|自然|汙染|排放|溫室|氣候|暖化|臭氧|輻射|廢氣|廢水|垃圾|回收|再生|節能|省電|資源|能源|石油|天然氣|煤炭|核能|太陽能|風力|水力|森林|砍伐|保育|滅絕|物種|生物多樣|土地|水資源|乾旱|洪水|颱風|地震|火山|海平面|碳排|減碳/
 };
 
 const guessThemeByMeaning = (meaning, existingVocabDB = null) => {
@@ -1870,13 +1890,25 @@ return parsed;
 
   const handleRematchBatchTheme = (idx) => {
     const n = [...batchInputs];
-    if (n[idx].meaning) {
-        const newTag = guessThemeByMeaning(n[idx].meaning, vocabDB);
-        const cleanedTags = (n[idx].tags || []).filter(t => t !== n[idx].tag);
+    const item = n[idx];
+    if (item.meaning) {
+        const newTag = guessThemeByMeaning(item.meaning, vocabDB);
+        const cleanedTags = (item.tags || []).filter(t => t !== item.tag);
         const newTags = (newTag && newTag !== '自訂') ? [...cleanedTags, newTag] : cleanedTags;
         n[idx].tag = newTag;
         n[idx].tags = newTags;
         setBatchInputs(n);
+    } else if (item.word || item.reading) {
+        const jWord = (item.word || item.reading).trim();
+        const existingMatch = vocabDB.find(v =>
+            (v.word === jWord || v.reading === jWord) &&
+            v.tag && v.tag !== '自訂' && v.tag !== '未分類' && v.tag !== '未知'
+        );
+        if (existingMatch) {
+            n[idx].tag = existingMatch.tag;
+            n[idx].tags = [existingMatch.tag];
+            setBatchInputs(n);
+        }
     }
   };
 
@@ -2069,7 +2101,7 @@ return parsed;
         reading: v.reading.trim() || v.word.trim(), 
         meaning: v.meaning.trim(), 
         tag: v.tag || '自訂',
-        tags: v.tags || [],
+        tags: (v.tags && v.tags.length > 0) ? v.tags : (v.tag && v.tag !== '自訂' ? [v.tag] : []),
         example: v.example.trim(),
         isSentence: !!v.isSentence,
         ef: 2.5, interval: 0, repetitions: 0, nextReview: 0, status: addToReviewNow ? 'learning' : 'new'
@@ -2331,9 +2363,38 @@ return parsed;
   };
 
     const autoDetectVerbType = (jisho) => {
-      const naExceptions = ['きれい','にぎやか','ゆうめい','しんせつ','べんり','たいせつ','げんき','しずか','すき','きらい','へた','じょうず','ふべん','まじめ','ていねい','ふつう','とくべつ','かんたん','むり','だいじょうぶ','ざんねん','じゆう','あんぜん','ひつよう','じゅうぶん'];
-      if (jisho.endsWith('い') && !naExceptions.some(e => jisho.endsWith(e))) return { type: 'adj_i', group: 'i' };
-      return { type: 'verb', group: '1' };
+      const naList = [
+        // N5
+        'しずか','べんり','しんせつ','たいせつ','すき','きらい','じょうず','へた','げんき','ゆうめい',
+        'きれい','にぎやか','まじめ','ていねい','ふべん','だいじょうぶ','かんたん','とくべつ','じゆう',
+        'あんぜん','ひつよう','じゅうぶん','ざんねん','たいへん','きけん','ふつう',
+        // N4
+        'じゅうよう','むり','とくい','にがて','ゆたか','さかん','てきとう','しんぱい','すてき',
+        'あんしん','かんこう','そうだい','ゆうしゅう','しんせん','ねっしん','こうふく','せいかつ',
+        'じゅうじつ','ふまん','こうつう','えいぎょう','せいこう','しっぱい','しんちょう',
+        // N3
+        'こうへい','さわやか','しつれい','しんこく','せいかく','なだらか','ぶじ','へいわ',
+        'めんどう','よけい','かっきてき','けんこう','ていちょう','とうぜん','どくとく',
+        'むだ','むしょう','むじゃき','じみ','はで','ふかのう','たんじゅん','えんかつ','おだやか',
+        'かいてき','ひかえめ','そぼく','きちょう','じゅんすい','ふさわしい',
+        // N2
+        'せっきょくてき','しょうきょくてき','しゅたいてき','きゃっかんてき','しゅかんてき',
+        'ぐたいてき','ちゅうしょうてき','けんきょ','ごうまん','おうへい','やっかい','そまつ',
+        'せいそ','せいけつ','すなお','じゅうなん','せいじつ','ちゅうじつ','てきせつ','てきかく',
+        'だとう','かんけつ','めいかく','めいかい','そっちょく','びみょう','あいまい',
+        'とくゆう','きんいつ','びょうどう','こうせい','ゆうこう','むこう','ゆうり','ふり',
+        'ゆうのう','むのう','かんぺき','しょうちょうてき','こうりてき','はんのうてき',
+        // N1
+        'あざやか','なごやか','なめらか','やわらか','おろそか','はるか','わずか','ほのか',
+        'ひそか','さりげない','おごそか','にわか','しなやか','たおやか','ゆるやか',
+        'いかめしい','きびしい',
+        'けいそつ','こうみょう','しつぼう','たんのう','てんさい','どりょく','はんぱ',
+        'ふとう','ふてきせつ','むこうみず','むとんじゃく','らんぼう','りりしい',
+        'いちじるしい','おびただしい',
+      ];
+      if (naList.includes(jisho)) return { type: 'adj_na', group: 'na' };
+      if (jisho.endsWith('い')) return { type: 'adj_i', group: 'i' };
+      return { type: 'unknown', group: '1' };
     };
 
     const handleVerbSmartImport = () => {
@@ -2411,7 +2472,7 @@ return parsed;
 
     const validVerbs = newVerbs.filter(v => v.jisho && v.meaning);
     if (validVerbs.length > 0) {
-        setVerbBatchItems(prev => [...prev, ...validVerbs]);
+        setVerbBatchItems(prev => [...prev.filter(v => v.jisho?.trim() || v.meaning?.trim()), ...validVerbs]);
         setVerbImportText('');
     } else {
         alert('解析失敗，請確認格式是否為「辭書形」換行「中文意思」，或使用 ➜ 分隔。');
@@ -2420,14 +2481,19 @@ return parsed;
 
   const handleVerbBatchSave = () => {
     const isVerbDuplicate = (nv) => verbDB.some(ev => (ev.jisho && ev.jisho === nv.jisho) || (ev.masu && ev.masu === nv.masu));
-    const duplicates = verbBatchItems.filter(isVerbDuplicate);
+    const filledItems = verbBatchItems.filter(v => v.jisho?.trim());
+    const duplicates = filledItems.filter(isVerbDuplicate);
     if (duplicates.length > 0) {
         const dupWords = duplicates.map(d => d.jisho || d.masu).join(', ');
-        if (!window.confirm(`發現重複的動詞/形容詞：\n${dupWords}\n\n是否跳過重複項目，儲存其餘 ${verbBatchItems.length - duplicates.length} 筆？`)) return;
+        if (!window.confirm(`發現重複的動詞/形容詞：\n${dupWords}\n\n是否跳過重複項目，儲存其餘 ${filledItems.length - duplicates.length} 筆？`)) return;
     }
-    const toSave = verbBatchItems.filter(v => !isVerbDuplicate(v));
+    const toSave = filledItems.filter(v => !isVerbDuplicate(v));
     if (toSave.length === 0) { alert('沒有可儲存的項目！'); return; }
-    setVerbDB(prev => [...prev, ...toSave.map((v, i) => ({ ...v, tag: v.tag || guessThemeByMeaning(v.meaning, vocabDB), id: v.type + '_custom_' + Date.now() + '_' + i }))]);
+    setVerbDB(prev => [...prev, ...toSave.map((v, i) => {
+      const finalTag = v.tag || guessThemeByMeaning(v.meaning, vocabDB);
+      const finalTags = (v.tags && v.tags.length > 0) ? v.tags : (finalTag ? [finalTag] : []);
+      return { ...v, tag: finalTag, tags: finalTags, id: v.type + '_custom_' + Date.now() + '_' + i };
+    })]);
     setVerbBatchItems([]);
     alert('成功儲存 ' + toSave.length + ' 個詞彙！');
   };
@@ -3683,7 +3749,7 @@ return parsed;
                     <button onClick={() => setBatchInputs([...batchInputs, {word:'', reading:'', meaning:'', tag: '未知', tags: [], example: '', isSentence: false}])} className="text-sm text-amber-700 bg-amber-100 px-4 py-2 rounded-xl font-bold hover:bg-amber-200 flex items-center gap-1"><Plus className="w-4 h-4"/> 新增一列</button>
                   </div>
                 </div>
-                <datalist id="theme-suggestions">{Array.from(new Set(vocabDB.map(v => v.tag))).filter(Boolean).map(tag => <option key={tag} value={tag} />)}</datalist>
+                <datalist id="theme-suggestions">{Array.from(new Set([...Object.keys(THEME_KEYWORDS), ...vocabDB.map(v => v.tag)])).filter(Boolean).map(tag => <option key={tag} value={tag} />)}</datalist>
 
                 <div className={batchLayoutMode === 'list' ? 'space-y-3 mb-6 max-h-[640px] overflow-y-auto pr-2' : batchLayoutMode === 'grid2' ? 'grid grid-cols-2 gap-3 mb-6 max-h-[640px] overflow-y-auto pr-2' : 'grid grid-cols-3 gap-3 mb-6 max-h-[640px] overflow-y-auto pr-2'}>
                    {batchInputs.map((item, idx) => (
@@ -3744,7 +3810,7 @@ return parsed;
                 </div>}
              </div>
 
-             <datalist id="db-theme-suggestions">{Array.from(new Set(vocabDB.map(v => v.tag))).filter(Boolean).map(tag => <option key={tag} value={tag} />)}</datalist>
+             <datalist id="db-theme-suggestions">{Array.from(new Set([...Object.keys(THEME_KEYWORDS), ...vocabDB.map(v => v.tag)])).filter(Boolean).map(tag => <option key={tag} value={tag} />)}</datalist>
              <div className="overflow-x-auto">
                <div className="flex justify-end mb-2 gap-2">
                  <button
@@ -4278,8 +4344,8 @@ return parsed;
                      <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-indigo-100 cursor-pointer select-none" onClick={() => setIsVerbBatchOpen(o => !o)}>
                        <span className="flex items-center gap-1.5">
                          <ChevronUp className={`w-4 h-4 transition-transform duration-200 text-indigo-700 ${isVerbBatchOpen ? '' : 'rotate-180'}`}/>
-                         <span className="text-sm font-bold text-indigo-700">確認與編輯區（{verbBatchItems.length} 筆）</span>
-                         <span className="text-xs text-slate-400 font-normal">快速批次匯入・只存辭書形</span>
+                         <span className="text-sm font-bold text-indigo-700">形容詞 (單次/批次) 新增（{verbBatchItems.length} 筆）</span>
+                         <span className="text-xs text-slate-400 font-normal">快速批次匯入・保留原形（不自動變化）</span>
                        </span>
                        <button onClick={e => { e.stopPropagation(); if(window.confirm('確定清空確認區？')) setVerbBatchItems([]); }} className="text-xs text-red-500 hover:text-red-700 font-bold">全部清空</button>
                      </div>
@@ -4287,6 +4353,7 @@ return parsed;
                        <div className="p-4 space-y-2 max-h-72 overflow-y-auto">
                          {verbBatchItems.map((item, idx) => {
                            const setType = (t) => { const n=[...verbBatchItems]; n[idx]={...n[idx], type:t, group:t==='adj_i'?'i':t==='adj_na'?'na':'1'}; setVerbBatchItems(n); };
+                           const isUnknown = item.type === 'unknown';
                            const typeBtn = (t, label, active, color) => (
                              <button key={t} onClick={() => setType(t)}
                                className={`shrink-0 px-2 py-0.5 rounded-lg text-xs font-bold border transition-colors ${active ? color : 'bg-slate-100 text-slate-400 border-slate-200'}`}>
@@ -4294,12 +4361,14 @@ return parsed;
                              </button>
                            );
                            return (
-                             <div key={idx} className="flex items-center gap-2 p-3 bg-slate-50 rounded-xl border border-slate-200">
-                               <input type="text" value={item.tag || ''} onChange={e => { const n=[...verbBatchItems]; n[idx]={...n[idx],tag:e.target.value}; setVerbBatchItems(n); }} className="w-16 px-2 py-1 text-xs border border-slate-200 rounded-lg outline-none focus:border-indigo-400 bg-white shrink-0" placeholder="標籤"/>
-                               <button title="自動配對主題標籤" onClick={() => { const guessed = guessThemeByMeaning(item.meaning, vocabDB); if(guessed){ const n=[...verbBatchItems]; n[idx]={...n[idx],tag:guessed}; setVerbBatchItems(n); }}} className="shrink-0 text-xs px-1.5 py-1 rounded-lg bg-indigo-50 text-indigo-500 hover:bg-indigo-100 border border-indigo-200 transition-colors">✨</button>
+                             <div key={idx} className={`flex items-center gap-2 p-3 rounded-xl border ${isUnknown && item.jisho ? 'bg-orange-50 border-orange-300' : 'bg-slate-50 border-slate-200'}`}>
+                               <div className="relative w-36 shrink-0">
+                                 <input type="text" list="theme-suggestions" value={item.tag || ''} onChange={e => { const n=[...verbBatchItems]; n[idx]={...n[idx],tag:e.target.value}; setVerbBatchItems(n); }} className={`w-full pl-3 pr-8 py-1.5 rounded-xl outline-none text-sm font-bold border ${getTagStyle(item.tag || '')}`} placeholder="主題/標籤"/>
+                                 <button title="自動配對主題標籤" onClick={() => { const jWord = (item.jisho||'').trim(); const guessed = item.meaning ? guessThemeByMeaning(item.meaning, vocabDB) : (vocabDB.find(v=>(v.word===jWord||v.reading===jWord)&&v.tag&&v.tag!=='自訂'&&v.tag!=='未知')?.tag||null); if(guessed){const n=[...verbBatchItems];n[idx]={...n[idx],tag:guessed};setVerbBatchItems(n);}}} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-indigo-500 transition-colors"><Sparkles className="w-3.5 h-3.5"/></button>
+                               </div>
                                {typeBtn('adj_na','な形', item.type==='adj_na', 'bg-violet-100 text-violet-700 border-violet-300')}
                                {typeBtn('adj_i', 'い形', item.type==='adj_i',  'bg-rose-100 text-rose-700 border-rose-300')}
-                               {typeBtn('verb',  '動詞', item.type==='verb',   'bg-indigo-100 text-indigo-700 border-indigo-300')}
+                               {isUnknown && item.jisho && <span className="shrink-0 text-xs text-orange-600 font-bold">⚠ 請選擇類型</span>}
                                <input type="text" value={item.jisho || ''} onChange={e => { const n=[...verbBatchItems]; n[idx]={...n[idx],jisho:e.target.value}; setVerbBatchItems(n); }} className="flex-1 px-2 py-1 text-sm font-bold border border-slate-200 rounded-lg outline-none focus:border-indigo-400 bg-white" placeholder="辭書形"/>
                                <input type="text" value={item.meaning} onChange={e => { const n=[...verbBatchItems]; n[idx]={...n[idx],meaning:e.target.value}; setVerbBatchItems(n); }} className="flex-1 px-2 py-1 text-sm border border-slate-200 rounded-lg outline-none focus:border-indigo-400 bg-white" placeholder="中文意思"/>
                                <button onClick={() => setVerbBatchItems(verbBatchItems.filter((_,i)=>i!==idx))} className="shrink-0 p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"><Trash2 className="w-4 h-4"/></button>
@@ -4307,38 +4376,32 @@ return parsed;
                            );
                          })}
                        </div>
-                       <div className="px-5 pb-4 pt-2">
-                         <button onClick={handleVerbBatchSave} className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-colors">確認並儲存全部 {verbBatchItems.length} 筆</button>
-                       </div>
+                       {(() => {
+                         const filledItems = verbBatchItems.filter(v => v.jisho?.trim());
+                         const unknownCount = filledItems.filter(v => v.type === 'unknown').length;
+                         const validCount = filledItems.filter(v => v.type !== 'unknown').length;
+                         if (filledItems.length === 0) return null;
+                         return (
+                           <div className="px-5 pb-4 pt-2 space-y-2">
+                             {unknownCount > 0 && <p className="text-xs text-orange-600 font-bold text-center">⚠ 有 {unknownCount} 筆尚未選擇類型，請先選擇後再儲存</p>}
+                             {validCount > 0 && <button onClick={handleVerbBatchSave} className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-colors">確認並儲存全部 {validCount} 筆</button>}
+                           </div>
+                         );
+                       })()}
                      </>)}
                    </div>
                  )}
                  <div className="border-t border-indigo-200 pt-6 mt-6 mb-4">
                    <div className="flex items-baseline gap-2 mb-4">
-                     <h4 className="font-bold text-indigo-800">手動單筆新增</h4>
+                     <h4 className="font-bold text-indigo-800">動詞手動新增</h4>
                      <span className="text-xs text-slate-400">精細新增・自動產生完整變化型</span>
                    </div>
                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
-                   <div><label className="block text-sm font-bold text-indigo-700 mb-1">類型</label><select value={verbInputs.type} onChange={e=>handleVerbInputChange('type', e.target.value)} className="w-full p-3 rounded-xl border border-indigo-200"><option value="verb">動詞 (verb)</option><option value="adj_i">い形容詞 (adj_i)</option><option value="adj_na">な形容詞 (adj_na)</option></select></div>
-                   <div><label className="block text-sm font-bold text-indigo-700 mb-1">群組/分類</label><select value={verbInputs.group} onChange={e=>handleVerbInputChange('group', e.target.value)} className="w-full p-3 rounded-xl border border-indigo-200"><option value="1">第一類動詞 (1)</option><option value="2">第二類動詞 (2)</option><option value="3">第三類動詞 (3)</option><option value="i">い形容詞 (i)</option><option value="na">な形容詞 (na)</option></select></div>
+                   <div><label className="block text-sm font-bold text-indigo-700 mb-1">類型</label><select value={verbInputs.type} onChange={e=>handleVerbInputChange('type', e.target.value)} className="w-full p-3 rounded-xl border border-indigo-200"><option value="verb">動詞 (verb)</option></select></div>
+                   <div><label className="block text-sm font-bold text-indigo-700 mb-1">群組/分類</label><select value={verbInputs.group} onChange={e=>handleVerbInputChange('group', e.target.value)} className="w-full p-3 rounded-xl border border-indigo-200"><option value="1">第一類動詞 (1)</option><option value="2">第二類動詞 (2)</option><option value="3">第三類動詞 (3)</option></select></div>
                    <div><label className="block text-sm font-bold text-indigo-700 mb-1">難易度</label><select value={verbInputs.difficulty} onChange={e=>handleVerbInputChange('difficulty', e.target.value)} className="w-full p-3 rounded-xl border border-indigo-200"><option value="n5">N5</option><option value="n4">N4</option><option value="n3">N3</option><option value="n2">N2</option><option value="n1">N1</option></select></div>
                    <div><label className="block text-sm font-bold text-indigo-700 mb-1">中文意思</label><input type="text" value={verbInputs.meaning} onChange={e=>handleVerbInputChange('meaning', e.target.value)} placeholder="例：去" className="w-full p-3 rounded-xl border border-indigo-200"/></div>
                  </div>
-                 {(verbInputs.type === 'adj_i' || verbInputs.type === 'adj_na') && (
-                   <div className="mb-4 p-4 bg-indigo-50 rounded-xl border border-indigo-200">
-                     <label className="block text-sm font-bold text-indigo-700 mb-1">
-                       形容詞原形
-                       <span className="ml-2 text-xs font-normal text-indigo-400">填完後點「自動產生變化型」</span>
-                     </label>
-                     <input
-                       type="text"
-                       value={verbInputs.jisho || ''}
-                       onChange={e => handleVerbInputChange('jisho', e.target.value)}
-                       placeholder={verbInputs.type === 'adj_i' ? '例：暑い、楽しい、新しい' : '例：静か、便利、親切'}
-                       className="w-full p-3 rounded-xl border border-indigo-300 outline-none focus:border-indigo-500 bg-white text-lg"
-                     />
-                   </div>
-                 )}
                  <div className="mb-4">
                    <label className="block text-sm font-bold text-indigo-700 mb-1">例句 (選填，支援漢字[假名]自動標音)</label>
                    <input type="text" value={verbInputs.example || ''} onChange={e=>handleVerbInputChange('example', e.target.value)} placeholder="例：雨[あめ]が降[ふ]るので、行[い]きません。" className="w-full p-3 rounded-xl border border-indigo-200"/>
@@ -4552,8 +4615,13 @@ return parsed;
                   {getAvailableThemes().map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
               ) : (
-                                       <>{renderTags(v.tags, (tag) => setSearchTerm(tag))}</>
-                                     )}
+                <>
+                  {renderTags(v.tags, (tag) => setSearchTerm(tag))}
+                  {(!v.tags || v.tags.length === 0) && v.tag && (
+                    <span onClick={() => setSearchTerm(v.tag)} className={`px-1.5 py-0.5 text-[10px] font-bold rounded-md border cursor-pointer hover:opacity-75 transition-opacity ${getTagStyle(v.tag)}`}>{v.tag}</span>
+                  )}
+                </>
+              )}
               <button onClick={() => handleRematchVerbDbTheme(v.id, v.meaning)} title="自動配對主題" className="p-1 text-slate-300 hover:text-indigo-500 transition-colors"><Sparkles className="w-4 h-4"/></button>
             </div>
         </td>;
