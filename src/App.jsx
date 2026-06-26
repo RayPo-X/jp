@@ -762,6 +762,13 @@ return parsed;
   const [referenceQueue, setReferenceQueue] = useState([]);
   
   useEffect(() => { localStorage.setItem('verbApp_vocabDB', JSON.stringify(vocabDB)); }, [vocabDB]);
+  useEffect(() => {
+    setVocabDB(prev => {
+      if (!prev.some(v => !v.addedAt)) return prev;
+      const getTs = (id) => { const p = String(id||'').split('_'); for (const x of p) { const n = Number(x); if (!isNaN(n) && n > 1000000000000) return n; } return 0; };
+      return prev.map((v, i) => v.addedAt ? v : { ...v, addedAt: getTs(v.id) + i });
+    });
+  }, []);
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
   const todayQueue = vocabDB.filter(v => !((v.example && v.example.trim().length > 0) || v.isSentence) && v.status !== 'new' && v.nextReview <= Date.now());
@@ -780,6 +787,13 @@ return parsed;
     } catch { return INITIAL_VERB_DB.map(v => migrateVerb({ ...v, learnStatus: 'new', correctDates: [] })); }
   });
   useEffect(() => { localStorage.setItem('verbApp_verbDB', JSON.stringify(verbDB)); }, [verbDB]);
+  useEffect(() => {
+    setVerbDB(prev => {
+      if (!prev.some(v => !v.addedAt)) return prev;
+      const getTs = (id) => { const p = String(id||'').split('_'); for (const x of p) { const n = Number(x); if (!isNaN(n) && n > 1000000000000) return n; } return 0; };
+      return prev.map((v, i) => v.addedAt ? v : { ...v, addedAt: getTs(v.id) + i });
+    });
+  }, []);
 
   // ==== 漢字索引 State ====
   const [kanjiDB, setKanjiDB] = useState(() => {
@@ -1221,7 +1235,7 @@ return parsed;
         case 'dateAdded':
         default:
           const getTs = (id) => { const p = String(id||'').split('_'); for (const x of p) { const n = Number(x); if (!isNaN(n) && n > 1000000000000) return n; } return 0; };
-          aVal = getTs(a.id); bVal = getTs(b.id); break;
+          aVal = a.addedAt || getTs(a.id); bVal = b.addedAt || getTs(b.id); break;
       }
       if (aVal < bVal) return vocabSortConfig.direction === 'asc' ? -1 : 1;
       if (aVal > bVal) return vocabSortConfig.direction === 'asc' ? 1 : -1;
@@ -1270,7 +1284,7 @@ return parsed;
         case 'dateAdded':
         default:
           const getTs = (id) => { const p = String(id||'').split('_'); for (const x of p) { const n = Number(x); if (!isNaN(n) && n > 1000000000000) return n; } return 0; };
-          aVal = getTs(a.id); bVal = getTs(b.id); break;
+          aVal = a.addedAt || getTs(a.id); bVal = b.addedAt || getTs(b.id); break;
       }
       if (aVal < bVal) return verbSortConfig.direction === 'asc' ? -1 : 1;
       if (aVal > bVal) return verbSortConfig.direction === 'asc' ? 1 : -1;
@@ -1839,9 +1853,9 @@ return parsed;
     return id;
   };
 
-  const [batchInputs, setBatchInputs] = useState(Array.from({ length: 5 }, () => ({ word: '', reading: '', meaning: '', tag: '自訂', tags: [], example: '', isSentence: false })));
+  const [batchInputs, setBatchInputs] = useState(Array.from({ length: 5 }, () => ({ word: '', reading: '', meaning: '', tag: '自訂', tags: [], example: '', exampleMeaning: '', isSentence: false })));
   useEffect(() => {
-    const emptyCard = { word: '', reading: '', meaning: '', tag: '未知', tags: [], example: '', isSentence: false };
+    const emptyCard = { word: '', reading: '', meaning: '', tag: '未知', tags: [], example: '', exampleMeaning: '', isSentence: false };
     if (batchInputs.length === 0) { setBatchInputs([emptyCard]); return; }
     const last = batchInputs[batchInputs.length - 1];
     if (last.word || last.reading || last.meaning || last.example) {
@@ -1855,7 +1869,11 @@ return parsed;
   const [isScanningObsidian, setIsScanningObsidian] = useState(false);
   const [importText, setImportText] = useState('');
   const [editingVocabId, setEditingVocabId] = useState(null);
-  const [vocabEditForm, setVocabEditForm] = useState({ word: '', reading: '', meaning: '', example: '', tags: [] });
+  const [vocabEditForm, setVocabEditForm] = useState({ word: '', reading: '', meaning: '', example: '', exampleMeaning: '', tags: [] });
+  useEffect(() => {
+    document.body.style.overflow = editingVocabId ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [editingVocabId]);
   const [editingVerbId, setEditingVerbId] = useState(null);
   const [verbEditForm, setVerbEditForm] = useState({ masu: '', jisho: '', te: '', meaning: '', tags: [] });
   const [verbEditExpanded, setVerbEditExpanded] = useState(false);
@@ -2187,7 +2205,9 @@ return parsed;
         tag: v.tag || '自訂',
         tags: (v.tags && v.tags.length > 0) ? v.tags : (v.tag && v.tag !== '自訂' ? [v.tag] : []),
         example: v.example.trim(),
+        exampleMeaning: v.exampleMeaning?.trim() || '',
         isSentence: !!v.isSentence,
+        addedAt: Date.now() + i,
         ef: 2.5, interval: 0, repetitions: 0, nextReview: 0, status: addToReviewNow ? 'learning' : 'new'
     }));
 
@@ -2595,7 +2615,7 @@ return parsed;
     setVerbDB(prev => [...prev, ...toSave.map((v, i) => {
       const finalTag = v.tag || guessThemeByMeaning(v.meaning, vocabDB);
       const finalTags = (v.tags && v.tags.length > 0) ? v.tags : (finalTag ? [finalTag] : []);
-      return { ...v, tag: finalTag, tags: finalTags, id: v.type + '_custom_' + Date.now() + '_' + i };
+      return { ...v, tag: finalTag, tags: finalTags, id: v.type + '_custom_' + Date.now() + '_' + i, addedAt: Date.now() + i };
     })]);
     setVerbBatchItems([]);
     alert('成功儲存 ' + toSave.length + ' 個詞彙！');
@@ -2609,7 +2629,7 @@ return parsed;
         return;
     }
     const newTag = guessThemeByMeaning(verbInputs.meaning, vocabDB);
-    setVerbDB(prev => [...prev, { ...verbInputs, tag: newTag, tags: newTag && newTag !== '自訂' ? [newTag] : [], id: `${verbInputs.type}_custom_${Date.now()}` }]);
+    setVerbDB(prev => [...prev, { ...verbInputs, tag: newTag, tags: newTag && newTag !== '自訂' ? [newTag] : [], id: `${verbInputs.type}_custom_${Date.now()}`, addedAt: Date.now() }]);
     setVerbInputs(getInitialVerbInputs());
   };
 
@@ -3884,6 +3904,12 @@ return parsed;
                           <MessageSquareQuote className="w-5 h-5 text-amber-400 absolute left-3" />
                           <input type="text" placeholder="附加例句 (選填，支援「漢字[假名]」注音格式。例如: 水[みず]を飲[の]みます。)" value={item.example} onChange={e => {const n=[...batchInputs]; n[idx].example=e.target.value; setBatchInputs(n);}} className="w-full pl-10 pr-3 py-2.5 bg-slate-50 rounded-xl border border-slate-200 outline-none focus:border-amber-500 focus:bg-white text-sm text-slate-600"/>
                         </div>
+                        {item.example.trim() && (
+                          <div className="flex items-center gap-2 relative">
+                            <span className="absolute left-3 text-sm text-amber-400">🌐</span>
+                            <input type="text" placeholder="例句中文翻譯 (選填)" value={item.exampleMeaning || ''} onChange={e => {const n=[...batchInputs]; n[idx].exampleMeaning=e.target.value; setBatchInputs(n);}} className="w-full pl-9 pr-3 py-2.5 bg-slate-50 rounded-xl border border-slate-200 outline-none focus:border-amber-500 focus:bg-white text-sm text-slate-600"/>
+                          </div>
+                        )}
                         <div className="flex items-center gap-4 px-2 mt-1">
                           <label className="flex items-center gap-2 cursor-pointer text-sm font-bold text-slate-600 hover:text-fuchsia-600 transition-colors">
                             <input type="checkbox" checked={!!item.isSentence} onChange={e => {const n=[...batchInputs]; n[idx].isSentence=e.target.checked; setBatchInputs(n);}} className="w-4 h-4 accent-fuchsia-600"/>
@@ -3908,6 +3934,12 @@ return parsed;
                           <MessageSquareQuote className="w-4 h-4 text-amber-400 absolute left-3 top-1/2 -translate-y-1/2" />
                           <input type="text" placeholder="附加例句 (選填)" value={item.example} onChange={e => {const n=[...batchInputs]; n[idx].example=e.target.value; setBatchInputs(n);}} className="w-full pl-8 pr-3 py-2.5 bg-slate-50 rounded-xl border border-slate-200 outline-none focus:border-amber-500 focus:bg-white text-sm text-slate-600"/>
                         </div>
+                        {item.example.trim() && (
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-amber-400">🌐</span>
+                            <input type="text" placeholder="例句中文翻譯 (選填)" value={item.exampleMeaning || ''} onChange={e => {const n=[...batchInputs]; n[idx].exampleMeaning=e.target.value; setBatchInputs(n);}} className="w-full pl-8 pr-3 py-2.5 bg-slate-50 rounded-xl border border-slate-200 outline-none focus:border-amber-500 focus:bg-white text-sm text-slate-600"/>
+                          </div>
+                        )}
                         <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-500 hover:text-fuchsia-600 transition-colors px-1">
                           <input type="checkbox" checked={!!item.isSentence} onChange={e => {const n=[...batchInputs]; n[idx].isSentence=e.target.checked; setBatchInputs(n);}} className="w-4 h-4 accent-fuchsia-600"/>
                           <span>✅ 完整例句（啟用例句特訓）</span>
@@ -4029,39 +4061,25 @@ return parsed;
                  </tr></thead>
                  <tbody>
                     {sortedVocabDB.map(v => editingVocabId === v.id ? (
-                       <tr key={'edit-'+v.id} className="border-b border-amber-200 bg-amber-50">
-                          <td colSpan={5 + verbForms.length} className="p-4">
-                             <div className="flex flex-col gap-2">
-                               <div className="flex gap-3">
-                                 <div className="flex-1">
-                                   <label className="block text-xs font-bold text-amber-600 mb-1 ml-1">平假名</label>
-                                   <input type="text" value={vocabEditForm.reading} onChange={e=>setVocabEditForm({...vocabEditForm, reading: e.target.value})} placeholder="平假名" className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:border-amber-500 font-bold text-sm"/>
-                                 </div>
-                                 <div className="flex-1">
-                                   <label className="block text-xs font-bold text-amber-600 mb-1 ml-1">漢字/原形</label>
-                                   <input type="text" value={vocabEditForm.word} onChange={e=>setVocabEditForm({...vocabEditForm, word: e.target.value})} placeholder="漢字/原形" className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:border-amber-500 font-bold text-sm"/>
-                                 </div>
-                                 <div className="flex-1">
-                                   <label className="block text-xs font-bold text-amber-600 mb-1 ml-1">中文意思</label>
-                                   <input type="text" value={vocabEditForm.meaning} onChange={e=>setVocabEditForm({...vocabEditForm, meaning: e.target.value})} placeholder="中文意思" className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:border-amber-500 font-bold text-sm"/>
-                                 </div>
-                               </div>
-                               <div className="flex flex-col gap-2">
-                                 <div>
-                                   <label className="block text-xs font-bold text-amber-600 mb-1 ml-1">例句 (選填)</label>
-                                   <input type="text" value={vocabEditForm.example} onChange={e=>setVocabEditForm({...vocabEditForm, example: e.target.value})} placeholder="例句" className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:border-amber-500 text-sm"/>
-                                 </div>
-                                 <TagEditor tags={vocabEditForm.tags} onChange={tags => setVocabEditForm({...vocabEditForm, tags})} tagStats={globalTagStats} />
-                                 <div className="flex gap-3">
-                                   <button onClick={()=>{
-                                       setVocabDB(prev => prev.map(x => x.id === v.id ? { ...x, ...vocabEditForm, isSentence: (vocabEditForm.example && vocabEditForm.example.trim().length > 0) || (vocabEditForm.reading && vocabEditForm.reading.includes('。')) } : x));
-                                       setEditingVocabId(null);
-                                   }} className="flex-1 py-3 bg-amber-500 text-white rounded-xl font-bold text-base hover:bg-amber-600 transition-colors flex items-center justify-center gap-2"><Save className="w-5 h-5"/> 儲存</button>
-                                   <button onClick={()=>setEditingVocabId(null)} className="flex-1 py-3 bg-slate-200 text-slate-700 rounded-xl font-bold text-base hover:bg-slate-300 transition-colors">取消</button>
-                                 </div>
-                               </div>
-                             </div>
-                          </td>
+                       /* 編輯中的列：高亮標記，實際編輯在 Modal */
+                       <tr key={'edit-'+v.id} className="border-b-2 border-amber-400 bg-amber-50/60 ring-2 ring-inset ring-amber-300">
+                         {vocabTableColumnOrder.map(colId => {
+                           if (colId === 'actions') return (
+                             <td key={colId} className="p-4 text-center">
+                               <span className="text-xs font-bold text-amber-500 animate-pulse">編輯中…</span>
+                             </td>
+                           );
+                           if (colId === 'word') return (
+                             <td key={colId} className="p-4 text-slate-400 text-sm font-bold">
+                               {v.reading && <div className="text-xs font-normal text-slate-400">{v.reading}</div>}
+                               {v.word || ''}
+                             </td>
+                           );
+                           if (['meaning', 'dateAdded'].includes(colId)) return (
+                             <td key={colId} className="p-4 text-slate-400 text-sm font-bold">{v[colId] || ''}</td>
+                           );
+                           return <td key={colId} className="p-4"></td>;
+                         })}
                        </tr>
                      ) : (
                        <tr key={v.id} id={"item-" + v.id} className={"border-b border-slate-50 hover:bg-slate-50/50 transition-colors " + (selectedVocabIds.has(v.id) ? "bg-amber-50 " : "") + (targetId === v.id ? "bg-amber-100 ring-2 ring-amber-400" : "")}>
@@ -4145,7 +4163,7 @@ return parsed;
                              }
                              if (colId === 'actions') {
                                 return <td key={colId} className="p-4 flex gap-1">
-                                   <button onClick={()=>{setEditingVocabId(v.id); setVocabEditForm({word: v.word||'', reading: v.reading||'', meaning: v.meaning||'', example: v.example||'', tags: v.tags||[]});}} className="p-2 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-colors" title="編輯"><Edit3 className="w-4 h-4"/></button>
+                                   <button onClick={()=>{setEditingVocabId(v.id); setVocabEditForm({word: v.word||'', reading: v.reading||'', meaning: v.meaning||'', example: v.example||'', exampleMeaning: v.exampleMeaning||'', tags: v.tags||[]});}} className="p-2 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-colors" title="編輯"><Edit3 className="w-4 h-4"/></button>
                                    <button onClick={()=>{if(window.confirm('確定刪除？')){createVocabBackup(); setVocabDB(vocabDB.filter(x=>x.id!==v.id));}}} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="刪除"><Trash2 className="w-4 h-4"/></button>
                                 </td>;
                              }
@@ -4467,7 +4485,7 @@ return parsed;
                  </div>
               </div>
               <div className="flex gap-1 bg-slate-100 p-1 rounded-xl mb-6 w-fit">
-                {[{id:'all',label:'全部'},{id:'verb',label:'🏃 動詞'},{id:'adj_i',label:'い形'},{id:'adj_na',label:'な形'}].map(({id,label})=>(
+                {[{id:'all',label:'全部'},{id:'verb',label:'🏃 動詞'},{id:'adj_i',label:'い形'},{id:'adj_na',label:'な形'},{id:'adj',label:'形容詞'}].map(({id,label})=>(
                   <button key={id} onClick={()=>setVerbManageTypeTab(id)} className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-colors ${verbManageTypeTab===id?'bg-white text-indigo-700 shadow-sm':'text-slate-500 bg-slate-200/50 hover:text-slate-700'}`}>{label}</button>
                 ))}
               </div>
@@ -5136,6 +5154,61 @@ return parsed;
         </button>
       )}
 
+      {/* ===== 單字庫編輯 Modal ===== */}
+      {editingVocabId && (() => {
+        const title = vocabEditForm.word || vocabEditForm.reading || '編輯';
+        return (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" onClick={() => setEditingVocabId(null)}>
+            <div className="absolute inset-0"/>
+            <div className="relative z-10 bg-white rounded-2xl w-full max-w-xl flex flex-col max-h-[85vh]" style={{boxShadow:'0 32px 80px -8px rgba(0,0,0,0.28), 0 8px 24px -4px rgba(0,0,0,0.14), 0 0 0 1.5px rgba(245,158,11,0.25)'}} onClick={e => e.stopPropagation()}>
+              {/* 標題列 */}
+              <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 shrink-0">
+                <span className="font-black text-amber-600 text-base">✏ 編輯：{title}</span>
+                <button onClick={() => setEditingVocabId(null)} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">✕</button>
+              </div>
+              {/* 可捲動內容區 */}
+              <div className="flex flex-col gap-3 px-5 py-4 overflow-y-auto flex-1">
+                <div className="flex flex-wrap gap-3">
+                  <div className="flex-1 min-w-[140px]">
+                    <label className="block text-xs font-bold text-amber-600 mb-1">平假名</label>
+                    <input type="text" value={vocabEditForm.reading} onChange={e=>setVocabEditForm({...vocabEditForm, reading: e.target.value})} placeholder="平假名" className="w-full p-2.5 border border-slate-300 rounded-xl outline-none focus:border-amber-500 font-bold text-sm"/>
+                  </div>
+                  <div className="flex-1 min-w-[140px]">
+                    <label className="block text-xs font-bold text-amber-600 mb-1">漢字/原形</label>
+                    <input type="text" value={vocabEditForm.word} onChange={e=>setVocabEditForm({...vocabEditForm, word: e.target.value})} placeholder="漢字/原形（選填）" className="w-full p-2.5 border border-slate-300 rounded-xl outline-none focus:border-amber-500 font-bold text-sm"/>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">中文意思</label>
+                  <input type="text" value={vocabEditForm.meaning} onChange={e=>setVocabEditForm({...vocabEditForm, meaning: e.target.value})} placeholder="中文意思" className="w-full p-2.5 border border-slate-300 rounded-xl outline-none focus:border-amber-500 text-sm"/>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">例句（選填）</label>
+                  <input type="text" value={vocabEditForm.example} onChange={e=>setVocabEditForm({...vocabEditForm, example: e.target.value})} placeholder="例句" className="w-full p-2.5 border border-slate-300 rounded-xl outline-none focus:border-amber-500 text-sm"/>
+                </div>
+                {vocabEditForm.example.trim() && (
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1">🌐 例句中文翻譯（選填）</label>
+                    <input type="text" value={vocabEditForm.exampleMeaning||''} onChange={e=>setVocabEditForm({...vocabEditForm, exampleMeaning: e.target.value})} placeholder="例句中文翻譯" className="w-full p-2.5 border border-slate-300 rounded-xl outline-none focus:border-amber-500 text-sm"/>
+                  </div>
+                )}
+                <TagEditor tags={vocabEditForm.tags} onChange={tags => setVocabEditForm({...vocabEditForm, tags})} tagStats={globalTagStats} />
+              </div>
+              {/* 固定底部按鈕 */}
+              <div className="flex justify-center gap-3 px-5 py-3 border-t border-slate-100 shrink-0">
+                <button onClick={()=>{
+                  setVocabDB(prev => prev.map(x => x.id === editingVocabId ? { ...x, ...vocabEditForm, isSentence: (vocabEditForm.example && vocabEditForm.example.trim().length > 0) || (vocabEditForm.reading && vocabEditForm.reading.includes('。')) } : x));
+                  setEditingVocabId(null);
+                }} className="px-8 py-2.5 bg-amber-500 text-white rounded-xl font-bold text-sm hover:bg-amber-600 transition-colors flex items-center gap-2 shadow-sm">
+                  <Save className="w-4 h-4"/> 儲存
+                </button>
+                <button onClick={() => setEditingVocabId(null)} className="px-8 py-2.5 bg-slate-200 text-slate-700 rounded-xl font-bold text-sm hover:bg-slate-300 transition-colors">取消</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* ===== 動詞/形容詞編輯 Modal ===== */}
       {editingVerbId && (() => {
         const jishoForm = verbForms.find(f => f.id === 'jisho') || verbForms[0];
@@ -5169,15 +5242,8 @@ return parsed;
                 </div>
                 {/* 標籤 */}
                 <TagEditor tags={verbEditForm.tags} onChange={tags => setVerbEditForm({...verbEditForm, tags})} tagStats={globalTagStats} />
-                {/* 活用型折疊 */}
+                {/* 活用型（直接顯示） */}
                 {otherForms.length > 0 && (
-                  <button type="button" onClick={() => setVerbEditExpanded(prev => !prev)}
-                    className="self-start flex items-center gap-1.5 text-xs font-bold text-indigo-500 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg px-3 py-1.5 transition-colors">
-                    <span>{verbEditExpanded ? '▲' : '▼'}</span>
-                    <span>{verbEditExpanded ? '收起活用型' : '展開活用型'} ({otherForms.length} 個)</span>
-                  </button>
-                )}
-                {verbEditExpanded && otherForms.length > 0 && (
                   <div className="flex flex-wrap gap-3 p-3 border border-indigo-100 rounded-xl bg-indigo-50/40">
                     {otherForms.map(f => (
                       <div key={f.id} className="flex-1 min-w-[140px]">
