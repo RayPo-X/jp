@@ -297,6 +297,60 @@ const autoConjugateVerb = (masuStr, group) => {
     return null;
 };
 
+const GRAMMAR_ADJ_FORMS = [
+  { id: 'adj_all', label: '形容詞(全)' },
+  { id: 'adj_i',  label: 'い形容詞' },
+  { id: 'adj_na', label: 'な形容詞' },
+];
+
+const BASE_FORM_COLORS = {
+  masu:             'bg-blue-100 text-blue-700 border-blue-200',
+  jisho:            'bg-indigo-100 text-indigo-700 border-indigo-200',
+  te:               'bg-emerald-100 text-emerald-700 border-emerald-200',
+  ta:               'bg-teal-100 text-teal-700 border-teal-200',
+  nai:              'bg-rose-100 text-rose-700 border-rose-200',
+  nakatta:          'bg-orange-100 text-orange-700 border-orange-200',
+  ba:               'bg-violet-100 text-violet-700 border-violet-200',
+  volitional:       'bg-amber-100 text-amber-700 border-amber-200',
+  potential:        'bg-cyan-100 text-cyan-700 border-cyan-200',
+  passive:          'bg-slate-100 text-slate-600 border-slate-300',
+  causative:        'bg-purple-100 text-purple-700 border-purple-200',
+  causative_passive:'bg-pink-100 text-pink-700 border-pink-200',
+  adj_i:            'bg-lime-100 text-lime-700 border-lime-300',
+  adj_na:           'bg-yellow-100 text-yellow-700 border-yellow-300',
+  adj_all:          'bg-fuchsia-100 text-fuchsia-700 border-fuchsia-200',
+};
+const BASE_FORM_COLOR_FALLBACK = [
+  'bg-sky-100 text-sky-700 border-sky-200',
+  'bg-fuchsia-100 text-fuchsia-700 border-fuchsia-200',
+  'bg-red-100 text-red-700 border-red-200',
+  'bg-green-100 text-green-700 border-green-200',
+];
+const getBaseFormStyle = (id) => {
+  if (BASE_FORM_COLORS[id]) return BASE_FORM_COLORS[id];
+  const idx = Math.abs([...id].reduce((a, c) => a + c.charCodeAt(0), 0)) % BASE_FORM_COLOR_FALLBACK.length;
+  return BASE_FORM_COLOR_FALLBACK[idx];
+};
+
+const BASE_FORM_CARD_STYLES = {
+  masu:             { bg: 'bg-blue-50',    border: 'border-blue-200',    hover: 'hover:border-blue-400' },
+  jisho:            { bg: 'bg-indigo-50',  border: 'border-indigo-200',  hover: 'hover:border-indigo-400' },
+  te:               { bg: 'bg-emerald-50', border: 'border-emerald-200', hover: 'hover:border-emerald-400' },
+  ta:               { bg: 'bg-teal-50',    border: 'border-teal-200',    hover: 'hover:border-teal-400' },
+  nai:              { bg: 'bg-rose-50',    border: 'border-rose-200',    hover: 'hover:border-rose-400' },
+  nakatta:          { bg: 'bg-orange-50',  border: 'border-orange-200',  hover: 'hover:border-orange-400' },
+  ba:               { bg: 'bg-violet-50',  border: 'border-violet-200',  hover: 'hover:border-violet-400' },
+  volitional:       { bg: 'bg-amber-50',   border: 'border-amber-200',   hover: 'hover:border-amber-400' },
+  potential:        { bg: 'bg-cyan-50',    border: 'border-cyan-200',    hover: 'hover:border-cyan-400' },
+  passive:          { bg: 'bg-slate-50',   border: 'border-slate-200',   hover: 'hover:border-slate-400' },
+  causative:        { bg: 'bg-purple-50',  border: 'border-purple-200',  hover: 'hover:border-purple-400' },
+  causative_passive:{ bg: 'bg-pink-50',    border: 'border-pink-200',    hover: 'hover:border-pink-400' },
+  adj_i:            { bg: 'bg-lime-50',    border: 'border-lime-200',    hover: 'hover:border-lime-400' },
+  adj_na:           { bg: 'bg-yellow-50',  border: 'border-yellow-200',  hover: 'hover:border-yellow-400' },
+  adj_all:          { bg: 'bg-fuchsia-50', border: 'border-fuchsia-200', hover: 'hover:border-fuchsia-400' },
+};
+const getBaseFormCardStyle = (id) => BASE_FORM_CARD_STYLES[id] || { bg: 'bg-white', border: 'border-slate-200', hover: 'hover:border-emerald-300' };
+
 const DEFAULT_GRAMMARS = [
   { id: 'g_tai', name: '想要 ( ＿たい)', baseForm: 'masu', removeStr: 'ます', appendStr: 'たい', appliesTo: ['verb'], example: '私は日本へ行きたいです' },
   { id: 'g_nakereba', name: '必須 ( ＿なければなりません)', baseForm: 'nai', removeStr: 'い', appendStr: 'ければなりません', appliesTo: ['verb'], example: '明日早く起きなければなりません' }
@@ -586,7 +640,9 @@ const generateDistractors = (word, target, grammarDef) => {
   const optionsMap = new Map(); 
   let correctRuby = '';
   if (grammarDef) {
-    const baseRubyStr = word[grammarDef.baseForm] || '';
+    const adjFormMap = { adj_i: 'jisho', adj_na: 'jisho', adj_all: 'jisho' };
+    const resolvedBase = adjFormMap[grammarDef.baseForm] || grammarDef.baseForm;
+    const baseRubyStr = word[resolvedBase] || '';
     const replaceRegex = new RegExp((grammarDef.removeStr || '') + '$');
     correctRuby = baseRubyStr.replace(replaceRegex, '') + grammarDef.appendStr;
   } else {
@@ -1030,6 +1086,13 @@ return parsed;
     } catch { return DEFAULT_GRAMMARS.map(g => ({ ...g, status: 'new', ef: 2.5, interval: 0, repetitions: 0, totalAttempts: 0, totalCorrect: 0, nextReview: 0, tags: g.tag ? [g.tag] : [] })); }
   });
   useEffect(() => { localStorage.setItem('verbApp_customGrammars', JSON.stringify(customGrammars)); }, [customGrammars]);
+  useEffect(() => {
+    setCustomGrammars(prev => {
+      if (!prev.some(g => !g.addedAt)) return prev;
+      const getTs = (id) => { const p = String(id||'').split('_'); for (const x of p) { const n = Number(x); if (!isNaN(n) && n > 1000000000000) return n; } return 0; };
+      return prev.map((g, i) => g.addedAt ? g : { ...g, addedAt: getTs(g.id) + i });
+    });
+  }, []);
 
   // ==== 文法 SRS 記憶系統 State ====
   const [grammarProgress, setGrammarProgress] = useState(() => {
@@ -1687,7 +1750,7 @@ return parsed;
     const isCorrect = finalAnswer.trim() === currentCorrectPlain;
     let exp = '';
     if (currentGrammarDef) {
-       const baseName = verbForms.find(f => f.id === currentGrammarDef.baseForm)?.label || currentGrammarDef.baseForm;
+       const baseName = verbForms.find(f => f.id === currentGrammarDef.baseForm)?.label || GRAMMAR_ADJ_FORMS.find(f => f.id === currentGrammarDef.baseForm)?.label || currentGrammarDef.baseForm;
        exp = `自訂文法【${currentGrammarDef.name}】變化規則：接在【${baseName}】後` +
              (currentGrammarDef.removeStr ? `去掉「${currentGrammarDef.removeStr}」，` : '，') + `加上「${currentGrammarDef.appendStr}」。`;
     } else exp = getExplanation(currentVerb, currentTarget);
@@ -2446,12 +2509,14 @@ return parsed;
 
   const handleAddGrammar = () => {
     if (!newGrammar.name) { alert('請填寫文法名稱！'); return; }
-    
+
     if (editingGrammarId) {
         setCustomGrammars(prev => prev.map(g => g.id === editingGrammarId ? { ...g, ...newGrammar } : g));
         setEditingGrammarId(null);
     } else {
-        setCustomGrammars(prev => [...prev, { ...newGrammar, id: `g_custom_${Date.now()}` }]);
+        const isDup = customGrammars.some(g => g.name.trim() === newGrammar.name.trim());
+        if (isDup) { alert(`「${newGrammar.name.trim()}」已存在於文法公式庫中！`); return; }
+        setCustomGrammars(prev => [...prev, { ...newGrammar, id: `g_custom_${Date.now()}`, addedAt: Date.now() }]);
     }
     setNewGrammar({ name: '', translation: '', baseForm: 'te', removeStr: '', appendStr: '', appliesTo: ['verb'], example: '', exampleTranslation: '', processExample: '', note: '', tag: '', tags: [], structureNote: '' });
   };
@@ -4306,8 +4371,21 @@ return parsed;
                              className={`p-2 border rounded-lg text-sm font-bold flex items-center gap-1 transition-colors ${grammarSortConfig.key === 'isImportant' ? 'bg-amber-50 border-amber-300 text-amber-700' : 'bg-white border-slate-200 text-slate-600 hover:border-amber-300 hover:text-amber-600'}`}
                              title="依照重要標記排序"
                            >
-                             <Star className={`w-4 h-4 ${grammarSortConfig.key === 'isImportant' ? 'fill-current' : ''}`}/> 
+                             <Star className={`w-4 h-4 ${grammarSortConfig.key === 'isImportant' ? 'fill-current' : ''}`}/>
                              {grammarSortConfig.key === 'isImportant' ? (grammarSortConfig.direction === 'desc' ? '星號置頂' : '星號置底') : '排序'}
+                           </button>
+                           <button
+                             onClick={() => {
+                               setGrammarSortConfig(prev => {
+                                 if (prev.key !== 'dateAdded') return { key: 'dateAdded', direction: 'desc' };
+                                 if (prev.direction === 'desc') return { key: 'dateAdded', direction: 'asc' };
+                                 return { key: null, direction: null };
+                               });
+                             }}
+                             className={`p-2 border rounded-lg text-sm font-bold flex items-center gap-1 transition-colors ${grammarSortConfig.key === 'dateAdded' ? 'bg-emerald-50 border-emerald-300 text-emerald-700' : 'bg-white border-slate-200 text-slate-600 hover:border-emerald-300 hover:text-emerald-600'}`}
+                             title="依照加入日期排序"
+                           >
+                             {grammarSortConfig.key === 'dateAdded' ? (grammarSortConfig.direction === 'desc' ? '↓ 最新' : '↑ 最舊') : '↕ 日期'}
                            </button>
                          </div>
                      <div className="flex items-center gap-2">
@@ -4324,27 +4402,35 @@ return parsed;
                      </div>
                    </div>
                    <datalist id="grammar-tags-list">{Array.from(new Set([...customGrammars.map(g => g.tag), ...vocabDB.map(v => v.tag)])).filter(Boolean).map(tag => <option key={tag} value={tag} />)}</datalist>
-                    {customGrammars.filter(g => {
-    if (grammarFilterTag && g.tag !== grammarFilterTag) return false;
-    if (!searchTerm.trim()) return true;
-    const q = searchTerm.toLowerCase();
-    return (g.name && g.name.toLowerCase().includes(q)) || 
-           (g.suffix && g.suffix.toLowerCase().includes(q)) || 
-           (g.tags && g.tags.some(t => t.toLowerCase().includes(q)));
-  }).sort((a, b) => {
+                    {(() => {
+                      const getTs = (id) => { const p = String(id||'').split('_'); for (const x of p) { const n = Number(x); if (!isNaN(n) && n > 1000000000000) return n; } return 0; };
+                      const rankMap = {};
+                      [...customGrammars].sort((a, b) => (a.addedAt || getTs(a.id)) - (b.addedAt || getTs(b.id))).forEach((g, i) => { rankMap[g.id] = i + 1; });
+                      return customGrammars.filter(g => {
+                        if (grammarFilterTag && g.tag !== grammarFilterTag) return false;
+                        if (!searchTerm.trim()) return true;
+                        const q = searchTerm.toLowerCase();
+                        return (g.name && g.name.toLowerCase().includes(q)) ||
+                               (g.suffix && g.suffix.toLowerCase().includes(q)) ||
+                               (g.tags && g.tags.some(t => t.toLowerCase().includes(q)));
+                      }).sort((a, b) => {
                         if (grammarSortConfig.key === 'isImportant') {
                             const valA = a.isImportant ? 1 : 0;
                             const valB = b.isImportant ? 1 : 0;
-                            if (valA !== valB) {
-                                return grammarSortConfig.direction === 'desc' ? valB - valA : valA - valB;
-                            }
+                            if (valA !== valB) return grammarSortConfig.direction === 'desc' ? valB - valA : valA - valB;
+                        }
+                        if (grammarSortConfig.key === 'dateAdded') {
+                            const getTs = (id) => { const p = String(id||'').split('_'); for (const x of p) { const n = Number(x); if (!isNaN(n) && n > 1000000000000) return n; } return 0; };
+                            const aVal = a.addedAt || getTs(a.id);
+                            const bVal = b.addedAt || getTs(b.id);
+                            return grammarSortConfig.direction === 'desc' ? bVal - aVal : aVal - bVal;
                         }
                         return 0;
-                    }).map((g, idx) => (
-                      <div key={g.id} id={"item-" + g.id} className={"p-5 bg-white border border-slate-200 rounded-2xl flex justify-between items-center shadow-sm hover:border-emerald-300 transition-colors " + (targetId === g.id ? "bg-emerald-100 ring-2 ring-emerald-500" : "")}>
-                         <div className="flex-1 min-w-0 pr-4">
+                    }).map((g) => (
+                      <div key={g.id} id={"item-" + g.id} className={`p-3 border rounded-2xl flex justify-between items-center shadow-sm transition-colors ${(() => { const cs = getBaseFormCardStyle(g.baseForm); return targetId === g.id ? 'bg-emerald-100 border-emerald-400 ring-2 ring-emerald-500' : `${cs.bg} ${cs.border} ${cs.hover}`; })()}`}>
+                         <div className="flex-1 min-w-0 bg-white rounded-xl p-4">
                            <div className="flex items-center gap-2 mb-1.5 flex-nowrap">
-                               <span className="text-xs font-bold text-slate-400 bg-slate-100 border border-slate-200 rounded-md px-1.5 py-0.5 shrink-0">#{idx + 1}</span>
+                               <span className="text-xs font-bold text-slate-400 bg-slate-100 border border-slate-200 rounded-md px-1.5 py-0.5 shrink-0">#{rankMap[g.id]}</span>
                                <div className="font-bold text-slate-800 text-lg whitespace-nowrap flex items-center gap-1.5 flex-wrap">
                                  <span>{g.name}</span>
                                  {editingTranslationId === g.id ? (
@@ -4394,7 +4480,7 @@ return parsed;
                                )}
                            </div>
                            <div className="text-sm text-slate-500 flex items-center gap-2 mb-2 flex-wrap">
-                              接在前面：{verbForms.find(f=>f.id===g.baseForm)?.label && <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md font-medium border border-slate-200">{verbForms.find(f=>f.id===g.baseForm)?.label}</span>}
+                              接在前面：{(() => { const label = verbForms.find(f=>f.id===g.baseForm)?.label || GRAMMAR_ADJ_FORMS.find(f=>f.id===g.baseForm)?.label; return label ? <span className={`px-2 py-0.5 rounded-md font-bold border text-xs ${getBaseFormStyle(g.baseForm)}`}>{label}</span> : null; })()}
                            </div>
                             {g.structureNote && (
                                <div className="w-full text-[14px] bg-emerald-50 border border-emerald-200 text-emerald-800 px-3 py-2 rounded-lg font-medium mb-2 whitespace-pre-wrap">
@@ -4422,44 +4508,64 @@ return parsed;
                            <button onClick={() => {if(window.confirm('確定刪除？')) setCustomGrammars(customGrammars.filter(x=>x.id!==g.id))}} className="p-3 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors" title="刪除公式"><Trash2 className="w-5 h-5"/></button>
                          </div>
                       </div>
-                   ))}
+                   ));
+                    })()}
                  </div>
-                 <div className="bg-emerald-50 p-8 rounded-3xl border border-emerald-100 h-fit sticky top-6 order-1 lg:order-2">
-                    <h3 className="font-bold text-emerald-800 mb-6 flex items-center gap-2 text-lg">
-                        {editingGrammarId ? <Pencil className="w-6 h-6"/> : <Plus className="w-6 h-6"/>} 
+                 {(() => {
+                   const gc = editingGrammarId ? {
+                     panelBg: 'bg-indigo-50', panelBorder: 'border-indigo-100',
+                     title: 'text-indigo-800', label: 'text-indigo-700',
+                     input: 'border-indigo-200 focus:border-indigo-500',
+                     advBtn: 'text-indigo-700 bg-indigo-100 hover:bg-indigo-200 border-indigo-200',
+                     divider: 'border-indigo-200',
+                     btn: 'bg-indigo-600 hover:bg-indigo-700',
+                   } : {
+                     panelBg: 'bg-emerald-50', panelBorder: 'border-emerald-100',
+                     title: 'text-emerald-800', label: 'text-emerald-700',
+                     input: 'border-emerald-200 focus:border-emerald-500',
+                     advBtn: 'text-emerald-700 bg-emerald-100 hover:bg-emerald-200 border-emerald-200',
+                     divider: 'border-emerald-200',
+                     btn: 'bg-emerald-600 hover:bg-emerald-700',
+                   };
+                   return (
+                 <div className={`${gc.panelBg} p-8 rounded-3xl border ${gc.panelBorder} flex flex-col sticky top-6 order-1 lg:order-2`} style={{maxHeight:'calc(100vh - 3rem)'}}>
+                    <h3 className={`font-bold ${gc.title} mb-6 flex items-center gap-2 text-lg`}>
+                        {editingGrammarId ? <Pencil className="w-6 h-6"/> : <Plus className="w-6 h-6"/>}
                         {editingGrammarId ? '編輯文法公式' : '新增文法公式'}
                     </h3>
-                    <div className="space-y-5">
-                      <div><label className="block text-sm font-bold text-emerald-700 mb-1.5">文法名稱 (提示語)</label><input type="text" value={newGrammar.name} onChange={e => setNewGrammar(p => ({...p, name: e.target.value.replaceAll('~', '_')}))} placeholder="例：請不要... ( _ないでください)" className="w-full p-4 rounded-xl border border-emerald-200 outline-none focus:border-emerald-500"/></div>
-                      <div><label className="block text-sm font-bold text-emerald-700 mb-1.5">文法中文翻譯</label><input type="text" value={newGrammar.translation || ''} onChange={e => setNewGrammar(p => ({...p, translation: e.target.value}))} placeholder="例：請不要～" className="w-full p-4 rounded-xl border border-emerald-200 outline-none focus:border-emerald-500"/></div>
-                      <div><label className="block text-sm font-bold text-emerald-700 mb-1.5">接續方式</label><select value={newGrammar.baseForm} onChange={e => setNewGrammar(p => ({...p, baseForm: e.target.value}))} className="w-full p-4 rounded-xl border border-emerald-200 outline-none focus:border-emerald-500 bg-white">{verbForms.map(opt => <option key={opt.id} value={opt.id}>{opt.label}</option>)}</select></div>
-                      <div><label className="block text-sm font-bold text-emerald-700 mb-1.5">分類標籤 (選填)</label><input type="text" value={newGrammar.tag || ''} onChange={e => setNewGrammar(p => ({...p, tag: e.target.value}))} placeholder="例：N5、接續詞" className="w-full p-4 rounded-xl border border-emerald-200 outline-none focus:border-emerald-500" list="grammar-tags-list"/></div>
+                    <div className="space-y-5 overflow-y-auto flex-1 pr-1">
+                      <div><label className={`block text-sm font-bold ${gc.label} mb-1.5`}>文法名稱 (提示語)</label><input type="text" value={newGrammar.name} onChange={e => setNewGrammar(p => ({...p, name: e.target.value.replaceAll('~', '_')}))} placeholder="例：請不要... ( _ないでください)" className={`w-full p-4 rounded-xl border ${gc.input} outline-none`}/></div>
+                      <div><label className={`block text-sm font-bold ${gc.label} mb-1.5`}>文法中文翻譯</label><input type="text" value={newGrammar.translation || ''} onChange={e => setNewGrammar(p => ({...p, translation: e.target.value}))} placeholder="例：請不要～" className={`w-full p-4 rounded-xl border ${gc.input} outline-none`}/></div>
+                      <div><label className={`block text-sm font-bold ${gc.label} mb-1.5`}>接續方式</label><select value={newGrammar.baseForm} onChange={e => setNewGrammar(p => ({...p, baseForm: e.target.value}))} className={`w-full p-4 rounded-xl border ${gc.input} outline-none bg-white`}><optgroup label="動詞">{verbForms.filter(opt => !opt.id.startsWith('adj_')).map(opt => <option key={opt.id} value={opt.id}>{opt.label}</option>)}</optgroup><optgroup label="形容詞">{GRAMMAR_ADJ_FORMS.map(opt => <option key={opt.id} value={opt.id}>{opt.label}</option>)}</optgroup></select></div>
+                      <div><label className={`block text-sm font-bold ${gc.label} mb-1.5`}>分類標籤 (選填)</label><input type="text" value={newGrammar.tag || ''} onChange={e => setNewGrammar(p => ({...p, tag: e.target.value}))} placeholder="例：N5、接續詞" className={`w-full p-4 rounded-xl border ${gc.input} outline-none`} list="grammar-tags-list"/></div>
                       <TagEditor tags={newGrammar.tags} onChange={tags => setNewGrammar(p => ({...p, tags}))} tagStats={globalTagStats} />
-                      <div><label className="block text-sm font-bold text-emerald-700 mb-1.5">結構說明 (選填)</label><input type="text" value={newGrammar.structureNote || ''} onChange={e => setNewGrammar(p => ({...p, structureNote: e.target.value}))} placeholder="例：動詞て形 ＋ ください" className="w-full p-4 rounded-xl border border-emerald-200 outline-none focus:border-emerald-500"/></div>
-                      <div><label className="block text-sm font-bold text-emerald-700 mb-1.5">例句 (選填)</label><input type="text" value={newGrammar.example || ''} onChange={e => setNewGrammar(p => ({...p, example: e.target.value}))} placeholder="例：ここでタバコを吸わないでください" className="w-full p-4 rounded-xl border border-emerald-200 outline-none focus:border-emerald-500"/></div>
-                      <div><label className="block text-sm font-bold text-emerald-700 mb-1.5">例句中文翻譯 (選填)</label><input type="text" value={newGrammar.exampleTranslation || ''} onChange={e => setNewGrammar(p => ({...p, exampleTranslation: e.target.value}))} placeholder="例：請不要在這裡吸菸" className="w-full p-4 rounded-xl border border-emerald-200 outline-none focus:border-emerald-500"/></div>
+                      <div><label className={`block text-sm font-bold ${gc.label} mb-1.5`}>結構說明 (選填)</label><input type="text" value={newGrammar.structureNote || ''} onChange={e => setNewGrammar(p => ({...p, structureNote: e.target.value}))} placeholder="例：動詞て形 ＋ ください" className={`w-full p-4 rounded-xl border ${gc.input} outline-none`}/></div>
+                      <div><label className={`block text-sm font-bold ${gc.label} mb-1.5`}>例句 (選填)</label><input type="text" value={newGrammar.example || ''} onChange={e => setNewGrammar(p => ({...p, example: e.target.value}))} placeholder="例：ここでタバコを吸わないでください" className={`w-full p-4 rounded-xl border ${gc.input} outline-none`}/></div>
+                      <div><label className={`block text-sm font-bold ${gc.label} mb-1.5`}>例句中文翻譯 (選填)</label><input type="text" value={newGrammar.exampleTranslation || ''} onChange={e => setNewGrammar(p => ({...p, exampleTranslation: e.target.value}))} placeholder="例：請不要在這裡吸菸" className={`w-full p-4 rounded-xl border ${gc.input} outline-none`}/></div>
                       <div>
-                        <button type="button" onClick={() => setIsGrammarExtraOpen(v => !v)} className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-bold text-emerald-700 bg-emerald-100 hover:bg-emerald-200 transition-colors border border-emerald-200">
+                        <button type="button" onClick={() => setIsGrammarExtraOpen(v => !v)} className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-bold ${gc.advBtn} transition-colors border`}>
                           <span>進階設定（刪除字尾、加上字尾、變化筆記、備註）</span>
                           <span>{isGrammarExtraOpen ? '▲' : '▼'}</span>
                         </button>
                         {isGrammarExtraOpen && (
                           <div className="mt-3 space-y-5">
                             <div className="grid grid-cols-2 gap-4">
-                              <div><label className="block text-sm font-bold text-emerald-700 mb-1.5">刪除字尾</label><input type="text" value={newGrammar.removeStr || ''} onChange={e => setNewGrammar(p => ({...p, removeStr: e.target.value.replaceAll('~', '_')}))} placeholder="例：ます" className="w-full p-4 rounded-xl border border-emerald-200 outline-none focus:border-emerald-500"/></div>
-                              <div><label className="block text-sm font-bold text-emerald-700 mb-1.5">加上字尾</label><input type="text" value={newGrammar.appendStr || ''} onChange={e => setNewGrammar(p => ({...p, appendStr: e.target.value.replaceAll('~', '_')}))} placeholder="例：でください" className="w-full p-4 rounded-xl border border-emerald-200 outline-none focus:border-emerald-500"/></div>
+                              <div><label className={`block text-sm font-bold ${gc.label} mb-1.5`}>刪除字尾</label><input type="text" value={newGrammar.removeStr || ''} onChange={e => setNewGrammar(p => ({...p, removeStr: e.target.value.replaceAll('~', '_')}))} placeholder="例：ます" className={`w-full p-4 rounded-xl border ${gc.input} outline-none`}/></div>
+                              <div><label className={`block text-sm font-bold ${gc.label} mb-1.5`}>加上字尾</label><input type="text" value={newGrammar.appendStr || ''} onChange={e => setNewGrammar(p => ({...p, appendStr: e.target.value.replaceAll('~', '_')}))} placeholder="例：でください" className={`w-full p-4 rounded-xl border ${gc.input} outline-none`}/></div>
                             </div>
-                            <div><label className="block text-sm font-bold text-emerald-700 mb-1.5">變化筆記</label><input type="text" value={newGrammar.processExample || ''} onChange={e => setNewGrammar(p => ({...p, processExample: e.target.value}))} placeholder="自由輸入，例如：飲む ➔ 飲んで ➔ 飲んでください" className="w-full p-4 rounded-xl border border-emerald-200 outline-none focus:border-emerald-500"/></div>
-                            <div><label className="block text-sm font-bold text-emerald-700 mb-1.5">個人備註</label><input type="text" value={newGrammar.note || ''} onChange={e => setNewGrammar(p => ({...p, note: e.target.value}))} placeholder="記錄自己的心得或注意事項..." className="w-full p-4 rounded-xl border border-emerald-200 outline-none focus:border-emerald-500"/></div>
+                            <div><label className={`block text-sm font-bold ${gc.label} mb-1.5`}>變化筆記</label><input type="text" value={newGrammar.processExample || ''} onChange={e => setNewGrammar(p => ({...p, processExample: e.target.value}))} placeholder="自由輸入，例如：飲む ➔ 飲んで ➔ 飲んでください" className={`w-full p-4 rounded-xl border ${gc.input} outline-none`}/></div>
+                            <div><label className={`block text-sm font-bold ${gc.label} mb-1.5`}>個人備註</label><textarea rows={1} value={newGrammar.note || ''} onChange={e => setNewGrammar(p => ({...p, note: e.target.value}))} onInput={e => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }} placeholder="記錄自己的心得或注意事項..." className={`w-full p-4 rounded-xl border ${gc.input} outline-none resize-none overflow-hidden leading-relaxed`}/></div>
                           </div>
                         )}
                       </div>
-                      <div className="flex gap-4 mt-4">
-                          <button onClick={handleAddGrammar} className="flex-1 py-4 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition-colors shadow-sm text-lg">{editingGrammarId ? '儲存編輯' : '儲存新文法'}</button>
+                      <div className={`flex gap-4 mt-4 shrink-0 pt-4 border-t ${gc.divider}`}>
+                          <button onClick={handleAddGrammar} className={`flex-1 py-4 ${gc.btn} text-white font-bold rounded-xl transition-colors shadow-sm text-lg`}>{editingGrammarId ? '儲存編輯' : '儲存新文法'}</button>
                           {editingGrammarId && <button onClick={() => { setEditingGrammarId(null); setNewGrammar({ name: '', translation: '', baseForm: 'te', removeStr: '', appendStr: '', appliesTo: ['verb'], example: '', exampleTranslation: '', processExample: '', note: '', tag: '', tags: [], structureNote: '' }); }} className="py-4 px-6 bg-slate-200 text-slate-700 font-bold rounded-xl hover:bg-slate-300 transition-colors shadow-sm text-lg">取消</button>}
                       </div>
                     </div>
                  </div>
+                   );
+                 })()}
               </div>
            </div>
         </div>
