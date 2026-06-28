@@ -9,7 +9,8 @@
       "Bash(node C:/Users/qaqa4/AppData/Local/Temp/pw_tags_color.cjs)",
       "Bash(grep -v \"//\\\\|setAppState\\(prev\")",
       "Bash(node -e ' *)",
-      "Bash(grep -E \"^[0-9]{2,4}:\")"
+      "Bash(grep -E \"^[0-9]{2,4}:\")",
+      "Bash(grep -v \"//\\\\|className.*text-\")"
     ]
   }
 }

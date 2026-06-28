@@ -466,10 +466,12 @@ const processTags = (tagStrOrArray) => {
     return Array.from(uniqueTags);
 };
 
-const TagEditor = ({ tags, onChange, tagStats }) => {
+const TagEditor = ({ tags, onChange, tagStats, tagKeywordsMap, onTagKeywordsChange }) => {
     const allExistingTags = Object.keys(tagStats).sort((a,b) => tagStats[b] - tagStats[a]);
     const suggestions = Array.from(new Set([...DEFAULT_TAG_SUGGESTIONS, ...allExistingTags]));
     const [inputValue, setInputValue] = React.useState(tags ? tags.join(', ') : '');
+    const [isOpen, setIsOpen] = React.useState(false);
+    const [isKwOpen, setIsKwOpen] = React.useState(false);
 
     React.useEffect(() => {
         setInputValue(tags ? tags.join(', ') : '');
@@ -490,7 +492,14 @@ const TagEditor = ({ tags, onChange, tagStats }) => {
         onChange(current);
     };
 
-    const [isOpen, setIsOpen] = React.useState(false);
+    const handleKwChange = (tag, rawValue) => {
+        if (!onTagKeywordsChange) return;
+        const kws = rawValue.split(/[,，、\s]+/).map(k => k.trim()).filter(k => k.length >= 2);
+        onTagKeywordsChange(prev => ({ ...prev, [tag]: kws }));
+    };
+
+    const kwTags = Array.from(new Set([...allExistingTags, ...processTags(inputValue)])).filter(t => t);
+
     return (
         <div className="mt-2 mb-2 p-3 bg-slate-50 border border-slate-200 rounded-xl">
             <label className="block text-xs font-bold text-slate-500 mb-1">標籤 (可用半形逗號分隔)</label>
@@ -506,6 +515,33 @@ const TagEditor = ({ tags, onChange, tagStats }) => {
                         return <button key={t} onClick={(e) => { e.preventDefault(); toggleTag(t); }} className={`px-2 py-1 text-[11px] font-bold rounded-lg border transition-colors ${isActive ? 'bg-indigo-500 text-white border-indigo-500 shadow-sm' : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'}`}>{t} {tagStats[t] ? <span className="opacity-70 font-normal ml-1">({tagStats[t]})</span> : ''}</button>
                     })}
                 </div>
+            )}
+            {onTagKeywordsChange && (
+                <>
+                    <button type="button" onClick={() => setIsKwOpen(v => !v)} className="w-full flex items-center justify-between px-2 py-1.5 mt-1 rounded-lg text-xs font-bold text-violet-600 hover:bg-violet-50 transition-colors">
+                        <span>🔑 辨識關鍵字設定</span>
+                        <span className="text-violet-400">{isKwOpen ? '▲' : '▼'}</span>
+                    </button>
+                    {isKwOpen && (
+                        <div className="mt-2 space-y-2">
+                            <p className="text-[10px] text-slate-400 px-1">為標籤設定關鍵字後，新增單字時系統能自動配對。關鍵字需 2 字以上，用逗號分隔。</p>
+                            {kwTags.map(t => (
+                                <div key={t} className="flex items-center gap-2">
+                                    <span className="text-[11px] font-bold text-slate-600 w-16 shrink-0 truncate">{t}</span>
+                                    <input
+                                        type="text"
+                                        defaultValue={(tagKeywordsMap?.[t] || []).join(', ')}
+                                        onBlur={e => handleKwChange(t, e.target.value)}
+                                        onKeyDown={e => e.key === 'Enter' && handleKwChange(t, e.target.value)}
+                                        placeholder="旅行, 機場, 飯店"
+                                        className="flex-1 px-2 py-1 text-[11px] bg-white border border-slate-200 rounded-lg focus:border-violet-400 focus:ring-1 focus:ring-violet-100 outline-none"
+                                    />
+                                </div>
+                            ))}
+                            {kwTags.length === 0 && <p className="text-[11px] text-slate-400 px-1">先新增標籤才能設定關鍵字</p>}
+                        </div>
+                    )}
+                </>
             )}
         </div>
     );
@@ -622,10 +658,10 @@ const THEME_KEYWORDS = {
     '環境與資源': /環境|生態|汙染|排放|溫室效應|氣候變遷|暖化|臭氧|廢氣|廢水|垃圾|回收|再生能源|節能|省電|資源|能源|石油|天然氣|煤炭|核能|太陽能|風力|水力|森林|砍伐|保育|滅絕|物種|生物多樣|水資源|乾旱|洪水|颱風|地震|火山|海平面|碳排|減碳/
 };
 
-const guessThemeByMeaning = (meaning, existingVocabDB = null) => {
+const guessThemeByMeaning = (meaning, existingVocabDB = null, tagKeywordsMap = null) => {
     if (!meaning) return '自訂';
 
-    // Step 1: Check if there's already a word with the same meaning in vocabDB
+    // Step 1: Exact meaning match in vocabDB
     if (existingVocabDB && existingVocabDB.length > 0) {
         const existingMatch = existingVocabDB.find(
             v => v.meaning === meaning && v.tag && v.tag !== '自訂' && v.tag !== '未分類'
@@ -633,7 +669,44 @@ const guessThemeByMeaning = (meaning, existingVocabDB = null) => {
         if (existingMatch) return existingMatch.tag;
     }
 
-    // Step 2: Keyword matching — score = total character length of all matched strings
+    // Step 1.5: User-defined tag keywords (Method 1)
+    if (tagKeywordsMap && Object.keys(tagKeywordsMap).length > 0) {
+        let bestTagScore = 0;
+        let bestTag = null;
+        for (const [tag, keywords] of Object.entries(tagKeywordsMap)) {
+            if (!Array.isArray(keywords) || keywords.length === 0) continue;
+            let score = 0;
+            keywords.forEach(kw => { if (kw && kw.length >= 2 && meaning.includes(kw)) score += kw.length; });
+            if (score > bestTagScore) { bestTagScore = score; bestTag = tag; }
+        }
+        if (bestTag && bestTagScore >= 2) return bestTag;
+    }
+
+    // Step 1.7: Bigram learning from existing DB (Method 2)
+    if (existingVocabDB && existingVocabDB.length >= 5) {
+        const tagBigrams = {};
+        existingVocabDB.forEach(v => {
+            if (!v.tag || v.tag === '自訂' || v.tag === '未分類') return;
+            const m = v.meaning || '';
+            if (!tagBigrams[v.tag]) tagBigrams[v.tag] = {};
+            for (let i = 0; i < m.length - 1; i++) {
+                const bg = m.slice(i, i + 2);
+                tagBigrams[v.tag][bg] = (tagBigrams[v.tag][bg] || 0) + 1;
+            }
+        });
+        const meaningBigrams = new Set();
+        for (let i = 0; i < meaning.length - 1; i++) meaningBigrams.add(meaning.slice(i, i + 2));
+        let bestLearnedTag = null;
+        let bestLearnedScore = 0;
+        for (const [tag, bgCounts] of Object.entries(tagBigrams)) {
+            let score = 0;
+            meaningBigrams.forEach(bg => { if (bgCounts[bg] >= 2) score += bgCounts[bg]; });
+            if (score > bestLearnedScore) { bestLearnedScore = score; bestLearnedTag = tag; }
+        }
+        if (bestLearnedTag && bestLearnedScore >= 4) return bestLearnedTag;
+    }
+
+    // Step 2: Built-in THEME_KEYWORDS — score = total char length of matched strings
     let bestTheme = '自訂';
     let maxScore = 0;
     for (const [theme, regex] of Object.entries(THEME_KEYWORDS)) {
@@ -641,10 +714,7 @@ const guessThemeByMeaning = (meaning, existingVocabDB = null) => {
         const matches = meaning.match(globalRegex);
         if (matches) {
             const score = matches.reduce((sum, m) => sum + m.length, 0);
-            if (score > maxScore) {
-                maxScore = score;
-                bestTheme = theme;
-            }
+            if (score > maxScore) { maxScore = score; bestTheme = theme; }
         }
     }
 
@@ -911,6 +981,9 @@ return parsed;
   const [referenceTheme, setReferenceTheme] = useState('random');
   const [referenceQueue, setReferenceQueue] = useState([]);
   
+  const [tagKeywordsMap, setTagKeywordsMap] = useState(() => { try { return JSON.parse(localStorage.getItem('verbApp_tagKeywordsMap') || '{}'); } catch { return {}; } });
+  useEffect(() => { localStorage.setItem('verbApp_tagKeywordsMap', JSON.stringify(tagKeywordsMap)); }, [tagKeywordsMap]);
+
   useEffect(() => { localStorage.setItem('verbApp_vocabDB', JSON.stringify(vocabDB)); }, [vocabDB]);
   useEffect(() => {
     setVocabDB(prev => {
@@ -1525,6 +1598,7 @@ return parsed;
   };
 
   const [showManualModal, setShowManualModal] = useState(false);
+  const [showTagMgr, setShowTagMgr] = useState(false);
 
   const [questionCount, setQuestionCount] = useState(1);
   const [score, setScore] = useState(0);
@@ -2082,7 +2156,7 @@ return parsed;
     const n = [...batchInputs];
     const item = n[idx];
     if (item.meaning) {
-        const newTag = guessThemeByMeaning(item.meaning, vocabDB);
+        const newTag = guessTag(item.meaning, vocabDB);
         const cleanedTags = (item.tags || []).filter(t => t !== item.tag);
         const newTags = (newTag && newTag !== '自訂') ? [...cleanedTags, newTag] : cleanedTags;
         n[idx].tag = newTag;
@@ -2109,7 +2183,7 @@ return parsed;
     setBatchInputs(prev => prev.map((item, idx) => {
       if (!selectedBatchIds.has(idx)) return item;
       if (item.meaning) {
-        const newTag = guessThemeByMeaning(item.meaning, vocabDB);
+        const newTag = guessTag(item.meaning, vocabDB);
         const cleanedTags = (item.tags || []).filter(t => t !== item.tag);
         const newTags = (newTag && newTag !== '自訂') ? [...cleanedTags, newTag] : cleanedTags;
         return { ...item, tag: newTag, tags: newTags };
@@ -2131,7 +2205,7 @@ return parsed;
   const handleRematchAllBatchThemes = () => {
     setBatchInputs(prev => prev.map(item => {
       if (item.meaning) {
-        const newTag = guessThemeByMeaning(item.meaning, vocabDB);
+        const newTag = guessTag(item.meaning, vocabDB);
         const cleanedTags = (item.tags || []).filter(t => t !== item.tag);
         const newTags = (newTag && newTag !== '自訂') ? [...cleanedTags, newTag] : cleanedTags;
         return { ...item, tag: newTag, tags: newTags };
@@ -2154,7 +2228,7 @@ return parsed;
     setVocabDB(prev => prev.map(v => {
       if (!selectedVocabIds.has(v.id) || !v.meaning) return v;
       const others = prev.filter(x => x.id !== v.id);
-      const newTag = guessThemeByMeaning(v.meaning, others);
+      const newTag = guessTag(v.meaning, others);
       const cleanedTags = (v.tags || []).filter(t => t !== v.tag);
       const newTags = (newTag && newTag !== '自訂') ? [...cleanedTags, newTag] : cleanedTags;
       return { ...v, tag: newTag, tags: newTags };
@@ -2165,7 +2239,7 @@ return parsed;
   const handleRematchDbTheme = (id, meaning) => {
     if (!meaning) return;
     const otherVocabs = vocabDB.filter(v => v.id !== id);
-    const newTag = guessThemeByMeaning(meaning, otherVocabs);
+    const newTag = guessTag(meaning, otherVocabs);
     setVocabDB(prev => prev.map(v => {
       if (v.id !== id) return v;
       const cleanedTags = (v.tags || []).filter(t => t !== v.tag);
@@ -2176,7 +2250,7 @@ return parsed;
 
   const handleRematchVerbDbTheme = (id, meaning) => {
     if (!meaning) return;
-    const newTag = guessThemeByMeaning(meaning, vocabDB);
+    const newTag = guessTag(meaning, vocabDB);
     setVerbDB(prev => prev.map(v => {
       if (v.id !== id) return v;
       const cleanedTags = (v.tags || []).filter(t => t !== v.tag);
@@ -2191,7 +2265,7 @@ return parsed;
     if (selectedVerbIds.size === 0) return;
     setVerbDB(prev => prev.map(v => {
       if (!selectedVerbIds.has(v.id) || !v.meaning) return v;
-      const newTag = guessThemeByMeaning(v.meaning, vocabDB);
+      const newTag = guessTag(v.meaning, vocabDB);
       const cleanedTags = (v.tags || []).filter(t => t !== v.tag);
       const newTags = (newTag && newTag !== '自訂') ? [...cleanedTags, newTag] : cleanedTags;
       return { ...v, tag: newTag, tags: newTags };
@@ -2450,7 +2524,7 @@ return parsed;
         let japSide = left, meanSide = right;
         if (!isJapanese(left) && isJapanese(right)) { japSide = right; meanSide = left; }
         const { word, reading } = parseJapaneseSide(japSide);
-        const tag = currentTheme || guessThemeByMeaning(meanSide, vocabDB);
+        const tag = currentTheme || guessTag(meanSide, vocabDB);
         newItems.push({ word, reading, meaning: meanSide, tag, tags: currentTheme ? [currentTheme] : [], example: '', isSentence: false });
         return;
       }
@@ -2460,7 +2534,7 @@ return parsed;
       if (spaceSep && isJapanese(spaceSep[1]) && !isJapanese(spaceSep[2])) {
         const { word, reading } = parseJapaneseSide(spaceSep[1].trim());
         const meanSide = spaceSep[2].trim();
-        const tag = currentTheme || guessThemeByMeaning(meanSide, vocabDB);
+        const tag = currentTheme || guessTag(meanSide, vocabDB);
         newItems.push({ word, reading, meaning: meanSide, tag, tags: currentTheme ? [currentTheme] : [], example: '', isSentence: false });
         return;
       }
@@ -2471,7 +2545,7 @@ return parsed;
         const meaning = arrowMatch[1].trim();
         if (newItems.length > 0 && !newItems[newItems.length - 1].meaning) {
           newItems[newItems.length - 1].meaning = meaning;
-          if (!currentTheme) newItems[newItems.length - 1].tag = guessThemeByMeaning(meaning, vocabDB);
+          if (!currentTheme) newItems[newItems.length - 1].tag = guessTag(meaning, vocabDB);
         }
         return;
       }
@@ -2508,7 +2582,7 @@ return parsed;
     if (validNewItems.length > 0) {
         validNewItems.forEach(item => {
             if (item.tag === '自訂') {
-                item.tag = guessThemeByMeaning(item.meaning, vocabDB);
+                item.tag = guessTag(item.meaning, vocabDB);
             }
         });
         const existingFilled = batchInputs.filter(v => (v.word.trim() || v.reading.trim() || v.example.trim()) && v.meaning.trim());
@@ -2807,7 +2881,7 @@ return parsed;
     const toSave = filledItems.filter(v => !isVerbDuplicate(v));
     if (toSave.length === 0) { alert('沒有可儲存的項目！'); return; }
     setVerbDB(prev => [...prev, ...toSave.map((v, i) => {
-      const finalTag = v.tag || guessThemeByMeaning(v.meaning, vocabDB);
+      const finalTag = v.tag || guessTag(v.meaning, vocabDB);
       const finalTags = (v.tags && v.tags.length > 0) ? v.tags : (finalTag ? [finalTag] : []);
       return { ...v, tag: finalTag, tags: finalTags, id: v.type + '_custom_' + Date.now() + '_' + i, addedAt: Date.now() + i };
     })]);
@@ -2822,7 +2896,7 @@ return parsed;
         alert('此動詞/形容詞已存在於題庫中（辭書形或ます形重複），禁止重複新增！');
         return;
     }
-    const newTag = guessThemeByMeaning(verbInputs.meaning, vocabDB);
+    const newTag = guessTag(verbInputs.meaning, vocabDB);
     setVerbDB(prev => [...prev, { ...verbInputs, tag: newTag, tags: newTag && newTag !== '自訂' ? [newTag] : [], id: `${verbInputs.type}_custom_${Date.now()}`, addedAt: Date.now() }]);
     setVerbInputs(getInitialVerbInputs());
   };
@@ -3008,6 +3082,8 @@ return parsed;
         vocabTotal: vocabDB.length, verbTotal: verbDB.length, grammarTotal: customGrammars.length, kanjiTotal: kanjiDB.length
      };
   }, [vocabDB, verbDB, customGrammars, kanjiDB, vocabMistakes, mistakeBank, todayQueue]);
+
+  const guessTag = React.useCallback((meaning, db) => guessThemeByMeaning(meaning, db, tagKeywordsMap), [tagKeywordsMap]);
 
     const globalTagStats = React.useMemo(() => {
       const stats = {};
@@ -3347,6 +3423,62 @@ return parsed;
         </div>
       )}
 
+      {showTagMgr && (() => {
+        const allTags = Object.keys(globalTagStats).sort((a,b) => globalTagStats[b] - globalTagStats[a]);
+        const vocabTagCounts = {};
+        vocabDB.forEach(v => { if (v.tag && v.tag !== '自訂' && v.tag !== '未分類') vocabTagCounts[v.tag] = (vocabTagCounts[v.tag] || 0) + 1; });
+        const handleKw = (tag, raw) => {
+          const kws = raw.split(/[,，、\s]+/).map(k => k.trim()).filter(k => k.length >= 2);
+          setTagKeywordsMap(prev => ({ ...prev, [tag]: kws }));
+        };
+        return (
+          <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4" onClick={() => setShowTagMgr(false)}>
+            <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+              <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100">
+                <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">🏷️ 標籤管理</h2>
+                <button onClick={() => setShowTagMgr(false)} className="text-slate-400 hover:text-slate-600"><XCircle className="w-6 h-6"/></button>
+              </div>
+              <div className="overflow-y-auto flex-1 p-6">
+                <p className="text-xs text-slate-400 mb-4">設定關鍵字後，新增單字時系統可自動配對該標籤（需 2 字以上，逗號分隔）。「自動學習中」表示方法 2 已累積足夠資料。</p>
+                <div className="space-y-2">
+                  {allTags.length === 0 && <p className="text-center text-slate-400 py-8 text-sm">尚未建立任何標籤</p>}
+                  {allTags.map(tag => {
+                    const total = globalTagStats[tag] || 0;
+                    const vocabCount = vocabTagCounts[tag] || 0;
+                    const hasLearnedEnough = vocabCount >= 5;
+                    const hasKeywords = (tagKeywordsMap[tag] || []).length > 0;
+                    return (
+                      <div key={tag} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100 hover:border-violet-200 transition-colors">
+                        <div className="w-24 shrink-0">
+                          <div className="text-sm font-bold text-slate-700 truncate" title={tag}>{tag}</div>
+                          <div className="text-[10px] text-slate-400 mt-0.5">{total} 筆資料</div>
+                        </div>
+                        <input
+                          type="text"
+                          key={`${tag}-${(tagKeywordsMap[tag]||[]).join(',')}`}
+                          defaultValue={(tagKeywordsMap[tag] || []).join(', ')}
+                          onBlur={e => handleKw(tag, e.target.value)}
+                          onKeyDown={e => e.key === 'Enter' && handleKw(tag, e.target.value)}
+                          placeholder="辨識關鍵字（選填）"
+                          className="flex-1 min-w-0 px-3 py-1.5 text-sm bg-white border border-slate-200 rounded-lg focus:border-violet-400 focus:ring-1 focus:ring-violet-100 outline-none"
+                        />
+                        <div className="shrink-0 flex flex-col items-end gap-1">
+                          {hasKeywords && <span className="text-[10px] text-violet-600 bg-violet-50 px-2 py-0.5 rounded-md border border-violet-200">關鍵字 ✓</span>}
+                          {hasLearnedEnough && <span className="text-[10px] text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">自動學習中</span>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 rounded-b-3xl">
+                <button onClick={() => setShowTagMgr(false)} className="w-full py-3 bg-slate-800 text-white rounded-xl font-bold hover:bg-slate-700 transition-colors text-sm">完成</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {appState === 'home' && (
         <div className="max-w-6xl mx-auto pt-6 sm:pt-12 animate-in fade-in slide-in-from-bottom-4">\n            {/* Hero Header */}
             <div className="text-center mb-6 relative">
@@ -3632,6 +3764,10 @@ return parsed;
               <button onClick={() => setAppState('verb_manage')}
                 className="w-full py-4 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-2xl font-bold hover:bg-indigo-500 hover:text-white hover:border-indigo-500 transition-all flex items-center justify-center gap-2">
                 <Library className="w-4 h-4"/>動詞與形容詞庫
+              </button>
+              <button onClick={() => setShowTagMgr(true)}
+                className="w-full py-4 bg-violet-50 border border-violet-200 text-violet-700 rounded-2xl font-bold hover:bg-violet-500 hover:text-white hover:border-violet-500 transition-all flex items-center justify-center gap-2">
+                🏷️ 標籤管理
               </button>
             </div>
 
@@ -4413,7 +4549,7 @@ return parsed;
 
                               {editingKanjiId === kanji.id ? (
                                 <div className="mt-1">
-                                  <TagEditor tags={kanji.tags} onChange={tags => setKanjiDB(prev => prev.map(k => k.id === kanji.id ? {...k, tags} : k))} tagStats={globalTagStats} />
+                                  <TagEditor tags={kanji.tags} onChange={tags => setKanjiDB(prev => prev.map(k => k.id === kanji.id ? {...k, tags} : k))} tagStats={globalTagStats} tagKeywordsMap={tagKeywordsMap} onTagKeywordsChange={setTagKeywordsMap} />
                                   <button onClick={() => setEditingKanjiId(null)} className="w-full mt-2 py-2 bg-indigo-500 text-white rounded-xl font-bold text-sm hover:bg-indigo-600 transition-colors">完成</button>
                                 </div>
                               ) : (
@@ -4694,7 +4830,7 @@ return parsed;
                                 </button>
                                 {grammarTagsOpen && (
                                   <div className={`px-3 pb-3 pt-1 ${gc.bg || 'bg-violet-50'}`}>
-                                    <TagEditor tags={currentTags} onChange={tags => setNewGrammar(p => ({...p, tags, tag: tags[0] || ''}))} tagStats={globalTagStats} />
+                                    <TagEditor tags={currentTags} onChange={tags => setNewGrammar(p => ({...p, tags, tag: tags[0] || ''}))} tagStats={globalTagStats} tagKeywordsMap={tagKeywordsMap} onTagKeywordsChange={setTagKeywordsMap} />
                                   </div>
                                 )}
                               </div>
@@ -4815,7 +4951,7 @@ return parsed;
                              <div key={idx} className={`flex items-center gap-2 p-3 rounded-xl border ${isUnknown && item.jisho ? 'bg-orange-50 border-orange-300' : 'bg-slate-50 border-slate-200'}`}>
                                <div className="relative w-36 shrink-0">
                                  <input type="text" list="theme-suggestions" value={item.tag || ''} onChange={e => { const n=[...verbBatchItems]; n[idx]={...n[idx],tag:e.target.value}; setVerbBatchItems(n); }} className={`w-full pl-3 pr-8 py-1.5 rounded-xl outline-none text-sm font-bold border ${getTagStyle(item.tag || '')}`} placeholder="主題/標籤"/>
-                                 <button title="自動配對主題標籤" onClick={() => { const jWord = (item.jisho||'').trim(); const guessed = item.meaning ? guessThemeByMeaning(item.meaning, vocabDB) : (vocabDB.find(v=>(v.word===jWord||v.reading===jWord)&&v.tag&&v.tag!=='自訂'&&v.tag!=='未知')?.tag||null); if(guessed){const n=[...verbBatchItems];n[idx]={...n[idx],tag:guessed};setVerbBatchItems(n);}}} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-indigo-500 transition-colors"><Sparkles className="w-3.5 h-3.5"/></button>
+                                 <button title="自動配對主題標籤" onClick={() => { const jWord = (item.jisho||'').trim(); const guessed = item.meaning ? guessTag(item.meaning, vocabDB) : (vocabDB.find(v=>(v.word===jWord||v.reading===jWord)&&v.tag&&v.tag!=='自訂'&&v.tag!=='未知')?.tag||null); if(guessed){const n=[...verbBatchItems];n[idx]={...n[idx],tag:guessed};setVerbBatchItems(n);}}} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-indigo-500 transition-colors"><Sparkles className="w-3.5 h-3.5"/></button>
                                </div>
                                {typeBtn('adj_na','な形', item.type==='adj_na', 'bg-violet-100 text-violet-700 border-violet-300')}
                                {typeBtn('adj_i', 'い形', item.type==='adj_i',  'bg-rose-100 text-rose-700 border-rose-300')}
@@ -5608,7 +5744,7 @@ return parsed;
                     <input type="text" value={vocabEditForm.exampleMeaning||''} onChange={e=>setVocabEditForm({...vocabEditForm, exampleMeaning: e.target.value})} placeholder="例句中文翻譯" className="w-full p-2.5 border border-slate-300 rounded-xl outline-none focus:border-amber-500 text-sm"/>
                   </div>
                 )}
-                <TagEditor tags={vocabEditForm.tags} onChange={tags => setVocabEditForm({...vocabEditForm, tags})} tagStats={globalTagStats} />
+                <TagEditor tags={vocabEditForm.tags} onChange={tags => setVocabEditForm({...vocabEditForm, tags})} tagStats={globalTagStats} tagKeywordsMap={tagKeywordsMap} onTagKeywordsChange={setTagKeywordsMap} />
               </div>
               {/* 固定底部按鈕 */}
               <div className="flex justify-center gap-3 px-5 py-3 border-t border-slate-100 shrink-0">
@@ -5657,7 +5793,7 @@ return parsed;
                   </div>
                 </div>
                 {/* 標籤 */}
-                <TagEditor tags={verbEditForm.tags} onChange={tags => setVerbEditForm({...verbEditForm, tags})} tagStats={globalTagStats} />
+                <TagEditor tags={verbEditForm.tags} onChange={tags => setVerbEditForm({...verbEditForm, tags})} tagStats={globalTagStats} tagKeywordsMap={tagKeywordsMap} onTagKeywordsChange={setTagKeywordsMap} />
                 {/* 活用型（直接顯示） */}
                 {otherForms.length > 0 && (
                   <div className="flex flex-wrap gap-3 p-3 border border-indigo-100 rounded-xl bg-indigo-50/40">
