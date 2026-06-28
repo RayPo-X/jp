@@ -15,6 +15,15 @@ import {
   ChevronUp
 } from 'lucide-react';
 
+const renderFormulaText = (text) => {
+  if (!text) return null;
+  return text.split(/(〔名〕|_)/g).map((part, i) => {
+    if (part === '〔名〕') return <span key={i} className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-bold bg-slate-100 text-slate-600 border border-slate-300 mx-0.5 align-middle">名</span>;
+    if (part === '_') return <span key={i} className="mx-0.5">＿</span>;
+    return <span key={i}>{part}</span>;
+  });
+};
+
 const renderTextWithStrikethrough = (text) => {
   if (!text) return null;
   const parts = text.split(/(~~.*?~~)/g);
@@ -56,7 +65,7 @@ const INITIAL_VERB_DB = [
 
   { group: 'i', type: 'adj_i', masu: '大[おお]きいです', jisho: '大[おお]きい', te: '大[おお]きくて', ta: '大[おお]きかった', nai: '大[おお]きくない', nakatta: '大[おお]きくなかった', meaning: '大的', difficulty: 'n5' },
   { group: 'i', type: 'adj_i', masu: '高[たか]いです', jisho: '高[たか]い', te: '高[たか]くて', ta: '高[たか]かった', nai: '高[たか]くない', nakatta: '高[たか]くなかった', meaning: '高的/貴的', difficulty: 'n5' },
-  { group: 'i', type: 'adj_i', masu: 'いいです', jisho: 'いい', te: 'よくて', ta: 'よかった', nai: 'よくない', nakatta: 'よくなかった', meaning: '好的', difficulty: 'n5' },
+  { group: 'i', type: 'adj_i', masu: 'いいです', jisho: 'いい', te: 'よくて', ta: 'よかった', nai: 'よくない', nakatta: 'よくなかった', meaning: '好的', difficulty: 'n5', irregular: true },
 
   { group: 'na', type: 'adj_na', masu: '元気[げんき]です', jisho: '元気[げんき]だ', te: '元気[げんき]で', ta: '元気[げんき]だった', nai: '元気[げんき]じゃない', nakatta: '元気[げんき]じゃなかった', meaning: '有精神的', difficulty: 'n5' },
   { group: 'na', type: 'adj_na', masu: '静[しず]かです', jisho: '静[しず]かだ', te: '静[しず]かで', ta: '静[しず]かだった', nai: '静[しず]かじゃない', nakatta: '静[しず]かじゃなかった', meaning: '安靜的', difficulty: 'n5' }
@@ -297,10 +306,89 @@ const autoConjugateVerb = (masuStr, group) => {
     return null;
 };
 
+const KNOWN_FORM_RULES = {
+  // ます幹系列
+  'ました形':        { base: 'masu_stem', suffix: 'ました' },
+  'ません形':        { base: 'masu_stem', suffix: 'ません' },
+  'ませんでした形':  { base: 'masu_stem', suffix: 'ませんでした' },
+  'ましょう形':      { base: 'masu_stem', suffix: 'ましょう' },
+  'ませんか形':      { base: 'masu_stem', suffix: 'ませんか' },
+  'ましょうか形':    { base: 'masu_stem', suffix: 'ましょうか' },
+  'ながら形':        { base: 'masu_stem', suffix: 'ながら' },
+  'やすい形':        { base: 'masu_stem', suffix: 'やすい' },
+  'にくい形':        { base: 'masu_stem', suffix: 'にくい' },
+  'すぎる形':        { base: 'masu_stem', suffix: 'すぎる' },
+  'かた形':          { base: 'masu_stem', suffix: 'かた' },
+  '方形':            { base: 'masu_stem', suffix: 'かた' },
+  // て形系列
+  'てください形':    { base: 'te', suffix: 'ください' },
+  'てもいい形':      { base: 'te', suffix: 'もいい' },
+  'てもいいです形':  { base: 'te', suffix: 'もいいです' },
+  'てはいけない形':  { base: 'te', suffix: 'はいけない' },
+  'てはだめ形':      { base: 'te', suffix: 'はだめ' },
+  'ている形':        { base: 'te', suffix: 'いる' },
+  'てある形':        { base: 'te', suffix: 'ある' },
+  'てみる形':        { base: 'te', suffix: 'みる' },
+  'てしまう形':      { base: 'te', suffix: 'しまう' },
+  'てから形':        { base: 'te', suffix: 'から' },
+  'てほしい形':      { base: 'te', suffix: 'ほしい' },
+  'てあげる形':      { base: 'te', suffix: 'あげる' },
+  'てくれる形':      { base: 'te', suffix: 'くれる' },
+  'てもらう形':      { base: 'te', suffix: 'もらう' },
+  'ておく形':        { base: 'te', suffix: 'おく' },
+  // た形系列
+  'たことがある形':  { base: 'ta', suffix: 'ことがある' },
+  'たほうがいい形':  { base: 'ta', suffix: 'ほうがいい' },
+  'たら形':          { base: 'ta', suffix: 'ら' },
+  'たり形':          { base: 'ta', suffix: 'り' },
+  'たばかり形':      { base: 'ta', suffix: 'ばかり' },
+  'たところ形':      { base: 'ta', suffix: 'ところ' },
+  // ない形系列
+  'ないでください形': { base: 'nai', suffix: 'でください' },
+  'ないほうがいい形': { base: 'nai', suffix: 'ほうがいい' },
+  'ないで形':         { base: 'nai', suffix: 'で' },
+  'ないうちに形':     { base: 'nai', suffix: 'うちに' },
+  // ない幹系列
+  'なければならない形':  { base: 'nai_stem', suffix: 'ければならない' },
+  'なければいけない形':  { base: 'nai_stem', suffix: 'ければいけない' },
+  'なくてもいい形':      { base: 'nai_stem', suffix: 'くてもいい' },
+  'なくてはならない形':  { base: 'nai_stem', suffix: 'くてはならない' },
+  'なくてはいけない形':  { base: 'nai_stem', suffix: 'くてはいけない' },
+  'なくなる形':          { base: 'nai_stem', suffix: 'くなる' },
+  // 辭書形系列
+  'ことができる形':    { base: 'jisho', suffix: 'ことができる' },
+  'つもりだ形':        { base: 'jisho', suffix: 'つもりだ' },
+  'はずだ形':          { base: 'jisho', suffix: 'はずだ' },
+  'ようだ形':          { base: 'jisho', suffix: 'ようだ' },
+  'らしい形':          { base: 'jisho', suffix: 'らしい' },
+  'ために形':          { base: 'jisho', suffix: 'ために' },
+  'まえに形':          { base: 'jisho', suffix: 'まえに' },
+  'ところだ形':        { base: 'jisho', suffix: 'ところだ' },
+  'かもしれない形':    { base: 'jisho', suffix: 'かもしれない' },
+  'と思う形':          { base: 'jisho', suffix: 'と思う' },
+  'ことにする形':      { base: 'jisho', suffix: 'ことにする' },
+  'ことになる形':      { base: 'jisho', suffix: 'ことになる' },
+  'ようにする形':      { base: 'jisho', suffix: 'ようにする' },
+  'ようになる形':      { base: 'jisho', suffix: 'ようになる' },
+  'まで形':            { base: 'jisho', suffix: 'まで' },
+  'まえ形':            { base: 'jisho', suffix: 'まえ' },
+};
+const QUICK_ADD_FORMS = [
+  { label: 'ました形' }, { label: 'ません形' }, { label: 'ませんでした形' }, { label: 'ましょう形' },
+  { label: 'ながら形' }, { label: 'やすい形' }, { label: 'にくい形' },
+  { label: 'てください形' }, { label: 'てもいい形' }, { label: 'てはいけない形' },
+  { label: 'ている形' }, { label: 'てみる形' }, { label: 'てしまう形' }, { label: 'てから形' },
+  { label: 'たことがある形' }, { label: 'たほうがいい形' }, { label: 'たら形' }, { label: 'たばかり形' },
+  { label: 'ないでください形' }, { label: 'なければならない形' }, { label: 'なくてもいい形' },
+  { label: 'ことができる形' }, { label: 'つもりだ形' }, { label: 'はずだ形' }, { label: 'かもしれない形' },
+  { label: 'ことにする形' }, { label: 'ようになる形' },
+];
+
 const GRAMMAR_ADJ_FORMS = [
   { id: 'adj_all', label: '形容詞(全)' },
   { id: 'adj_i',  label: 'い形容詞' },
   { id: 'adj_na', label: 'な形容詞' },
+  { id: 'noun',   label: '名詞' },
 ];
 
 const BASE_FORM_COLORS = {
@@ -319,6 +407,7 @@ const BASE_FORM_COLORS = {
   adj_i:            'bg-lime-100 text-lime-700 border-lime-300',
   adj_na:           'bg-yellow-100 text-yellow-700 border-yellow-300',
   adj_all:          'bg-fuchsia-100 text-fuchsia-700 border-fuchsia-200',
+  noun:             'bg-amber-100 text-amber-900 border-amber-500',
 };
 const BASE_FORM_COLOR_FALLBACK = [
   'bg-sky-100 text-sky-700 border-sky-200',
@@ -333,23 +422,24 @@ const getBaseFormStyle = (id) => {
 };
 
 const BASE_FORM_CARD_STYLES = {
-  masu:             { bg: 'bg-blue-50',    border: 'border-blue-200',    hover: 'hover:border-blue-400' },
-  jisho:            { bg: 'bg-indigo-50',  border: 'border-indigo-200',  hover: 'hover:border-indigo-400' },
-  te:               { bg: 'bg-emerald-50', border: 'border-emerald-200', hover: 'hover:border-emerald-400' },
-  ta:               { bg: 'bg-teal-50',    border: 'border-teal-200',    hover: 'hover:border-teal-400' },
-  nai:              { bg: 'bg-rose-50',    border: 'border-rose-200',    hover: 'hover:border-rose-400' },
-  nakatta:          { bg: 'bg-orange-50',  border: 'border-orange-200',  hover: 'hover:border-orange-400' },
-  ba:               { bg: 'bg-violet-50',  border: 'border-violet-200',  hover: 'hover:border-violet-400' },
-  volitional:       { bg: 'bg-amber-50',   border: 'border-amber-200',   hover: 'hover:border-amber-400' },
-  potential:        { bg: 'bg-cyan-50',    border: 'border-cyan-200',    hover: 'hover:border-cyan-400' },
-  passive:          { bg: 'bg-slate-50',   border: 'border-slate-200',   hover: 'hover:border-slate-400' },
-  causative:        { bg: 'bg-purple-50',  border: 'border-purple-200',  hover: 'hover:border-purple-400' },
-  causative_passive:{ bg: 'bg-pink-50',    border: 'border-pink-200',    hover: 'hover:border-pink-400' },
-  adj_i:            { bg: 'bg-lime-50',    border: 'border-lime-200',    hover: 'hover:border-lime-400' },
-  adj_na:           { bg: 'bg-yellow-50',  border: 'border-yellow-200',  hover: 'hover:border-yellow-400' },
-  adj_all:          { bg: 'bg-fuchsia-50', border: 'border-fuchsia-200', hover: 'hover:border-fuchsia-400' },
+  masu:             { bg: 'bg-blue-50',    border: 'border-blue-200',    hover: 'hover:border-blue-400',    underline: 'border-blue-400' },
+  jisho:            { bg: 'bg-indigo-50',  border: 'border-indigo-200',  hover: 'hover:border-indigo-400',  underline: 'border-indigo-400' },
+  te:               { bg: 'bg-emerald-50', border: 'border-emerald-200', hover: 'hover:border-emerald-400', underline: 'border-emerald-400' },
+  ta:               { bg: 'bg-teal-50',    border: 'border-teal-200',    hover: 'hover:border-teal-400',    underline: 'border-teal-400' },
+  nai:              { bg: 'bg-rose-50',    border: 'border-rose-200',    hover: 'hover:border-rose-400',    underline: 'border-rose-400' },
+  nakatta:          { bg: 'bg-orange-50',  border: 'border-orange-200',  hover: 'hover:border-orange-400',  underline: 'border-orange-400' },
+  ba:               { bg: 'bg-violet-50',  border: 'border-violet-200',  hover: 'hover:border-violet-400',  underline: 'border-violet-400' },
+  volitional:       { bg: 'bg-amber-50',   border: 'border-amber-200',   hover: 'hover:border-amber-400',   underline: 'border-amber-400' },
+  potential:        { bg: 'bg-cyan-50',    border: 'border-cyan-200',    hover: 'hover:border-cyan-400',    underline: 'border-cyan-400' },
+  passive:          { bg: 'bg-slate-50',   border: 'border-slate-200',   hover: 'hover:border-slate-400',   underline: 'border-slate-400' },
+  causative:        { bg: 'bg-purple-50',  border: 'border-purple-200',  hover: 'hover:border-purple-400',  underline: 'border-purple-400' },
+  causative_passive:{ bg: 'bg-pink-50',    border: 'border-pink-200',    hover: 'hover:border-pink-400',    underline: 'border-pink-400' },
+  adj_i:            { bg: 'bg-lime-50',    border: 'border-lime-200',    hover: 'hover:border-lime-400',    underline: 'border-lime-400' },
+  adj_na:           { bg: 'bg-yellow-50',  border: 'border-yellow-200',  hover: 'hover:border-yellow-400',  underline: 'border-yellow-500' },
+  adj_all:          { bg: 'bg-fuchsia-50', border: 'border-fuchsia-200', hover: 'hover:border-fuchsia-400', underline: 'border-fuchsia-400' },
+  noun:             { bg: 'bg-amber-50',   border: 'border-amber-300',   hover: 'hover:border-amber-500',   underline: 'border-amber-600' },
 };
-const getBaseFormCardStyle = (id) => BASE_FORM_CARD_STYLES[id] || { bg: 'bg-white', border: 'border-slate-200', hover: 'hover:border-emerald-300' };
+const getBaseFormCardStyle = (id) => BASE_FORM_CARD_STYLES[id] || { bg: 'bg-white', border: 'border-slate-200', hover: 'hover:border-emerald-300', underline: 'border-slate-300' };
 
 const DEFAULT_GRAMMARS = [
   { id: 'g_tai', name: '想要 ( ＿たい)', baseForm: 'masu', removeStr: 'ます', appendStr: 'たい', appliesTo: ['verb'], example: '私は日本へ行きたいです' },
@@ -506,34 +596,35 @@ const getTagStyle = (tag) => {
 };
 
 const THEME_KEYWORDS = {
-    '飲食與餐具': /吃|喝|水|菜|肉|飯|茶|咖啡|餐|甜|食|料理|味|酒|果|糖|鹽|醬|碗|杯|筷|盤|湯|麵|米|蛋|魚|牛|豬|雞|奶|油|煮|炒|烤|切|洗菜|廚|點心|便當|早|午|晚|零食|飲料|渴|餓|飽|辣|酸|苦|甘/,
-    '交通與地點': /車|站|路|機|交|飛|船|騎|搭|走|跑|到|去|來|回|過|進|出|近|遠|前|後|左|右|上|下|東|西|南|北|地|場|口|橋|港|市|町|村|區|街|國|外|公園|學校|醫院|銀行|郵局|超市|百貨|機場|電車|巴士|計程車|腳踏車|開車|駕駛|道|號/,
-    '服裝與配件': /衣|褲|鞋|帽|穿|脫|襪|裙|外套|西裝|領帶|手套|圍巾|背包|包|袋|眼鏡|手錶|戒指|項鍊|耳環|扣|拉鍊|布|絲|棉|毛|換|試|件|雙|條|洋裝|T恤|牛仔|短|長|大衣|羽絨|運動服|制服|和服|大|小|高|低|重|輕|美|麗|漂|亮|帥|醜/,
-    '身體與健康': /病|痛|手|腳|頭|身|心|累|醫|目|耳|鼻|口|齒|牙|舌|眼|臉|肩|背|腰|胸|腹|膝|指|髮|皮|骨|血|藥|院|診|治|休|睡|死|生|活|熱|冷|咳|發燒|感冒|過敏|受傷|健康|體|力|氣|元氣|疲|精|神/,
-    '想法與意見': /想|認|覺|意|思|空想|考|決|選|信|疑|望|願|夢|希|怕|擔|煩|喜|怒|哀|悲|愛|恨|感|情|氣|懂|知|明|白|記|忘|猜|判|評|論|答|問|解|惜|悔|驚|嚇|興|趣|好奇|滿|足/,
-    '購物與金錢': /買|賣|錢|店|購|百|元|付|找|換|借|還|貴|便宜|免費|折|價|值|算|數|多|少|零|萬|千|收|存|花|稅|帳|卡|現金|信用|打折|特價|商|品|貨|訂|網購|市場|超商/,
-    '居住與生活': /家|住|宿|房|洗|掃|門|窗|牆|屋|樓|廳|室|廚|浴|廁|床|桌|椅|燈|電|冷氣|暖|冰箱|微波|洗衣|垃圾|鑰匙|鄰|租|搬|修|裝|掛|放|收|整理|打掃|煮飯|日常|起床|刷牙|化妝|開|關|閉|安|靜|吵|鬧/,
-    '學習與教育': /學|讀|書|寫|教|課|字|文|語|算|數|考|試|題|答|分|成績|合格|畢業|入|班|級|校|師|生|先|筆|紙|本|黑板|作業|練|複|預|背|查|典|翻|譯|文法|單字|漢字|假名|片假名|平假名|難|易|簡|單/,
-    '工作與職場': /工|班|職|業|勤|休|假|會|議|辦|公|社|長|部|課|組|報|告|計|畫|案|客|戶|電話|郵|信|寄|收|打|印|複|掃|傳|真|上班|下班|加班|出差|薪|資|履歷|面試|同事|老闆|主管|員|做|作|急|忙/,
-    '娛樂與休閒': /玩|遊|樂|歌|休|唱|跑|游|泳|爬|山|海|旅|行|拍|照|影|畫|看|聽|電影|電視|音|漫|動|網|遊戲|運動|球|棒|籃|足|網球|釣|散步|野餐|露營|節|祭|派對|舞|跳|演|練/,
-    '自然與天氣': /天|雨|雪|風|雲|晴|陰|霧|雷|暴|溫|熱|冷|涼|暖|春|夏|秋|冬|花|草|木|林|森|山|川|河|海|湖|島|石|土|月|日|空|地|水|火|光|暗|色|紅|藍|綠|黃|白|黑|動物|貓|狗|鳥|蟲/,
-    '時間與日期': /星期|時|分|秒|點|年|月|日|週|曜|今|昨|明|後|前|早|晚|午|夜|朝|夕|間|期|始|終|久|短|長|快|慢|新|舊|古|先|次|每|常|常常|偶|總|已|還|才|剛|馬上|立刻|將|要|過去|未來|現在|等|待/,
-    '問候與社交': /你|我|他|她|們|人|名|姓|歲|男|女|子|父|母|兄|弟|姐|妹|友|家人|親|戚|夫|妻|孩|老|少|先生|小姐|同|伴|見面|打招呼|介紹|謝|歉|拜託|請|好|再見|歡迎|祝|福|禮|邀|約|聚|說|講|談/,
+    '飲食與餐具': /吃飯|吃東西|喝水|喝酒|吃|喝|菜|肉類|飯|茶|咖啡|餐廳|餐點|甜點|食物|料理|味道|酒|水果|果汁|糖|鹽|醬油|碗|杯子|筷子|盤子|湯|麵|米飯|蛋|魚|牛肉|豬肉|雞肉|奶|油|煮飯|炒菜|烤|切菜|廚房|點心|便當|早餐|午餐|晚餐|零食|飲料|渴|餓|飽|辣|酸|苦|甘甜|蔬菜|海鮮|壽司|拉麵|炒飯|味噌|醬汁/,
+    '交通': /火車|電車|捷運|地鐵|公車|巴士|計程車|腳踏車|機車|汽車|飛機|船隻|開車|騎車|搭車|駕駛|過站|轉乘|高鐵|新幹線|交通工具|搭乘|乘坐|出發|抵達|班機|航班|渡輪|纜車|搭飛機|搭火車|搭公車|交通|換乘|大眾運輸/,
+    '地點': /公園|學校|醫院|銀行|郵局|超市|百貨公司|機場|車站|城市|街道|國家|地址|地圖|圖書館|餐廳|咖啡廳|便利商店|體育館|博物館|美術館|動物園|水族館|神社|寺廟|教堂|公寓|大樓|社區|附近|東邊|西邊|南邊|北邊|右邊|左邊|前面|後面|場所|地方|住所|目的地|商店街|辦公室/,
+    '服裝與配件': /衣服|褲子|鞋子|帽子|穿衣|脫衣|換衣|試穿|襪子|裙子|外套|西裝|領帶|手套|圍巾|背包|眼鏡|手錶|戒指|項鍊|耳環|拉鍊|毛衣|洋裝|T恤|牛仔褲|大衣|羽絨衣|運動服|制服|和服|服裝|服飾|時尚|流行穿搭/,
+    '身體與健康': /身體|生病|疼痛|手臂|腳|頭痛|心臟|眼睛|耳朵|鼻子|牙齒|舌頭|臉|肩膀|背部|腰部|胸部|腹部|膝蓋|手指|頭髮|皮膚|骨頭|血液|藥物|醫院|診所|治療|休息|睡眠|發燒|感冒|過敏|受傷|健康|體力|元氣|疲憊|精神|跌倒|摔倒|扭到|扭傷|骨折|肌肉|手術|醫生|護士|注射|打針|復健|咳嗽|頭暈|噁心|呼吸|運動傷害/,
+    '想法與意見': /認為|覺得|思考|考慮|決定|選擇|相信|懷疑|希望|願望|夢想|害怕|擔心|煩惱|感覺|情緒|懂得|知道|明白|記得|忘記|判斷|評論|回答|解決|後悔|驚訝|好奇|如果|假如|若是|假設|意見|看法|理解|誤解|同意|反對|贊成|主張|認識|了解|期待|想要|認知/,
+    '購物與金錢': /買東西|買|賣|購物|付錢|找錢|換錢|借錢|還錢|借出|借入|出租|租借|租金|貴|便宜|免費|折扣|價格|價值|計算|多少錢|零錢|萬元|千元|收錢|存錢|花錢|稅金|帳單|信用卡|現金|打折|特價|商品|貨物|訂購|網購|市場|超商|消費|費用|優惠|發票|收據/,
+    '居住與生活': /家裡|居住|宿舍|房間|洗澡|打掃|門口|窗戶|牆壁|房屋|樓梯|客廳|臥室|廚房|浴室|廁所|床鋪|桌子|椅子|燈光|電器|冷氣|暖氣|冰箱|微波爐|洗衣機|垃圾|鑰匙|鄰居|租房|搬家|修理|裝潢|整理|打掃|煮飯|日常生活|起床|刷牙|化妝|開燈|關門|安靜|吵鬧|漱口/,
+    '學習與教育': /學習|讀書|書本|寫字|教學|課程|文字|語言|算術|考試|題目|成績|合格|畢業|入學|班級|校園|老師|學生|鉛筆|紙張|筆記本|黑板|作業|練習|複習|預習|背單字|查字典|翻譯|文法|單字|漢字|假名|片假名|平假名|困難|簡單/,
+    '工作與職場': /工作|上班|職業|業務|勤務|請假|會議|辦公室|公司|社長|部門|課長|報告|計畫|企劃|客戶|電話|郵件|寄信|收件|列印|複印|傳真|下班|加班|出差|薪水|薪資|履歷|面試|同事|老闆|主管|員工|任務|緊急|忙碌/,
+    '娛樂與休閒': /玩耍|遊戲|娛樂|唱歌|跑步|游泳|爬山|海邊|旅遊|旅行|拍照|攝影|畫畫|看電影|電影|電視|音樂|漫畫|動漫|網路|運動|棒球|籃球|足球|網球|釣魚|散步|野餐|露營|節慶|派對|舞蹈|演出|練習|休閒|嗜好|興趣/,
+    '自然與天氣': /天氣|下雨|下雪|颳風|天晴|陰天|起霧|打雷|暴風|溫度|炎熱|寒冷|涼爽|溫暖|春天|夏天|秋天|冬天|花朵|草地|樹木|森林|山岳|河川|海洋|湖泊|島嶼|石頭|土地|天空|陽光|黑暗|紅色|藍色|綠色|黃色|白色|黑色|動物|貓咪|狗狗|鳥類|昆蟲|大自然|季節|氣溫|颱風/,
+    '時間與日期': /星期|幾點|幾分|幾秒|今年|今月|今天|昨天|明天|後天|這週|早上|晚上|中午|夜晚|早晨|傍晚|時間|期間|開始|結束|很久|快點|慢慢|新的|舊的|古老|上次|下次|每天|常常|偶爾|總是|已經|還沒|剛剛|馬上|立刻|將要|過去|未來|現在|等待|月份|日期|年度|週末|假日|時刻/,
+    '問候與社交': /你好|我們|他們|她們|名字|姓名|年齡|男生|女生|兒子|父親|母親|兄弟|姐妹|朋友|家人|親戚|夫妻|丈夫|妻子|孩子|老人|年輕人|先生|小姐|同學|夥伴|見面|打招呼|介紹|謝謝|道歉|拜託|請問|再見|歡迎|祝賀|禮物|邀請|約定|聚會|說話|聊天/,
     '感情與心情': /高興|開心|快樂|幸福|興奮|感動|滿足|舒適|愉快|難過|悲傷|傷心|痛苦|絕望|失望|後悔|寂寞|孤獨|害怕|恐懼|緊張|不安|擔心|焦慮|憤怒|生氣|煩躁|羞恥|害羞|尷尬|嫉妒|羨慕|驚訝|震驚|感激|懷念|思念|無聊|疲憊|輕鬆|平靜|溫暖|冷漠|憂鬱/,
-    '人物個性': /親切|溫柔|善良|友善|熱情|體貼|細心|耐心|真誠|誠實|正直|謙虛|謙遜|禮貌|有禮|認真|勤勞|努力|積極|主動|冷靜|沉著|成熟|穩重|嚴格|嚴厲|傲慢|自大|懶惰|粗心|粗魯|固執|任性|敏感|脆弱|堅強|勇敢|膽小|樂觀|悲觀|聰明|聰穎|笨|優秀|有才|創意|幽默|風趣|老實|坦率/,
-    '外觀與形狀': /大|小|長|短|高|低|矮|胖|瘦|粗|細|寬|窄|厚|薄|圓|方|扁|尖|平|彎|直|重|輕|硬|軟|粗糙|光滑|整齊|凌亂|透明|不透明|鮮豔|暗淡|明亮|黑暗|清晰|模糊|深|淺|遠|近|廣|狹|巨大|微小|高大|矮小|苗條|肥胖/,
+    '人物個性': /親切|溫柔|善良|友善|熱情|體貼|細心|耐心|真誠|誠實|正直|謙虛|謙遜|禮貌|有禮|認真|勤勞|努力|積極|主動|冷靜|沉著|成熟|穩重|嚴格|嚴厲|傲慢|自大|懶惰|粗心|粗魯|固執|任性|敏感|脆弱|堅強|勇敢|膽小|樂觀|悲觀|聰明|聰穎|優秀|有才|創意|幽默|風趣|老實|坦率/,
+    '外觀與形狀': /巨大|微小|高大|矮小|苗條|肥胖|長的|短的|粗的|細的|寬廣|狹窄|厚的|薄的|圓形|方形|扁平|尖銳|平坦|彎曲|筆直|重量|輕巧|堅硬|柔軟|粗糙|光滑|整齊|凌亂|透明|不透明|鮮豔|暗淡|明亮|黑暗|清晰|模糊|深色|淺色|遠近|廣闊|狹小/,
     '狀態與程度': /嚴重|輕微|嚴格|寬鬆|複雜|簡單|困難|容易|特殊|普通|正常|異常|奇怪|奇特|特別|一般|常見|罕見|重要|次要|必要|不必要|有用|無用|有效|無效|完整|不完整|充分|不足|過多|過少|剛好|適當|不當|合適|不合適|正確|錯誤|準確|模糊|曖昧|微妙|徹底|完全|部分|暫時|永久/,
-    '美感與藝術': /美麗|美觀|好看|漂亮|醜陋|難看|優雅|雅致|精緻|精美|粗糙|樸素|素雅|簡約|華麗|豪華|鮮豔|色彩|鮮明|暗沉|清爽|清新|自然|人工|古典|現代|傳統|流行|時髦|老舊|陳舊|新穎|獨特|平凡|出色|驚豔|賞心悅目|細膩|生動|栩栩如生/,
+    '美感與藝術': /美麗|美觀|好看|漂亮|醜陋|難看|優雅|雅致|精緻|精美|樸素|素雅|簡約|華麗|豪華|鮮豔|色彩|鮮明|暗沉|清爽|清新|人工|古典|現代|傳統|流行|時髦|陳舊|新穎|獨特|平凡|出色|驚豔|賞心悅目|細膩|生動|栩栩如生/,
     '社會與人際': /社會|文化|傳統|習俗|禮節|禮儀|規矩|規則|法律|道德|倫理|公平|不公|平等|不平等|自由|限制|民主|權利|義務|責任|合法|違法|安全|危險|和平|戰爭|合作|競爭|衝突|矛盾|和諧|穩定|動盪|進步|落後|發展|保守|開放|保護|破壞|珍貴|珍惜|浪費/,
-    '科技與媒體': /電腦|手機|網路|軟體|程式|系統|數位|螢幕|鍵盤|滑鼠|應用|APP|社群|平台|網站|搜尋|下載|上傳|資料|密碼|帳號|登入|登出|更新|安裝|病毒|駭客|人工智慧|機器人|自動|電子|訊號|無線|藍牙|衛星|新聞|報紙|雜誌|廣播|電視台|媒體|記者|報導|採訪|直播|頻道|訂閱/,
+    '科技與媒體': /電腦|手機|網路|軟體|程式|系統|數位|螢幕|鍵盤|滑鼠|應用程式|社群媒體|平台|網站|搜尋|下載|上傳|資料|密碼|帳號|登入|登出|更新|安裝|病毒|駭客|人工智慧|機器人|自動化|電子|無線|藍牙|衛星|新聞|報紙|雜誌|廣播|電視台|媒體|記者|報導|採訪|直播|頻道|訂閱/,
     '政治與法律': /政治|選舉|投票|政府|議會|國會|法院|法官|律師|警察|憲法|法律|條約|協議|政策|制度|改革|革命|獨立|統一|外交|大使|邊境|移民|難民|稅金|預算|補助|腐敗|貪污|抗議|示威|戰爭|軍隊|和平|裁軍|聯合國|主權|領土|判決|起訴|犯罪|刑罰|禁止|允許|批准/,
     '醫療與科學': /醫療|手術|治療|診斷|處方|藥物|疫苗|注射|病毒|細菌|感染|傳染|免疫|過敏|症狀|發病|康復|住院|出院|急救|手術室|醫師|護士|研究|實驗|分析|數據|結果|理論|假設|證明|發現|發明|科技|化學|物理|生物|遺傳|基因|細胞|分子|元素|反應|能量|輻射|太空|宇宙/,
-    '環境與資源': /環境|生態|自然|汙染|排放|溫室|氣候|暖化|臭氧|輻射|廢氣|廢水|垃圾|回收|再生|節能|省電|資源|能源|石油|天然氣|煤炭|核能|太陽能|風力|水力|森林|砍伐|保育|滅絕|物種|生物多樣|土地|水資源|乾旱|洪水|颱風|地震|火山|海平面|碳排|減碳/
+    '環境與資源': /環境|生態|汙染|排放|溫室效應|氣候變遷|暖化|臭氧|廢氣|廢水|垃圾|回收|再生能源|節能|省電|資源|能源|石油|天然氣|煤炭|核能|太陽能|風力|水力|森林|砍伐|保育|滅絕|物種|生物多樣|水資源|乾旱|洪水|颱風|地震|火山|海平面|碳排|減碳/
 };
 
 const guessThemeByMeaning = (meaning, existingVocabDB = null) => {
     if (!meaning) return '自訂';
-    
+
     // Step 1: Check if there's already a word with the same meaning in vocabDB
     if (existingVocabDB && existingVocabDB.length > 0) {
         const existingMatch = existingVocabDB.find(
@@ -541,19 +632,22 @@ const guessThemeByMeaning = (meaning, existingVocabDB = null) => {
         );
         if (existingMatch) return existingMatch.tag;
     }
-    
-    // Step 2: Keyword matching with expanded dictionaries (scoring based)
+
+    // Step 2: Keyword matching — score = total character length of all matched strings
     let bestTheme = '自訂';
     let maxScore = 0;
     for (const [theme, regex] of Object.entries(THEME_KEYWORDS)) {
         const globalRegex = new RegExp(regex.source, 'g');
         const matches = meaning.match(globalRegex);
-        if (matches && matches.length > maxScore) {
-            maxScore = matches.length;
-            bestTheme = theme;
+        if (matches) {
+            const score = matches.reduce((sum, m) => sum + m.length, 0);
+            if (score > maxScore) {
+                maxScore = score;
+                bestTheme = theme;
+            }
         }
     }
-    
+
     return bestTheme;
 };
 
@@ -640,7 +734,7 @@ const generateDistractors = (word, target, grammarDef) => {
   const optionsMap = new Map(); 
   let correctRuby = '';
   if (grammarDef) {
-    const adjFormMap = { adj_i: 'jisho', adj_na: 'jisho', adj_all: 'jisho' };
+    const adjFormMap = { adj_i: 'jisho', adj_na: 'jisho', adj_all: 'jisho', noun: 'jisho' };
     const resolvedBase = adjFormMap[grammarDef.baseForm] || grammarDef.baseForm;
     const baseRubyStr = word[resolvedBase] || '';
     const replaceRegex = new RegExp((grammarDef.removeStr || '') + '$');
@@ -867,6 +961,11 @@ return parsed;
 
   const [draggedFormIndex, setDraggedFormIndex] = useState(null);
   const [dragOverFormIndex, setDragOverFormIndex] = useState(null);
+  const [renamingFormId, setRenamingFormId] = useState(null);
+  const [showQuickForms, setShowQuickForms] = useState(false);
+  const [renamingFormLabel, setRenamingFormLabel] = useState('');
+  const [renamingFormBase, setRenamingFormBase] = useState('');
+  const [renamingFormSuffix, setRenamingFormSuffix] = useState('');
   const [verbForms, setVerbForms] = useState(() => {
     try {
       const saved = localStorage.getItem('verbApp_verbForms');
@@ -2269,6 +2368,7 @@ return parsed;
         tags: (v.tags && v.tags.length > 0) ? v.tags : (v.tag && v.tag !== '自訂' ? [v.tag] : []),
         example: v.example.trim(),
         exampleMeaning: v.exampleMeaning?.trim() || '',
+        note: v.note?.trim() || '',
         isSentence: !!v.isSentence,
         addedAt: Date.now() + i,
         ef: 2.5, interval: 0, repetitions: 0, nextReview: 0, status: addToReviewNow ? 'learning' : 'new'
@@ -2490,11 +2590,30 @@ return parsed;
   const [editingGrammarId, setEditingGrammarId] = useState(null);
   const [grammarSortConfig, setGrammarSortConfig] = useState({ key: null, direction: null });
   const [grammarFilterTag, setGrammarFilterTag] = useState('');
-  const [newGrammar, setNewGrammar] = useState({ name: '', translation: '', baseForm: 'te', removeStr: '', appendStr: '', appliesTo: ['verb'], example: '', exampleTranslation: '', processExample: '', note: '', tag: '', tags: [], structureNote: '' });
+  const [newGrammar, setNewGrammar] = useState({ name: '', translation: '', baseForm: 'te', removeStr: '', appendStr: '', appliesTo: ['verb'], example: '', exampleTranslation: '', extraExamples: [], processExample: '', note: '', tag: '', tags: [], structureNote: '' });
   const [isGrammarExtraOpen, setIsGrammarExtraOpen] = useState(false);
-  const [editingTranslationId, setEditingTranslationId] = useState(null);
-  const [translationInputVal, setTranslationInputVal] = useState('');
-  
+  const [isGrammarFormReordering, setIsGrammarFormReordering] = useState(false);
+  const [grammarTagsOpen, setGrammarTagsOpen] = useState(false);
+  const [grammarFormOrder, setGrammarFormOrder] = useState(() => {
+    try {
+      const saved = localStorage.getItem('grammarFormOrder');
+      if (saved) {
+        let p = JSON.parse(saved);
+        if (Array.isArray(p)) {
+          p = p.filter(id => id !== 'example' && id !== 'exampleTranslation' && id !== 'tag');
+          if (!p.includes('exampleBlock')) p.splice(p.indexOf('structureNote') + 1, 0, 'exampleBlock');
+          if (!p.includes('tags')) p.splice(p.indexOf('baseForm') + 1, 0, 'tags');
+          if (p.length >= 6) return p;
+        }
+      }
+    } catch {}
+    return ['name','translation','baseForm','tags','structureNote','exampleBlock','advanced'];
+  });
+  const [isGrammarReordering, setIsGrammarReordering] = useState(false);
+  const [grammarDragIdx, setGrammarDragIdx] = useState(null);
+  const [grammarDragOverIdx, setGrammarDragOverIdx] = useState(null);
+  useEffect(() => { localStorage.setItem('grammarFormOrder', JSON.stringify(grammarFormOrder)); }, [grammarFormOrder]);
+
   const handleEditGrammar = (g) => {
     setEditingGrammarId(g.id);
     setNewGrammar({
@@ -2503,7 +2622,7 @@ return parsed;
       removeStr: g.removeStr || '',
       appendStr: g.appendStr || '',
       appliesTo: g.appliesTo || ['verb'],
-      translation: g.translation || '', example: g.example || '', exampleTranslation: g.exampleTranslation || '', processExample: g.processExample || '', note: g.note || '', tag: g.tag || '', tags: g.tags || [], structureNote: g.structureNote || ''
+      translation: g.translation || '', example: g.example || '', exampleTranslation: g.exampleTranslation || '', extraExamples: g.extraExamples || [], processExample: g.processExample || '', note: g.note || '', tag: g.tag || '', tags: g.tags || [], structureNote: g.structureNote || ''
     });
   };
 
@@ -2522,7 +2641,7 @@ return parsed;
   };
 
   const getInitialVerbInputs = () => {
-      const base = { type: 'verb', group: '1', difficulty: 'n5', masu: '', meaning: '', tags: [] };
+      const base = { type: 'verb', group: '1', difficulty: 'n5', masu: '', meaning: '', tags: [], irregular: false };
       verbForms.forEach(f => { base[f.id] = ''; });
       return base;
   };
@@ -2531,6 +2650,16 @@ return parsed;
   const handleVerbInputChange = (key, value) => {
       setVerbInputs(prev => {
           const next = { ...prev, [key]: value };
+          if (key === 'jisho' && next.type === 'verb') {
+              const j = value.trim();
+              if (j.endsWith('する')) {
+                  next.group = '3';
+              } else if (j === 'くる' || j.endsWith('くる') || (/来/.test(j) && j.endsWith('る'))) {
+                  next.group = '3';
+              } else if (/[むぬぶすくぐつう]$/.test(j)) {
+                  next.group = '1';
+              }
+          }
           if ((key === 'masu' || key === 'group' || key === 'type') && next.type === 'verb' && next.masu) {
               const autoGen = autoConjugateVerb(next.masu, next.group);
               if (autoGen) {
@@ -3935,8 +4064,8 @@ return parsed;
                   <div className="flex flex-col gap-2">
                     <div className="flex gap-2">
                       <button onClick={handleRematchAllBatchThemes} className="text-sm text-amber-700 bg-amber-50 border border-amber-200 px-4 py-2 rounded-xl font-bold hover:bg-amber-100 flex items-center gap-1"><Sparkles className="w-4 h-4"/> 全部重配主題</button>
-                      <button onClick={() => { if(window.confirm('確定要清空確認與編輯區的所有內容嗎？')) { setBatchInputs([{word:'', reading:'', meaning:'', tag: '未知', tags: [], example: '', isSentence: false}]); setSelectedBatchIds(new Set()); }}} className="text-sm text-red-600 bg-red-50 px-4 py-2 rounded-xl font-bold hover:bg-red-100 flex items-center gap-1"><Trash2 className="w-4 h-4"/> 全部清空</button>
-                      <button onClick={() => setBatchInputs([...batchInputs, {word:'', reading:'', meaning:'', tag: '未知', tags: [], example: '', isSentence: false}])} className="text-sm text-amber-700 bg-amber-100 px-4 py-2 rounded-xl font-bold hover:bg-amber-200 flex items-center gap-1"><Plus className="w-4 h-4"/> 新增一列</button>
+                      <button onClick={() => { if(window.confirm('確定要清空確認與編輯區的所有內容嗎？')) { setBatchInputs([{word:'', reading:'', meaning:'', tag: '未知', tags: [], example: '', note: '', isSentence: false}]); setSelectedBatchIds(new Set()); }}} className="text-sm text-red-600 bg-red-50 px-4 py-2 rounded-xl font-bold hover:bg-red-100 flex items-center gap-1"><Trash2 className="w-4 h-4"/> 全部清空</button>
+                      <button onClick={() => setBatchInputs([...batchInputs, {word:'', reading:'', meaning:'', tag: '未知', tags: [], example: '', note: '', isSentence: false}])} className="text-sm text-amber-700 bg-amber-100 px-4 py-2 rounded-xl font-bold hover:bg-amber-200 flex items-center gap-1"><Plus className="w-4 h-4"/> 新增一列</button>
                     </div>
                     {selectedBatchIds.size > 0 && (
                       <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-xl">
@@ -3975,6 +4104,10 @@ return parsed;
                             <input type="text" placeholder="例句中文翻譯 (選填)" value={item.exampleMeaning || ''} onChange={e => {const n=[...batchInputs]; n[idx].exampleMeaning=e.target.value; setBatchInputs(n);}} className="w-full pl-9 pr-3 py-2.5 bg-slate-50 rounded-xl border border-slate-200 outline-none focus:border-amber-500 focus:bg-white text-sm text-slate-600"/>
                           </div>
                         )}
+                        <div className="flex items-center gap-2 relative">
+                          <span className="absolute left-3 text-sm text-slate-400">📝</span>
+                          <input type="text" placeholder="個人備註 (選填，例：容易混淆、常考)" value={item.note || ''} onChange={e => {const n=[...batchInputs]; n[idx].note=e.target.value; setBatchInputs(n);}} className="w-full pl-8 pr-3 py-2.5 bg-slate-50 rounded-xl border border-slate-200 outline-none focus:border-amber-500 focus:bg-white text-sm text-slate-600"/>
+                        </div>
                         <div className="flex items-center gap-4 px-2 mt-1">
                           <label className="flex items-center gap-2 cursor-pointer text-sm font-bold text-slate-600 hover:text-fuchsia-600 transition-colors">
                             <input type="checkbox" checked={!!item.isSentence} onChange={e => {const n=[...batchInputs]; n[idx].isSentence=e.target.checked; setBatchInputs(n);}} className="w-4 h-4 accent-fuchsia-600"/>
@@ -4005,6 +4138,10 @@ return parsed;
                             <input type="text" placeholder="例句中文翻譯 (選填)" value={item.exampleMeaning || ''} onChange={e => {const n=[...batchInputs]; n[idx].exampleMeaning=e.target.value; setBatchInputs(n);}} className="w-full pl-8 pr-3 py-2.5 bg-slate-50 rounded-xl border border-slate-200 outline-none focus:border-amber-500 focus:bg-white text-sm text-slate-600"/>
                           </div>
                         )}
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">📝</span>
+                          <input type="text" placeholder="個人備註 (選填)" value={item.note || ''} onChange={e => {const n=[...batchInputs]; n[idx].note=e.target.value; setBatchInputs(n);}} className="w-full pl-8 pr-3 py-2.5 bg-slate-50 rounded-xl border border-slate-200 outline-none focus:border-amber-500 focus:bg-white text-sm text-slate-600"/>
+                        </div>
                         <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-500 hover:text-fuchsia-600 transition-colors px-1">
                           <input type="checkbox" checked={!!item.isSentence} onChange={e => {const n=[...batchInputs]; n[idx].isSentence=e.target.checked; setBatchInputs(n);}} className="w-4 h-4 accent-fuchsia-600"/>
                           <span>✅ 完整例句（啟用例句特訓）</span>
@@ -4360,32 +4497,27 @@ return parsed;
                              <option value="">所有分類</option>
                              {Array.from(new Set(customGrammars.map(g => g.tag))).filter(Boolean).map(tag => <option key={tag} value={tag}>{tag}</option>)}
                            </select>
-                           <button 
-                             onClick={() => {
-                                 setGrammarSortConfig(prev => {
-                                     if (prev.key !== 'isImportant') return { key: 'isImportant', direction: 'desc' };
-                                     if (prev.direction === 'desc') return { key: 'isImportant', direction: 'asc' };
-                                     return { key: null, direction: null };
-                                 });
-                             }} 
-                             className={`p-2 border rounded-lg text-sm font-bold flex items-center gap-1 transition-colors ${grammarSortConfig.key === 'isImportant' ? 'bg-amber-50 border-amber-300 text-amber-700' : 'bg-white border-slate-200 text-slate-600 hover:border-amber-300 hover:text-amber-600'}`}
+                           <button
+                             onClick={() => { if (!isGrammarReordering) setGrammarSortConfig(prev => { if (prev.key !== 'isImportant') return { key: 'isImportant', direction: 'desc' }; if (prev.direction === 'desc') return { key: 'isImportant', direction: 'asc' }; return { key: null, direction: null }; }); }}
+                             className={`p-2 border rounded-lg text-sm font-bold flex items-center gap-1 transition-colors ${isGrammarReordering ? 'opacity-30 cursor-not-allowed bg-white border-slate-200 text-slate-400' : grammarSortConfig.key === 'isImportant' ? 'bg-amber-50 border-amber-300 text-amber-700' : 'bg-white border-slate-200 text-slate-600 hover:border-amber-300 hover:text-amber-600'}`}
                              title="依照重要標記排序"
                            >
                              <Star className={`w-4 h-4 ${grammarSortConfig.key === 'isImportant' ? 'fill-current' : ''}`}/>
                              {grammarSortConfig.key === 'isImportant' ? (grammarSortConfig.direction === 'desc' ? '星號置頂' : '星號置底') : '排序'}
                            </button>
                            <button
-                             onClick={() => {
-                               setGrammarSortConfig(prev => {
-                                 if (prev.key !== 'dateAdded') return { key: 'dateAdded', direction: 'desc' };
-                                 if (prev.direction === 'desc') return { key: 'dateAdded', direction: 'asc' };
-                                 return { key: null, direction: null };
-                               });
-                             }}
-                             className={`p-2 border rounded-lg text-sm font-bold flex items-center gap-1 transition-colors ${grammarSortConfig.key === 'dateAdded' ? 'bg-emerald-50 border-emerald-300 text-emerald-700' : 'bg-white border-slate-200 text-slate-600 hover:border-emerald-300 hover:text-emerald-600'}`}
+                             onClick={() => { if (!isGrammarReordering) setGrammarSortConfig(prev => { if (prev.key !== 'dateAdded') return { key: 'dateAdded', direction: 'desc' }; if (prev.direction === 'desc') return { key: 'dateAdded', direction: 'asc' }; return { key: null, direction: null }; }); }}
+                             className={`p-2 border rounded-lg text-sm font-bold flex items-center gap-1 transition-colors ${isGrammarReordering ? 'opacity-30 cursor-not-allowed bg-white border-slate-200 text-slate-400' : grammarSortConfig.key === 'dateAdded' ? 'bg-emerald-50 border-emerald-300 text-emerald-700' : 'bg-white border-slate-200 text-slate-600 hover:border-emerald-300 hover:text-emerald-600'}`}
                              title="依照加入日期排序"
                            >
                              {grammarSortConfig.key === 'dateAdded' ? (grammarSortConfig.direction === 'desc' ? '↓ 最新' : '↑ 最舊') : '↕ 日期'}
+                           </button>
+                           <button
+                             onClick={() => { setIsGrammarReordering(v => !v); setGrammarDragIdx(null); setGrammarDragOverIdx(null); }}
+                             className={`p-2 border rounded-lg text-sm font-bold flex items-center gap-1 transition-colors ${isGrammarReordering ? 'bg-indigo-100 border-indigo-400 text-indigo-700' : 'bg-white border-slate-200 text-slate-600 hover:border-indigo-300 hover:text-indigo-600'}`}
+                             title="拖曳調整順序"
+                           >
+                             ≡ {isGrammarReordering ? '完成' : '排序'}
                            </button>
                          </div>
                      <div className="flex items-center gap-2">
@@ -4419,55 +4551,41 @@ return parsed;
                             const valB = b.isImportant ? 1 : 0;
                             if (valA !== valB) return grammarSortConfig.direction === 'desc' ? valB - valA : valA - valB;
                         }
+                        if (isGrammarReordering) return (a.addedAt||getTs(a.id)) - (b.addedAt||getTs(b.id));
                         if (grammarSortConfig.key === 'dateAdded') {
-                            const getTs = (id) => { const p = String(id||'').split('_'); for (const x of p) { const n = Number(x); if (!isNaN(n) && n > 1000000000000) return n; } return 0; };
-                            const aVal = a.addedAt || getTs(a.id);
-                            const bVal = b.addedAt || getTs(b.id);
+                            const getTs2 = (id) => { const p = String(id||'').split('_'); for (const x of p) { const n = Number(x); if (!isNaN(n) && n > 1000000000000) return n; } return 0; };
+                            const aVal = a.addedAt || getTs2(a.id);
+                            const bVal = b.addedAt || getTs2(b.id);
                             return grammarSortConfig.direction === 'desc' ? bVal - aVal : aVal - bVal;
                         }
                         return 0;
-                    }).map((g) => (
-                      <div key={g.id} id={"item-" + g.id} className={`p-3 border rounded-2xl flex justify-between items-center shadow-sm transition-colors ${(() => { const cs = getBaseFormCardStyle(g.baseForm); return targetId === g.id ? 'bg-emerald-100 border-emerald-400 ring-2 ring-emerald-500' : `${cs.bg} ${cs.border} ${cs.hover}`; })()}`}>
+                    }).map((g, displayIdx) => (
+                      <div key={g.id} id={"item-" + g.id}
+                        draggable={isGrammarReordering}
+                        onDragStart={isGrammarReordering ? () => setGrammarDragIdx(displayIdx) : undefined}
+                        onDragOver={isGrammarReordering ? (e) => { e.preventDefault(); setGrammarDragOverIdx(displayIdx); } : undefined}
+                        onDrop={isGrammarReordering ? (e) => {
+                          e.preventDefault();
+                          if (grammarDragIdx === null || grammarDragIdx === displayIdx) { setGrammarDragIdx(null); setGrammarDragOverIdx(null); return; }
+                          const sorted = [...customGrammars].sort((a,b) => (a.addedAt||getTs(a.id)) - (b.addedAt||getTs(b.id)));
+                          const item = sorted.splice(grammarDragIdx, 1)[0];
+                          sorted.splice(displayIdx, 0, item);
+                          const base = Date.now();
+                          setCustomGrammars(sorted.map((x, i) => ({ ...x, addedAt: base + i })));
+                          setGrammarDragIdx(null); setGrammarDragOverIdx(null);
+                        } : undefined}
+                        onDragEnd={isGrammarReordering ? () => { setGrammarDragIdx(null); setGrammarDragOverIdx(null); } : undefined}
+                        className={`p-3 border rounded-2xl flex justify-between items-center shadow-sm transition-colors ${isGrammarReordering && grammarDragOverIdx === displayIdx && grammarDragIdx !== displayIdx ? 'ring-2 ring-indigo-400' : ''} ${(() => { const cs = getBaseFormCardStyle(g.baseForm); return targetId === g.id ? 'bg-emerald-100 border-emerald-400 ring-2 ring-emerald-500' : `${cs.bg} ${cs.border} ${cs.hover}`; })()}`}>
                          <div className="flex-1 min-w-0 bg-white rounded-xl p-4">
-                           <div className="flex items-center gap-2 mb-1.5 flex-nowrap">
-                               <span className="text-xs font-bold text-slate-400 bg-slate-100 border border-slate-200 rounded-md px-1.5 py-0.5 shrink-0">#{rankMap[g.id]}</span>
-                               <div className="font-bold text-slate-800 text-lg whitespace-nowrap flex items-center gap-1.5 flex-wrap">
-                                 <span>{g.name}</span>
-                                 {editingTranslationId === g.id ? (
-                                   <input
-                                     autoFocus
-                                     type="text"
-                                     value={translationInputVal}
-                                     onChange={e => setTranslationInputVal(e.target.value)}
-                                     onKeyDown={e => {
-                                       if (e.key === 'Enter') {
-                                         setCustomGrammars(prev => prev.map(x => x.id === g.id ? { ...x, translation: translationInputVal.trim() } : x));
-                                         setEditingTranslationId(null);
-                                       } else if (e.key === 'Escape') {
-                                         setEditingTranslationId(null);
-                                       }
-                                     }}
-                                     onBlur={() => {
-                                       setCustomGrammars(prev => prev.map(x => x.id === g.id ? { ...x, translation: translationInputVal.trim() } : x));
-                                       setEditingTranslationId(null);
-                                     }}
-                                     placeholder="輸入中文翻譯..."
-                                     className="text-base font-medium px-2 py-0.5 rounded-lg border border-emerald-400 outline-none focus:ring-2 focus:ring-emerald-200 bg-white w-36"
-                                   />
-                                 ) : g.translation ? (
-                                   <span
-                                     onClick={e => { e.stopPropagation(); setTranslationInputVal(g.translation); setEditingTranslationId(g.id); }}
-                                     className="bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-lg text-base cursor-pointer hover:bg-emerald-200 transition-colors"
-                                     title="點擊編輯翻譯"
-                                   > 👉 {g.translation}</span>
-                                 ) : (
-                                   <span
-                                     onClick={e => { e.stopPropagation(); setTranslationInputVal(''); setEditingTranslationId(g.id); }}
-                                     className="text-xs font-bold text-slate-400 border border-dashed border-slate-300 px-2 py-0.5 rounded-lg cursor-pointer hover:border-emerald-400 hover:text-emerald-600 transition-colors"
-                                     title="點擊新增翻譯"
-                                   >＋ 翻譯</span>
-                                 )}
-                               </div>
+                           <div className="mb-2">
+                             {/* 第1列：編號 */}
+                             <div className="mb-1">
+                               <span className="text-xs font-bold text-slate-400 bg-slate-100 border border-slate-200 rounded-md px-1.5 py-0.5"># {rankMap[g.id]}</span>
+                             </div>
+                             {/* 第2列：拖曳把手 ＋ 標題 ＋ 標籤 ＋ 日期 */}
+                             <div className="flex items-center gap-2 flex-wrap mb-1">
+                               {isGrammarReordering && <span className="text-slate-300 text-xl cursor-grab select-none shrink-0" title="拖曳排序">⠿</span>}
+                               <span className="font-bold text-slate-800 text-lg inline-block pb-0.5 border-b-2 border-slate-800">{renderFormulaText(g.name)}</span>
                                <>{renderTags(g.tags, (tag) => setSearchTerm(tag))}</>
                                {g.id.startsWith('g_custom_') && !isNaN(parseInt(g.id.replace('g_custom_', ''))) ? (
                                   <div className="text-[11px] text-slate-400 font-medium bg-slate-50 px-2 py-0.5 rounded-full border border-slate-100 flex items-center gap-1 shrink-0">
@@ -4478,9 +4596,16 @@ return parsed;
                                      <Library className="w-3 h-3"/>系統內建
                                   </div>
                                )}
+                             </div>
+                             {/* 第3列：翻譯 */}
+                             <div>
+                               {g.translation ? (
+                                 <span className="text-slate-500 text-sm font-medium">👉 {g.translation}</span>
+                               ) : null}
+                             </div>
                            </div>
                            <div className="text-sm text-slate-500 flex items-center gap-2 mb-2 flex-wrap">
-                              接在前面：{(() => { const label = verbForms.find(f=>f.id===g.baseForm)?.label || GRAMMAR_ADJ_FORMS.find(f=>f.id===g.baseForm)?.label; return label ? <span className={`px-2 py-0.5 rounded-md font-bold border text-xs ${getBaseFormStyle(g.baseForm)}`}>{label}</span> : null; })()}
+                              接在前面：{(() => { const label = verbForms.find(f=>f.id===g.baseForm)?.label || GRAMMAR_ADJ_FORMS.find(f=>f.id===g.baseForm)?.label; return label ? <span className={`px-2 py-0.5 rounded-md font-bold border text-xs ${getBaseFormStyle(g.baseForm)}`}>{label}</span> : <span className="px-2 py-0.5 rounded-md font-bold border text-xs bg-red-50 text-red-400 border-red-200">⚠ 已刪除的欄位</span>; })()}
                            </div>
                             {g.structureNote && (
                                <div className="w-full text-[14px] bg-emerald-50 border border-emerald-200 text-emerald-800 px-3 py-2 rounded-lg font-medium mb-2 whitespace-pre-wrap">
@@ -4498,9 +4623,17 @@ return parsed;
                                </div>
                             )}
                            {g.example && (
-                              <div className="w-full text-[15px] bg-blue-50/80 border border-blue-100 text-blue-900 px-4 py-2.5 rounded-xl font-bold tracking-wide mt-2">
-                                💬 例句：{renderTextWithStrikethrough(g.example)}
-                                {g.exampleTranslation && <div className="text-sm font-medium text-blue-700 mt-1 pl-6">{g.exampleTranslation}</div>}
+                              <div className="space-y-1.5 mt-2">
+                                <div className="w-full text-[15px] bg-blue-50/80 border border-blue-100 text-blue-900 px-4 py-2.5 rounded-xl font-bold tracking-wide">
+                                  💬 {renderTextWithStrikethrough(g.example)}
+                                  {g.exampleTranslation && <div className="text-sm font-medium text-blue-700 mt-1 pl-4">{g.exampleTranslation}</div>}
+                                </div>
+                                {(g.extraExamples||[]).filter(ex=>ex.sentence).map((ex,i)=>(
+                                  <div key={i} className="w-full text-[15px] bg-blue-50/50 border border-blue-100 text-blue-900 px-4 py-2 rounded-xl font-bold tracking-wide">
+                                    💬 {renderTextWithStrikethrough(ex.sentence)}
+                                    {ex.translation && <div className="text-sm font-medium text-blue-700 mt-1 pl-4">{ex.translation}</div>}
+                                  </div>
+                                ))}
                               </div>
                            )}
                                    <button onClick={() => setCustomGrammars(prev => prev.map(x => x.id === g.id ? { ...x, isImportant: !x.isImportant } : x))} className={`p-3 rounded-xl transition-colors ${g.isImportant ? 'text-amber-500 bg-amber-50 hover:bg-amber-100' : 'text-slate-400 hover:text-amber-500 hover:bg-amber-50'}`} title="標記為重要"><Star className={`w-5 h-5 ${g.isImportant ? 'fill-current' : ''}`}/></button>
@@ -4529,38 +4662,89 @@ return parsed;
                    };
                    return (
                  <div className={`${gc.panelBg} p-8 rounded-3xl border ${gc.panelBorder} flex flex-col sticky top-6 order-1 lg:order-2`} style={{maxHeight:'calc(100vh - 3rem)'}}>
-                    <h3 className={`font-bold ${gc.title} mb-6 flex items-center gap-2 text-lg`}>
-                        {editingGrammarId ? <Pencil className="w-6 h-6"/> : <Plus className="w-6 h-6"/>}
-                        {editingGrammarId ? '編輯文法公式' : '新增文法公式'}
-                    </h3>
-                    <div className="space-y-5 overflow-y-auto flex-1 pr-1">
-                      <div><label className={`block text-sm font-bold ${gc.label} mb-1.5`}>文法名稱 (提示語)</label><input type="text" value={newGrammar.name} onChange={e => setNewGrammar(p => ({...p, name: e.target.value.replaceAll('~', '_')}))} placeholder="例：請不要... ( _ないでください)" className={`w-full p-4 rounded-xl border ${gc.input} outline-none`}/></div>
-                      <div><label className={`block text-sm font-bold ${gc.label} mb-1.5`}>文法中文翻譯</label><input type="text" value={newGrammar.translation || ''} onChange={e => setNewGrammar(p => ({...p, translation: e.target.value}))} placeholder="例：請不要～" className={`w-full p-4 rounded-xl border ${gc.input} outline-none`}/></div>
-                      <div><label className={`block text-sm font-bold ${gc.label} mb-1.5`}>接續方式</label><select value={newGrammar.baseForm} onChange={e => setNewGrammar(p => ({...p, baseForm: e.target.value}))} className={`w-full p-4 rounded-xl border ${gc.input} outline-none bg-white`}><optgroup label="動詞">{verbForms.filter(opt => !opt.id.startsWith('adj_')).map(opt => <option key={opt.id} value={opt.id}>{opt.label}</option>)}</optgroup><optgroup label="形容詞">{GRAMMAR_ADJ_FORMS.map(opt => <option key={opt.id} value={opt.id}>{opt.label}</option>)}</optgroup></select></div>
-                      <div><label className={`block text-sm font-bold ${gc.label} mb-1.5`}>分類標籤 (選填)</label><input type="text" value={newGrammar.tag || ''} onChange={e => setNewGrammar(p => ({...p, tag: e.target.value}))} placeholder="例：N5、接續詞" className={`w-full p-4 rounded-xl border ${gc.input} outline-none`} list="grammar-tags-list"/></div>
-                      <TagEditor tags={newGrammar.tags} onChange={tags => setNewGrammar(p => ({...p, tags}))} tagStats={globalTagStats} />
-                      <div><label className={`block text-sm font-bold ${gc.label} mb-1.5`}>結構說明 (選填)</label><input type="text" value={newGrammar.structureNote || ''} onChange={e => setNewGrammar(p => ({...p, structureNote: e.target.value}))} placeholder="例：動詞て形 ＋ ください" className={`w-full p-4 rounded-xl border ${gc.input} outline-none`}/></div>
-                      <div><label className={`block text-sm font-bold ${gc.label} mb-1.5`}>例句 (選填)</label><input type="text" value={newGrammar.example || ''} onChange={e => setNewGrammar(p => ({...p, example: e.target.value}))} placeholder="例：ここでタバコを吸わないでください" className={`w-full p-4 rounded-xl border ${gc.input} outline-none`}/></div>
-                      <div><label className={`block text-sm font-bold ${gc.label} mb-1.5`}>例句中文翻譯 (選填)</label><input type="text" value={newGrammar.exampleTranslation || ''} onChange={e => setNewGrammar(p => ({...p, exampleTranslation: e.target.value}))} placeholder="例：請不要在這裡吸菸" className={`w-full p-4 rounded-xl border ${gc.input} outline-none`}/></div>
-                      <div>
-                        <button type="button" onClick={() => setIsGrammarExtraOpen(v => !v)} className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-bold ${gc.advBtn} transition-colors border`}>
-                          <span>進階設定（刪除字尾、加上字尾、變化筆記、備註）</span>
-                          <span>{isGrammarExtraOpen ? '▲' : '▼'}</span>
-                        </button>
-                        {isGrammarExtraOpen && (
-                          <div className="mt-3 space-y-5">
-                            <div className="grid grid-cols-2 gap-4">
-                              <div><label className={`block text-sm font-bold ${gc.label} mb-1.5`}>刪除字尾</label><input type="text" value={newGrammar.removeStr || ''} onChange={e => setNewGrammar(p => ({...p, removeStr: e.target.value.replaceAll('~', '_')}))} placeholder="例：ます" className={`w-full p-4 rounded-xl border ${gc.input} outline-none`}/></div>
-                              <div><label className={`block text-sm font-bold ${gc.label} mb-1.5`}>加上字尾</label><input type="text" value={newGrammar.appendStr || ''} onChange={e => setNewGrammar(p => ({...p, appendStr: e.target.value.replaceAll('~', '_')}))} placeholder="例：でください" className={`w-full p-4 rounded-xl border ${gc.input} outline-none`}/></div>
+                    <div className="flex items-center justify-between mb-6">
+                      <h3 className={`font-bold ${gc.title} flex items-center gap-2 text-lg`}>
+                          {editingGrammarId ? <Pencil className="w-6 h-6"/> : <Plus className="w-6 h-6"/>}
+                          {editingGrammarId ? '編輯文法公式' : '新增文法公式'}
+                      </h3>
+                      <button onClick={() => setIsGrammarFormReordering(v => !v)} className={`text-xs px-2.5 py-1.5 rounded-lg border font-bold transition-colors ${isGrammarFormReordering ? 'bg-indigo-500 text-white border-indigo-500' : `bg-white border-slate-300 text-slate-500 hover:border-indigo-300 hover:text-indigo-600`}`} title="調整欄位順序">↕ 欄位順序</button>
+                    </div>
+                    <div className="overflow-y-auto flex-1 pr-1">
+                      {(() => {
+                        const gf = {
+                          name: <div><label className={`block text-sm font-bold ${gc.label} mb-1.5`}>文法名稱 (提示語)</label><div className="flex gap-2 items-center"><input id="grammar-name-input" type="text" value={newGrammar.name} onChange={e => setNewGrammar(p => ({...p, name: e.target.value.replaceAll('~', '_').replaceAll('～', '_').replaceAll('〜', '_')}))} placeholder="例：〔名〕と〔名〕とどちらが_ですか" className={`flex-1 p-4 rounded-xl border ${gc.input} outline-none`}/><button type="button" title="插入名詞佔位符" onClick={() => { const el = document.getElementById('grammar-name-input'); if (!el) return; const s = el.selectionStart ?? newGrammar.name.length; const v = newGrammar.name; const nv = v.slice(0,s)+'〔名〕'+v.slice(el.selectionEnd??s); setNewGrammar(p=>({...p,name:nv})); setTimeout(()=>{el.focus();el.setSelectionRange(s+3,s+3);},0); }} className={`px-3 py-2 rounded-xl border font-bold text-sm transition-colors shrink-0 ${gc.advBtn}`}>〔名〕</button></div></div>,
+                          translation: <div><label className={`block text-sm font-bold ${gc.label} mb-1.5`}>文法中文翻譯</label><input type="text" value={newGrammar.translation || ''} onChange={e => setNewGrammar(p => ({...p, translation: e.target.value}))} placeholder="例：請不要～" className={`w-full p-4 rounded-xl border ${gc.input} outline-none`}/></div>,
+                          baseForm: <div><label className={`block text-sm font-bold ${gc.label} mb-1.5`}>接續方式</label><select value={newGrammar.baseForm} onChange={e => setNewGrammar(p => ({...p, baseForm: e.target.value}))} className={`w-full p-4 rounded-xl border ${gc.input} outline-none bg-white`}><optgroup label="動詞">{verbForms.filter(opt => !opt.id.startsWith('adj_')).map(opt => <option key={opt.id} value={opt.id}>{opt.label}</option>)}</optgroup><optgroup label="形容詞">{GRAMMAR_ADJ_FORMS.map(opt => <option key={opt.id} value={opt.id}>{opt.label}</option>)}</optgroup><optgroup label="名詞"><option value="noun">名詞</option></optgroup></select></div>,
+                          tag: null,
+                          tags: (() => {
+                            const currentTags = newGrammar.tags || [];
+                            return (
+                              <div className={`rounded-xl border ${gc.border || 'border-violet-200'} overflow-hidden`}>
+                                <button type="button" onClick={() => setGrammarTagsOpen(v => !v)} className={`w-full flex items-center justify-between px-4 py-3 ${gc.bg || 'bg-violet-100'} hover:opacity-90 transition-opacity`}>
+                                  <span className={`text-sm font-bold ${gc.label}`}>標籤 (選填)</span>
+                                  <div className="flex items-center gap-2">
+                                    {currentTags.length > 0 && (
+                                      <div className="flex gap-1 flex-wrap justify-end">
+                                        {currentTags.map(t => <span key={t} className="px-1.5 py-0.5 text-[10px] font-bold bg-violet-200 text-violet-800 rounded-md border border-violet-300">{t}</span>)}
+                                      </div>
+                                    )}
+                                    {currentTags.length === 0 && <span className="text-xs text-slate-400">尚未設定</span>}
+                                    <span className={`text-xs ${gc.label}`}>{grammarTagsOpen ? '▲' : '▼'}</span>
+                                  </div>
+                                </button>
+                                {grammarTagsOpen && (
+                                  <div className={`px-3 pb-3 pt-1 ${gc.bg || 'bg-violet-50'}`}>
+                                    <TagEditor tags={currentTags} onChange={tags => setNewGrammar(p => ({...p, tags, tag: tags[0] || ''}))} tagStats={globalTagStats} />
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })(),
+                          structureNote: <div><label className={`block text-sm font-bold ${gc.label} mb-1.5`}>結構說明 (選填)</label><input type="text" value={newGrammar.structureNote || ''} onChange={e => setNewGrammar(p => ({...p, structureNote: e.target.value.replaceAll('~', '_').replaceAll('～', '_').replaceAll('〜', '_')}))} placeholder="例：動詞て形 ＋ ください" className={`w-full p-4 rounded-xl border ${gc.input} outline-none`}/></div>,
+                          exampleBlock: <div className="space-y-3">
+                            <div><label className={`block text-sm font-bold ${gc.label} mb-1.5`}>例句 (選填)</label><input type="text" value={newGrammar.example || ''} onChange={e => setNewGrammar(p => ({...p, example: e.target.value}))} placeholder="例：ここでタバコを吸わないでください" className={`w-full p-4 rounded-xl border ${gc.input} outline-none`}/></div>
+                            {newGrammar.example && <div><label className={`block text-sm font-bold ${gc.label} mb-1.5`}>例句中文翻譯 (選填)</label><input type="text" value={newGrammar.exampleTranslation || ''} onChange={e => setNewGrammar(p => ({...p, exampleTranslation: e.target.value}))} placeholder="例：請不要在這裡吸菸" className={`w-full p-4 rounded-xl border ${gc.input} outline-none`}/></div>}
+                            {(newGrammar.extraExamples||[]).map((ex, i) => (
+                              <div key={i} className={`space-y-2 pl-3 border-l-2 border-blue-200`}>
+                                <div className="flex gap-2 items-center">
+                                  <input type="text" value={ex.sentence || ''} onChange={e => setNewGrammar(p => { const arr=[...(p.extraExamples||[])]; arr[i]={...arr[i],sentence:e.target.value}; return {...p,extraExamples:arr}; })} placeholder={`例句 ${i+2}`} className={`flex-1 p-3 rounded-xl border ${gc.input} outline-none text-sm`}/>
+                                  <button type="button" onClick={() => setNewGrammar(p => { const arr=[...(p.extraExamples||[])]; arr.splice(i,1); return {...p,extraExamples:arr}; })} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors shrink-0">✕</button>
+                                </div>
+                                {ex.sentence && <input type="text" value={ex.translation || ''} onChange={e => setNewGrammar(p => { const arr=[...(p.extraExamples||[])]; arr[i]={...arr[i],translation:e.target.value}; return {...p,extraExamples:arr}; })} placeholder={`翻譯 ${i+2}`} className={`w-full p-3 rounded-xl border ${gc.input} outline-none text-sm`}/>}
+                              </div>
+                            ))}
+                            {newGrammar.example && <button type="button" onClick={() => setNewGrammar(p => ({...p, extraExamples:[...(p.extraExamples||[]),{sentence:'',translation:''}]}))} className={`text-sm font-bold px-3 py-1.5 rounded-lg border ${gc.advBtn} transition-colors`}>＋ 新增例句</button>}
+                          </div>,
+                          advanced: <div><button type="button" onClick={() => setIsGrammarExtraOpen(v => !v)} className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-bold ${gc.advBtn} transition-colors border`}><span>進階設定（刪除字尾、加上字尾、變化筆記、備註）</span><span>{isGrammarExtraOpen ? '▲' : '▼'}</span></button>{isGrammarExtraOpen && <div className="mt-3 space-y-5"><div className="grid grid-cols-2 gap-4"><div><label className={`block text-sm font-bold ${gc.label} mb-1.5`}>刪除字尾</label><input type="text" value={newGrammar.removeStr || ''} onChange={e => setNewGrammar(p => ({...p, removeStr: e.target.value.replaceAll('~', '_').replaceAll('～', '_').replaceAll('〜', '_')}))} placeholder="例：ます" className={`w-full p-4 rounded-xl border ${gc.input} outline-none`}/></div><div><label className={`block text-sm font-bold ${gc.label} mb-1.5`}>加上字尾</label><input type="text" value={newGrammar.appendStr || ''} onChange={e => setNewGrammar(p => ({...p, appendStr: e.target.value.replaceAll('~', '_').replaceAll('～', '_').replaceAll('〜', '_')}))} placeholder="例：でください" className={`w-full p-4 rounded-xl border ${gc.input} outline-none`}/></div></div><div><label className={`block text-sm font-bold ${gc.label} mb-1.5`}>變化筆記</label><input type="text" value={newGrammar.processExample || ''} onChange={e => setNewGrammar(p => ({...p, processExample: e.target.value}))} placeholder="自由輸入，例如：飲む ➔ 飲んで ➔ 飲んでください" className={`w-full p-4 rounded-xl border ${gc.input} outline-none`}/></div><div><label className={`block text-sm font-bold ${gc.label} mb-1.5`}>個人備註</label><textarea rows={1} value={newGrammar.note || ''} onChange={e => setNewGrammar(p => ({...p, note: e.target.value}))} onInput={e => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }} placeholder="記錄自己的心得或注意事項..." className={`w-full p-4 rounded-xl border ${gc.input} outline-none resize-none overflow-hidden leading-relaxed`}/></div></div>}</div>,
+                        };
+                        const fieldGroupStyle = {
+                          name:          'bg-emerald-100 border border-emerald-200 rounded-xl p-3',
+                          translation:   'bg-emerald-100 border border-emerald-200 rounded-xl p-3',
+                          baseForm:      'bg-blue-100 border border-blue-200 rounded-xl p-3',
+                          structureNote: 'bg-blue-100 border border-blue-200 rounded-xl p-3',
+                          tag:           'bg-violet-100 border border-violet-200 rounded-xl p-3',
+                          tags:          'bg-violet-100 border border-violet-200 rounded-xl p-3',
+                          exampleBlock:  'bg-amber-100 border border-amber-200 rounded-xl p-3',
+                          advanced:      '',
+                        };
+                        return grammarFormOrder.map((fieldId, idx) => {
+                          if (!gf[fieldId]) return null;
+                          return (
+                            <div key={fieldId} className={`mb-3 ${fieldGroupStyle[fieldId] || ''} ${isGrammarFormReordering ? 'flex gap-2 items-start' : ''}`}>
+                              {isGrammarFormReordering && (
+                                <div className="flex flex-col gap-0.5 shrink-0 pt-7">
+                                  <button onClick={() => setGrammarFormOrder(prev => { const a=[...prev]; [a[idx-1],a[idx]]=[a[idx],a[idx-1]]; return a; })} disabled={idx===0} className={`w-6 h-6 flex items-center justify-center rounded text-xs font-bold ${idx===0?'opacity-20 cursor-not-allowed text-slate-300':'text-slate-500 hover:bg-slate-200'}`}>▲</button>
+                                  <button onClick={() => setGrammarFormOrder(prev => { const a=[...prev]; [a[idx],a[idx+1]]=[a[idx+1],a[idx]]; return a; })} disabled={idx===grammarFormOrder.length-1} className={`w-6 h-6 flex items-center justify-center rounded text-xs font-bold ${idx===grammarFormOrder.length-1?'opacity-20 cursor-not-allowed text-slate-300':'text-slate-500 hover:bg-slate-200'}`}>▼</button>
+                                </div>
+                              )}
+                              <div className="flex-1">{gf[fieldId]}</div>
                             </div>
-                            <div><label className={`block text-sm font-bold ${gc.label} mb-1.5`}>變化筆記</label><input type="text" value={newGrammar.processExample || ''} onChange={e => setNewGrammar(p => ({...p, processExample: e.target.value}))} placeholder="自由輸入，例如：飲む ➔ 飲んで ➔ 飲んでください" className={`w-full p-4 rounded-xl border ${gc.input} outline-none`}/></div>
-                            <div><label className={`block text-sm font-bold ${gc.label} mb-1.5`}>個人備註</label><textarea rows={1} value={newGrammar.note || ''} onChange={e => setNewGrammar(p => ({...p, note: e.target.value}))} onInput={e => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }} placeholder="記錄自己的心得或注意事項..." className={`w-full p-4 rounded-xl border ${gc.input} outline-none resize-none overflow-hidden leading-relaxed`}/></div>
-                          </div>
-                        )}
-                      </div>
+                          );
+                        });
+                      })()}
                       <div className={`flex gap-4 mt-4 shrink-0 pt-4 border-t ${gc.divider}`}>
                           <button onClick={handleAddGrammar} className={`flex-1 py-4 ${gc.btn} text-white font-bold rounded-xl transition-colors shadow-sm text-lg`}>{editingGrammarId ? '儲存編輯' : '儲存新文法'}</button>
-                          {editingGrammarId && <button onClick={() => { setEditingGrammarId(null); setNewGrammar({ name: '', translation: '', baseForm: 'te', removeStr: '', appendStr: '', appliesTo: ['verb'], example: '', exampleTranslation: '', processExample: '', note: '', tag: '', tags: [], structureNote: '' }); }} className="py-4 px-6 bg-slate-200 text-slate-700 font-bold rounded-xl hover:bg-slate-300 transition-colors shadow-sm text-lg">取消</button>}
+                          {editingGrammarId && <button onClick={() => { setEditingGrammarId(null); setNewGrammar({ name: '', translation: '', baseForm: 'te', removeStr: '', appendStr: '', appliesTo: ['verb'], example: '', exampleTranslation: '', extraExamples: [], processExample: '', note: '', tag: '', tags: [], structureNote: '' }); }} className="py-4 px-6 bg-slate-200 text-slate-700 font-bold rounded-xl hover:bg-slate-300 transition-colors shadow-sm text-lg">取消</button>}
                       </div>
                     </div>
                  </div>
@@ -4664,16 +4848,64 @@ return parsed;
                      <span className="text-xs text-slate-400">精細新增・自動產生完整變化型</span>
                    </div>
                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
-                   <div><label className="block text-sm font-bold text-indigo-700 mb-1">類型</label><select value={verbInputs.type} onChange={e=>handleVerbInputChange('type', e.target.value)} className="w-full p-3 rounded-xl border border-indigo-200"><option value="verb">動詞 (verb)</option></select></div>
-                   <div><label className="block text-sm font-bold text-indigo-700 mb-1">群組/分類</label><select value={verbInputs.group} onChange={e=>handleVerbInputChange('group', e.target.value)} className="w-full p-3 rounded-xl border border-indigo-200"><option value="1">第一類動詞 (1)</option><option value="2">第二類動詞 (2)</option><option value="3">第三類動詞 (3)</option></select></div>
+                   <div><label className="block text-sm font-bold text-indigo-700 mb-1">類型</label><select value={verbInputs.type} onChange={e=>{const t=e.target.value; handleVerbInputChange('type',t); if(t==='adj_i') handleVerbInputChange('group','i'); else if(t==='adj_na') handleVerbInputChange('group','na'); else handleVerbInputChange('group','1');}} className="w-full p-3 rounded-xl border border-indigo-200"><option value="verb">動詞 (verb)</option><option value="adj_i">い形容詞 (adj_i)</option><option value="adj_na">な形容詞 (adj_na)</option></select></div>
+                   <div><label className="block text-sm font-bold text-indigo-700 mb-1">群組/分類</label><select value={verbInputs.group} onChange={e=>handleVerbInputChange('group', e.target.value)} className="w-full p-3 rounded-xl border border-indigo-200" disabled={verbInputs.type !== 'verb'}>{verbInputs.type === 'adj_i' ? <option value="i">い型</option> : verbInputs.type === 'adj_na' ? <option value="na">な型</option> : <><option value="1">第一類動詞（五段動詞）</option><option value="2">第二類動詞（上一・下一段動詞）</option><option value="3">第三類動詞（不規則動詞）</option></>}</select></div>
                    <div><label className="block text-sm font-bold text-indigo-700 mb-1">難易度</label><select value={verbInputs.difficulty} onChange={e=>handleVerbInputChange('difficulty', e.target.value)} className="w-full p-3 rounded-xl border border-indigo-200"><option value="n5">N5</option><option value="n4">N4</option><option value="n3">N3</option><option value="n2">N2</option><option value="n1">N1</option></select></div>
                    <div><label className="block text-sm font-bold text-indigo-700 mb-1">中文意思</label><input type="text" value={verbInputs.meaning} onChange={e=>handleVerbInputChange('meaning', e.target.value)} placeholder="例：去" className="w-full p-3 rounded-xl border border-indigo-200"/></div>
+                 </div>
+                 <div className="mb-4">
+                   <label className="flex items-center gap-2 cursor-pointer w-fit">
+                     <input type="checkbox" checked={!!verbInputs.irregular} onChange={e=>handleVerbInputChange('irregular', e.target.checked)} className="w-4 h-4 accent-rose-500"/>
+                     <span className="text-sm font-bold text-rose-600">⚠ 不規則変化</span>
+                     <span className="text-xs text-slate-400">（如いい→よかった，活用形與辭書形字根不同時勾選）</span>
+                   </label>
                  </div>
                  <div className="mb-4">
                    <label className="block text-sm font-bold text-indigo-700 mb-1">例句 (選填，支援漢字[假名]自動標音)</label>
                    <input type="text" value={verbInputs.example || ''} onChange={e=>handleVerbInputChange('example', e.target.value)} placeholder="例：雨[あめ]が降[ふ]るので、行[い]きません。" className="w-full p-3 rounded-xl border border-indigo-200"/>
                  </div>
-                 <div className="flex justify-between items-center mb-4 mt-6"><h4 className="font-bold text-indigo-800">各變化型設定</h4><button onClick={() => {     let jishoToUse = verbInputs.jisho;     if (!jishoToUse && verbInputs.masu) {         jishoToUse = deriveJishoFromMasu(verbInputs.masu, verbInputs.group);     }     if (!jishoToUse) return alert('請填寫普通形(辭書形/常體)或ます形！');      const forms = autoConjugate(jishoToUse, verbInputs.group);      if (Object.keys(forms).length > 0) {          setVerbInputs(prev => ({ ...prev, jisho: jishoToUse, ...forms }));      } else {          alert('無法自動產生，請確認格式是否正確！');      }  }} className="text-sm text-indigo-700 bg-indigo-100 px-4 py-2 rounded-xl font-bold hover:bg-indigo-200 flex items-center gap-1 transition-colors"><Sparkles className="w-4 h-4"/> 自動產生變化型</button></div><div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-4">
+                 <div className="flex justify-between items-center mb-4 mt-6"><h4 className="font-bold text-indigo-800">各變化型設定</h4><button onClick={() => {
+  let jishoToUse = verbInputs.jisho;
+  if (!jishoToUse && verbInputs.masu) {
+    jishoToUse = deriveJishoFromMasu(verbInputs.masu, verbInputs.group);
+  }
+  if (!jishoToUse) return alert('請填寫普通形(辭書形/常體)或ます形！');
+
+  let forms = {};
+
+  if (verbInputs.type === 'adj_i') {
+    const isIrregular = verbInputs.irregular || jishoToUse === 'いい' || jishoToUse === '良い' || jishoToUse === '良[よ]い';
+    if (isIrregular) {
+      forms = { masu: 'いいです', te: 'よくて', ta: 'よかった', nai: 'よくない', nakatta: 'よくなかった', ba: 'よければ' };
+    } else if (jishoToUse.endsWith('い')) {
+      const stem = jishoToUse.slice(0, -1);
+      forms = { masu: jishoToUse + 'です', te: stem + 'くて', ta: stem + 'かった', nai: stem + 'くない', nakatta: stem + 'くなかった', ba: stem + 'ければ' };
+    }
+  } else if (verbInputs.type === 'adj_na') {
+    const stem = jishoToUse.endsWith('だ') ? jishoToUse.slice(0, -1) : jishoToUse;
+    forms = { masu: stem + 'です', te: stem + 'で', ta: stem + 'だった', nai: stem + 'じゃない', nakatta: stem + 'じゃなかった', ba: stem + 'なら' };
+  } else {
+    forms = autoConjugate(jishoToUse, verbInputs.group);
+  }
+
+  if (Object.keys(forms).length > 0) {
+    const getBaseVal = (base) => {
+      if (base === 'te') return forms.te || '';
+      if (base === 'ta') return forms.ta || '';
+      if (base === 'nai') return forms.nai || '';
+      if (base === 'nai_stem') { const n = forms.nai||''; return n.endsWith('い') ? n.slice(0,-1) : n; }
+      if (base === 'jisho') return jishoToUse || '';
+      if (base === 'masu') return forms.masu || '';
+      if (base === 'masu_stem') { const m = forms.masu||''; if (m.endsWith('ます')) return m.slice(0,-2); if (m.endsWith('です')) return m.slice(0,-2); return m; }
+      return '';
+    };
+    const customForms = {};
+    verbForms.forEach(f => { if (f.base) { const bv = getBaseVal(f.base); if (bv) customForms[f.id] = bv + (f.suffix||''); } });
+    setVerbInputs(prev => ({ ...prev, jisho: jishoToUse, ...forms, ...customForms }));
+  } else {
+    alert('無法自動產生，請確認格式是否正確！');
+  }
+}} className="text-sm text-indigo-700 bg-indigo-100 px-4 py-2 rounded-xl font-bold hover:bg-indigo-200 flex items-center gap-1 transition-colors"><Sparkles className="w-4 h-4"/> 自動產生變化型</button></div><div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-4">
                    
                    {verbForms.map((f, idx) => {
                         if ((verbInputs.type === 'adj_i' || verbInputs.type === 'adj_na') && f.id === 'masu') return null;
@@ -4694,30 +4926,105 @@ return parsed;
                              }}
                              className={`transition-all duration-200 ${draggedFormIndex === idx ? 'opacity-50 scale-95' : ''} ${dragOverFormIndex === idx && draggedFormIndex !== idx ? (draggedFormIndex < dragOverFormIndex ? 'border-r-4 border-r-indigo-500' : 'border-l-4 border-l-indigo-500') : ''} p-2 -m-2 rounded-xl border border-transparent cursor-grab active:cursor-grabbing hover:bg-indigo-50/50`}
                         >
-                          <label className="block text-sm font-bold text-indigo-700 mb-1 flex items-center gap-1 cursor-grab" title="拖曳以排序">
-                             <GripHorizontal className="w-4 h-4 text-indigo-400" />
-                             {f.label}
-                          </label>
+                          <div className="flex items-center gap-1 mb-1">
+                            <GripHorizontal className="w-4 h-4 text-indigo-400 shrink-0 cursor-grab" title="拖曳以排序" />
+                              <span className="text-sm font-bold text-indigo-700 flex-1 min-w-0 truncate">{f.label}</span>
+                              {f.base && <span className="text-[10px] text-indigo-300 shrink-0">⚡</span>}
+                            <button
+                              type="button"
+                              title="編輯"
+                              onClick={e => { e.stopPropagation(); setRenamingFormLabel(f.label); setRenamingFormBase(f.base||''); setRenamingFormSuffix(f.suffix||''); setRenamingFormId(renamingFormId===f.id?null:f.id); }}
+                              className={`shrink-0 transition-colors ${renamingFormId===f.id?'text-indigo-600':'text-indigo-400 hover:text-indigo-600'}`}
+                            ><Pencil className="w-3 h-3" /></button>
+                            <button
+                              type="button"
+                              title="刪除此欄位"
+                              onClick={e => {
+                                e.stopPropagation();
+                                const builtIn = ['masu','jisho','te','ta','nai','nakatta','ba','volitional','potential','passive','causative','causative_passive'];
+                                const usedCount = customGrammars.filter(g => g.baseForm === f.id).length;
+                                const usedMsg = usedCount > 0 ? `\n⚠ 此欄位已被 ${usedCount} 個文法公式使用，刪除後接續方式將顯示異常！` : '';
+                                const isBuiltIn = builtIn.includes(f.id);
+                                if ((isBuiltIn || usedCount > 0) && !window.confirm(`確定要刪除「${f.label}」？${usedMsg}`)) return;
+                                setVerbForms(prev => prev.filter(x => x.id !== f.id));
+                              }}
+                              className="text-slate-300 hover:text-rose-500 shrink-0 transition-colors"
+                            >✕</button>
+                          </div>
+                          {renamingFormId === f.id && (
+                            <div className="mb-2 p-2 bg-indigo-50 border border-indigo-200 rounded-xl space-y-2">
+                              <input autoFocus type="text" value={renamingFormLabel} onChange={e=>setRenamingFormLabel(e.target.value)} placeholder="名稱" className="w-full text-sm p-1.5 rounded-lg border border-indigo-200 outline-none focus:border-indigo-400 bg-white"/>
+                              {f.id.startsWith('custom_') && (
+                                <div className="flex gap-2 items-center flex-wrap">
+                                  <span className="text-xs font-bold text-indigo-600 shrink-0">自動推導：</span>
+                                  <select value={renamingFormBase} onChange={e=>setRenamingFormBase(e.target.value)} className="text-xs p-1.5 rounded-lg border border-indigo-200 outline-none bg-white">
+                                    <option value="">手動填寫（不自動產生）</option>
+                                    <option value="te">て形 ＋</option>
+                                    <option value="ta">た形 ＋</option>
+                                    <option value="nai">ない形 ＋</option>
+                                    <option value="nai_stem">ない幹（食べな〜）＋</option>
+                                    <option value="jisho">辭書形 ＋</option>
+                                    <option value="masu">ます形 ＋</option>
+                                    <option value="masu_stem">ます幹（食べ〜）＋</option>
+                                  </select>
+                                  <input type="text" value={renamingFormSuffix} onChange={e=>setRenamingFormSuffix(e.target.value)} placeholder="後綴，例：ました" className="text-xs p-1.5 rounded-lg border border-indigo-200 outline-none flex-1 min-w-20 bg-white"/>
+                                </div>
+                              )}
+                              <div className="flex gap-2">
+                                <button type="button" onClick={() => {
+                                  const v = renamingFormLabel.trim();
+                                  if (!v) return;
+                                  setVerbForms(prev => prev.map(x => x.id === f.id ? { ...x, label: v, ...(f.id.startsWith('custom_') ? { base: renamingFormBase, suffix: renamingFormSuffix.trim() } : {}) } : x));
+                                  setRenamingFormId(null);
+                                }} className="text-xs px-3 py-1 bg-indigo-500 text-white rounded-lg font-bold hover:bg-indigo-600">儲存</button>
+                                <button type="button" onClick={()=>setRenamingFormId(null)} className="text-xs px-3 py-1 bg-white border border-slate-200 text-slate-500 rounded-lg hover:bg-slate-50">取消</button>
+                              </div>
+                            </div>
+                          )}
                           <input draggable="true" onDragStart={e => { e.preventDefault(); e.stopPropagation(); }} type="text" value={verbInputs[f.id] || ''} onChange={e=>handleVerbInputChange(f.id, e.target.value)} className="w-full p-3 rounded-xl border border-indigo-200 bg-white/80 focus:bg-white transition-colors outline-none focus:border-indigo-500 pointer-events-auto cursor-text"/>
                         </div>
                     );})}
                  </div>
 
                  <div className="mt-6 border-t border-indigo-100 pt-6 pb-6">
-                    <h4 className="font-bold text-indigo-800 mb-4 flex items-center gap-2 text-sm"><Settings className="w-4 h-4"/> 自訂動詞變化欄位</h4>
-                    <div className="flex flex-col sm:flex-row gap-3">
-                       <input type="text" id="newFormId" placeholder="代號 (例: ba)" className="p-3 rounded-xl border border-indigo-200 flex-1 outline-none focus:border-indigo-500" />
-                       <input type="text" id="newFormLabel" placeholder="名稱 (例: 條件形)" className="p-3 rounded-xl border border-indigo-200 flex-1 outline-none focus:border-indigo-500" />
-                       <button onClick={() => {
-                           const id = document.getElementById('newFormId').value.trim();
-                           const label = document.getElementById('newFormLabel').value.trim();
-                           if (!id || !label) return alert('請填寫代號與名稱！');
-                           if (verbForms.some(f => f.id === id)) return alert('代號已存在！');
-                           setVerbForms(prev => [...prev, { id, label }]);
-                           document.getElementById('newFormId').value = '';
-                           document.getElementById('newFormLabel').value = '';
-                       }} className="py-3 px-6 bg-indigo-100 text-indigo-700 font-bold rounded-xl hover:bg-indigo-200 transition-colors">新增欄位</button>
+                    <h4 className="font-bold text-indigo-800 mb-3 flex items-center gap-2 text-sm"><Settings className="w-4 h-4"/> 自訂動詞變化欄位</h4>
+                    {/* 快速新增常用形（折疊） */}
+                    <div className="mb-3">
+                      <button type="button" onClick={() => setShowQuickForms(v => !v)} className="text-xs font-bold text-indigo-600 bg-indigo-50 border border-indigo-200 px-3 py-1.5 rounded-lg hover:bg-indigo-100 transition-colors flex items-center gap-1">
+                        {showQuickForms ? '▲' : '▼'} 快速新增常用形
+                      </button>
+                      {showQuickForms && (
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          {QUICK_ADD_FORMS.map(f => {
+                            const already = verbForms.some(x => x.label === f.label);
+                            return (
+                              <button key={f.label} type="button" disabled={already}
+                                onClick={() => {
+                                  if (already) return;
+                                  const rule = KNOWN_FORM_RULES[f.label] || {};
+                                  setVerbForms(prev => [...prev, { id: 'custom_' + Date.now(), label: f.label, base: rule.base||'', suffix: rule.suffix||'' }]);
+                                }}
+                                className={`text-xs px-2.5 py-1 rounded-lg border font-bold transition-colors ${already ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed' : 'bg-white text-indigo-600 border-indigo-200 hover:bg-indigo-50'}`}>
+                                {already ? '✓ ' : '＋ '}{f.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
+                    {/* 手動輸入新增 */}
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <input type="text" id="newFormLabel" placeholder="輸入任意變化型名稱（系統自動辨識規則）" className="p-3 rounded-xl border border-indigo-200 flex-1 outline-none focus:border-indigo-500"/>
+                      <button onClick={() => {
+                        const label = document.getElementById('newFormLabel').value.trim();
+                        if (!label) return alert('請填寫變化型名稱！');
+                        if (verbForms.some(f => f.label === label)) return alert('此名稱已存在！');
+                        const rule = KNOWN_FORM_RULES[label] || {};
+                        setVerbForms(prev => [...prev, { id: 'custom_' + Date.now(), label, base: rule.base||'', suffix: rule.suffix||'' }]);
+                        document.getElementById('newFormLabel').value = '';
+                      }} className="py-3 px-6 bg-indigo-100 text-indigo-700 font-bold rounded-xl hover:bg-indigo-200 transition-colors shrink-0">＋ 新增</button>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-1.5">已知型（如ました形）系統自動設定規則，新增後按「自動產生」即可填入</p>
                  </div>
                  </div><button onClick={handleAddVerb} className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold text-lg hover:bg-indigo-700 transition-colors shadow-sm">新增至記憶庫</button>
                  </div>}
@@ -4880,7 +5187,10 @@ return parsed;
         </td>;
     }
     if (colId === 'type') {
-        return <td key={colId} className="p-4"><span className={`inline-block px-2.5 py-1 text-xs font-black uppercase tracking-wider rounded border-2 border-b-4 transition-transform active:border-b-2 active:translate-y-[2px] whitespace-nowrap cursor-default ${getVerbTypeStyle(v.type, v.group)}`}>{formatVerbType(v.type, v.group)}</span></td>;
+        return <td key={colId} className="p-4">
+          <span className={`inline-block px-2.5 py-1 text-xs font-black uppercase tracking-wider rounded border-2 border-b-4 transition-transform active:border-b-2 active:translate-y-[2px] whitespace-nowrap cursor-default ${getVerbTypeStyle(v.type, v.group)}`}>{formatVerbType(v.type, v.group)}</span>
+          {v.irregular && <span className="ml-1 inline-block px-1.5 py-0.5 text-[10px] font-bold bg-rose-100 text-rose-600 border border-rose-300 rounded-full whitespace-nowrap">⚠ 不規則</span>}
+        </td>;
     }
     if (colId === 'tag') {
         return <td key={colId} className="p-4">
