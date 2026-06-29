@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import GlobalSearch from './components/GlobalSearch/GlobalSearch';
+import ThemePanel from './components/ThemePanel';
 import { autoConjugate, deriveJishoFromMasu } from './conjugator';
 import { BUILT_IN_DICTIONARY, getAvailableThemes, getWordsByTheme } from './dictionary';
 import { 
@@ -3234,7 +3235,7 @@ return parsed;
   }, [customGrammars, mistakeBank]);
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 p-4 font-sans selection:bg-blue-200 pb-20">
+    <div className="app-root min-h-screen bg-slate-50 text-slate-800 p-4 font-sans selection:bg-blue-200 pb-20">
       
       {appState !== 'home' && (
          <header className="max-w-4xl mx-auto flex justify-between items-center bg-white p-4 rounded-2xl shadow-sm border border-slate-100 mb-6 relative z-50">
@@ -3486,10 +3487,13 @@ return parsed;
                 <Puzzle className="w-8 h-8"/>
               </div>
               <h2 className="text-3xl font-black text-slate-800 mb-2 tracking-tight">日語記憶系統</h2>
-              <button onClick={() => setShowManualModal(true)} className="absolute top-0 right-0 sm:right-4 p-2 bg-amber-50 text-amber-600 rounded-2xl hover:bg-amber-100 transition-colors flex items-center gap-2 font-bold shadow-sm text-sm">
-                <BookOpen className="w-4 h-4"/>
-                <span className="hidden sm:inline">說明</span>
-              </button>
+              <div className="absolute top-0 right-0 sm:right-4 flex items-center gap-2">
+                <ThemePanel />
+                <button onClick={() => setShowManualModal(true)} className="p-2 bg-amber-50 text-amber-600 rounded-2xl hover:bg-amber-100 transition-colors flex items-center gap-2 font-bold shadow-sm text-sm">
+                  <BookOpen className="w-4 h-4"/>
+                  <span className="hidden sm:inline">說明</span>
+                </button>
+              </div>
             </div>
             
             <div className="max-w-3xl mx-auto mb-10 space-y-4">
