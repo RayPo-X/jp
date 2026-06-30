@@ -8,7 +8,7 @@
 
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family: 'M PLUS Rounded 1c', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
 ruby rt {
@@ -83,7 +83,7 @@ table.table-fixed td > * {
 }
 
 /* ===== 配色 + 深色模式 ===== */
-:root { --page-bg: #f8fafc; }
+:root { --page-bg: #ebe3d4; }
 .app-root { background-color: var(--page-bg) !important; }
 html.dark { --page-bg: #1a1714; }
 
