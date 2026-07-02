@@ -10,7 +10,7 @@ const SWATCHES = [
 export default function ThemePanel() {
   const [open, setOpen] = useState(false);
   const [dark, setDark] = useState(() => { try { return localStorage.getItem('jp_dark') === '1'; } catch { return false; } });
-  const [bg, setBg] = useState(() => { try { return localStorage.getItem('jp_bg') || '#f8fafc'; } catch { return '#f8fafc'; } });
+  const [bg, setBg] = useState(() => { try { return localStorage.getItem('jp_bg') || '#ebe3d4'; } catch { return '#ebe3d4'; } });
   const ref = useRef(null);
 
   useEffect(() => { document.documentElement.classList.toggle('dark', dark); try { localStorage.setItem('jp_dark', dark ? '1' : '0'); } catch {} }, [dark]);
@@ -36,7 +36,7 @@ export default function ThemePanel() {
           <div className="text-xs font-extrabold text-slate-400 tracking-wider mb-2.5">頁面底色 {dark && <span className="font-normal">(淺色模式生效)</span>}</div>
           <div className="grid grid-cols-3 gap-2.5">
             {SWATCHES.map(s => (
-              <button key={s.c} onClick={() => setBg(s.c)} title={s.name} className={`h-10 rounded-xl border-2 transition-all ${bg === s.c ? 'border-blue-500 scale-105' : 'border-slate-200'}`} style={{ backgroundColor: s.c }} />
+              <button key={s.c} onClick={() => setBg(s.c)} title={s.name} className={`h-12 rounded-xl border-2 transition-all shadow-sm ring-1 ring-inset ring-black/10 ${bg === s.c ? 'border-blue-500 scale-105 shadow-md' : 'border-slate-200 hover:border-slate-400 hover:scale-105 hover:shadow-md'}`} style={{ backgroundColor: s.c }} />
             ))}
           </div>
         </div>
