@@ -976,7 +976,23 @@ return parsed;
   const [unlockAmount, setUnlockAmount] = useState(5);
   const [unlockTheme, setUnlockTheme] = useState('random');
   const [themeSuggestionSeed, setThemeSuggestionSeed] = useState(Date.now());
-  
+
+  // ==== 每日學習上限 State ====
+  const [dailyReviewLimit, setDailyReviewLimit] = useState(() => { try { return Number(localStorage.getItem('jp_daily_review_limit') || 80); } catch { return 80; } });
+  const [dailyNewVocabLimit, setDailyNewVocabLimit] = useState(() => { try { return Number(localStorage.getItem('jp_daily_vocab_limit') || 30); } catch { return 30; } });
+  const [dailyNewGrammarLimit, setDailyNewGrammarLimit] = useState(() => { try { return Number(localStorage.getItem('jp_daily_grammar_limit') || 5); } catch { return 5; } });
+  const [dailyNewVerbLimit, setDailyNewVerbLimit] = useState(() => { try { return Number(localStorage.getItem('jp_daily_verb_limit') || 15); } catch { return 15; } });
+  const [todayNewVocabCount, setTodayNewVocabCount] = useState(() => { try { return Number(localStorage.getItem(`jp_daily_new_vocab_${new Date().toISOString().slice(0,10)}`) || 0); } catch { return 0; } });
+
+  // ==== 每日上限 Helper 函式 ====
+  const todayDateStr = () => new Date().toISOString().slice(0, 10);
+  const getTodayNewVocabCount  = () => { try { return Number(localStorage.getItem(`jp_daily_new_vocab_${todayDateStr()}`) || 0); } catch { return 0; } };
+  const addTodayNewVocabCount  = (n) => { try { const k = `jp_daily_new_vocab_${todayDateStr()}`; localStorage.setItem(k, String(getTodayNewVocabCount() + n)); } catch {} };
+  const getTodayGrammarIds = () => { try { const s = localStorage.getItem(`jp_daily_grammar_ids_${todayDateStr()}`); return s ? JSON.parse(s) : null; } catch { return null; } };
+  const setTodayGrammarIds = (ids) => { try { localStorage.setItem(`jp_daily_grammar_ids_${todayDateStr()}`, JSON.stringify(ids)); } catch {} };
+  const getTodayVerbIds    = () => { try { const s = localStorage.getItem(`jp_daily_verb_ids_${todayDateStr()}`);    return s ? JSON.parse(s) : null; } catch { return null; } };
+  const setTodayVerbIds    = (ids) => { try { localStorage.setItem(`jp_daily_verb_ids_${todayDateStr()}`,    JSON.stringify(ids)); } catch {} };
+
   const currentThemeSuggestions = useMemo(() => {
     const all = getAvailableThemes();
     const shuffled = [...all].sort(() => 0.5 - Math.random());
@@ -1026,6 +1042,16 @@ return parsed;
   const todayQueue = vocabDB.filter(v => !((v.example && v.example.trim().length > 0) || v.isSentence) && v.status !== 'new' && v.nextReview <= Date.now());
   const todaySentenceQueue = vocabDB.filter(v => ((v.example && v.example.trim().length > 0) || v.isSentence) && v.status !== 'new' && v.nextReview <= Date.now());
   const reviewedTodayQueue = vocabDB.filter(v => v.lastReviewed && v.lastReviewed >= todayStart.getTime());
+
+  // ==== 每日有效統計（混搭模式）====
+  const effectiveTodayStats = useMemo(() => {
+    const reviewCount  = Math.min(todayQueue.length, dailyReviewLimit);
+    const newVocabSlots = Math.max(0, dailyNewVocabLimit - getTodayNewVocabCount());
+    const newVocabAvail = vocabDB.filter(v => !((v.example && v.example.trim().length > 0) || v.isSentence) && v.status === 'new').length;
+    const newVocabCount = Math.min(newVocabSlots, newVocabAvail);
+    return { reviewCount, newVocabCount, total: reviewCount + newVocabCount };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [todayQueue.length, dailyReviewLimit, dailyNewVocabLimit, todayNewVocabCount, vocabDB]);
 
   // ==== 動詞系統 State ====
   const [verbDB, setVerbDB] = useState(() => {
@@ -1664,7 +1690,37 @@ return parsed;
 
   const startVocabSession = (mode, themeId = null) => {
     let queue = [];
-    if (mode === 'srs') queue = [...todayQueue];
+    if (mode === 'srs') {
+      // 按到期時間排序，最舊的先複習
+      const sortedReviews = [...todayQueue].sort((a, b) => (a.nextReview || 0) - (b.nextReview || 0));
+      // 超過每日上限的複習單字推到明天
+      const overflow = sortedReviews.slice(dailyReviewLimit);
+      if (overflow.length > 0) {
+        setVocabDB(prev => prev.map(v => {
+          if (overflow.some(o => o.id === v.id)) {
+            return { ...v, nextReview: Date.now() + 86400000 };
+          }
+          return v;
+        }));
+      }
+      const reviewPart = sortedReviews.slice(0, dailyReviewLimit);
+      // 計算今日還可新增的單字數量
+      const alreadyNew = getTodayNewVocabCount();
+      const newSlots = Math.max(0, dailyNewVocabLimit - alreadyNew);
+      const newPool = vocabDB
+        .filter(v => !((v.example && v.example.trim().length > 0) || v.isSentence) && v.status === 'new')
+        .sort((a, b) => (a.addedAt || 0) - (b.addedAt || 0) || String(a.id).localeCompare(String(b.id)))
+        .slice(0, newSlots);
+      if (newPool.length > 0) {
+        addTodayNewVocabCount(newPool.length);
+        setTodayNewVocabCount(getTodayNewVocabCount());
+        // 將新單字狀態從 'new' 改為 'learning' 以加入 SRS 系統
+        const newIds = new Set(newPool.map(v => v.id));
+        setVocabDB(prev => prev.map(v => newIds.has(v.id) ? { ...v, status: 'learning', nextReview: Date.now(), repetitions: 0, ef: 2.5, interval: 1 } : v));
+      }
+      // 複習在前、新字在後（不 shuffle SRS 隊列）
+      queue = [...reviewPart, ...newPool];
+    }
     else if (mode === 'today_extra') queue = [...reviewedTodayQueue];
     else if (mode === 'mistakes') queue = Object.values(vocabMistakes);
     else if (mode === 'sentence_srs') {
@@ -1680,20 +1736,20 @@ return parsed;
       const themeData = THEMES.find(t => t.id === themeId);
       if(themeData) setCurrentThemeLabel(themeData.name);
     }
-    
-    
+
+
     if (onlyImportantVocabTest) {
       const impPool = queue.filter(w => w.isImportant);
       if (impPool.length > 0) queue = impPool;
       else alert('目前的單字範圍內沒有標記為「重要」的項目！將回到一般出題。');
     }
-    
+
     if (inputMode === 'kanji') {
       queue = queue.filter(v => v.word && v.word.trim() !== '' && v.word !== v.reading);
       if (queue.length === 0) { alert('目前的單字範圍內沒有包含漢字的單字，無法進行漢字測驗！'); return; }
     }
     if (queue.length === 0) { alert('這個模式目前沒有題目喔！'); return; }
-    queue = queue.sort(() => Math.random() * 0.5);
+    if (mode !== 'srs') queue = queue.sort(() => Math.random() * 0.5);
     
     setVocabTestMode(mode);
     setActiveVocabQueue(queue);
@@ -1874,7 +1930,18 @@ return parsed;
             if (mode === 'grammar') {
       if (customGrammars.length === 0) { alert('文法公式庫為空！請先建立公式。'); goHome(); return; }
       const now = Date.now();
-      const dueGrammars = customGrammars.filter(g => g.status === 'new' || (g.nextReview || 0) <= now);
+      const srsGrammars = customGrammars.filter(g => g.status !== 'new' && (g.nextReview || 0) <= now);
+      let storedIds = getTodayGrammarIds();
+      if (storedIds === null) {
+        const newGrammars = customGrammars
+          .filter(g => g.status === 'new')
+          .sort((a, b) => (a.addedAt || 0) - (b.addedAt || 0) || String(a.id).localeCompare(String(b.id)))
+          .slice(0, dailyNewGrammarLimit);
+        storedIds = newGrammars.map(g => g.id);
+        setTodayGrammarIds(storedIds);
+      }
+      const todayNewGrammars = customGrammars.filter(g => storedIds.includes(g.id));
+      const dueGrammars = [...srsGrammars, ...todayNewGrammars];
       if (dueGrammars.length === 0) { alert('🎉 今日文法複習已完畢！'); goHome(); return; }
 
       verbDB.forEach(word => {
@@ -1913,6 +1980,21 @@ return parsed;
           const learnedPool = filteredWords.filter(w => w.learnStatus === 'learned');
           if (learnedPool.length > 0) filteredWords = learnedPool;
           else alert('目前沒有已學習的動詞/形容詞！將回到全部出題。');
+        }
+        // 每日動詞解鎖上限：限制 'new' learnStatus 的動詞數量
+        const newVerbs = filteredWords.filter(w => w.learnStatus === 'new');
+        const learnedVerbs = filteredWords.filter(w => w.learnStatus !== 'new');
+        if (newVerbs.length > 0) {
+          let storedVerbIds = getTodayVerbIds();
+          if (storedVerbIds === null) {
+            const pickedNewVerbs = newVerbs
+              .sort((a, b) => (a.addedAt || 0) - (b.addedAt || 0) || String(a.id).localeCompare(String(b.id)))
+              .slice(0, dailyNewVerbLimit);
+            storedVerbIds = pickedNewVerbs.map(v => v.id);
+            setTodayVerbIds(storedVerbIds);
+          }
+          const todayNewVerbs = newVerbs.filter(v => storedVerbIds.includes(v.id));
+          filteredWords = [...learnedVerbs, ...todayNewVerbs];
         }
         if (filteredWords.length === 0) return;
         filteredWords.forEach(processWord);
@@ -3137,19 +3219,21 @@ return parsed;
 
   const dashboardStats = React.useMemo(() => {
      const now = Date.now();
-     const vocabDue = vocabDB.filter(v => v.status !== 'new' && (v.nextReview || 0) <= now).length;
      const grammarDue = customGrammars.filter(g => g.status !== 'new' && (g.nextReview || 0) <= now).length;
-     const totalDue = vocabDue + todayQueue.length + grammarDue;
+     // 單字：使用混搭模式的有效數量（複習上限 + 新字名額）
+     const effectiveVocab = effectiveTodayStats.total;
+     const totalDue = effectiveVocab + grammarDue;
 
      const vocabMistakesCount = Object.keys(vocabMistakes).length;
      const otherMistakesCount = Object.keys(mistakeBank).length;
      const totalMistakes = vocabMistakesCount + otherMistakesCount;
 
      return {
-        totalDue, totalMistakes,
+        totalDue, totalMistakes, effectiveVocab,
+        reviewCount: effectiveTodayStats.reviewCount, newVocabCount: effectiveTodayStats.newVocabCount,
         vocabTotal: vocabDB.length, verbTotal: verbDB.length, grammarTotal: customGrammars.length, kanjiTotal: kanjiDB.length
      };
-  }, [vocabDB, verbDB, customGrammars, kanjiDB, vocabMistakes, mistakeBank, todayQueue]);
+  }, [vocabDB, verbDB, customGrammars, kanjiDB, vocabMistakes, mistakeBank, todayQueue, effectiveTodayStats]);
 
   const guessTag = React.useCallback((meaning, db) => guessThemeByMeaning(meaning, db, tagKeywordsMap), [tagKeywordsMap]);
 
@@ -3323,6 +3407,47 @@ return parsed;
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-6 animate-in zoom-in-95 max-h-[90vh] overflow-y-auto">
              <div className="flex justify-between items-center mb-6"><h2 className="text-xl font-bold flex items-center gap-2"><Settings className="w-6 h-6 text-slate-600"/> 系統與測驗設定</h2><button onClick={()=>setShowSettingsModal(false)} className="text-slate-400 hover:text-slate-600"><XCircle className="w-6 h-6"/></button></div>
              <div className="space-y-6">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-700 mb-3 uppercase tracking-wider">📅 每日學習上限</h3>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between gap-4">
+                      <label className="text-sm text-slate-600 whitespace-nowrap">單字每日複習上限</label>
+                      <div className="flex items-center gap-2">
+                        <input type="number" min={1} max={500} value={dailyReviewLimit}
+                          onChange={e => { const v = Math.max(1, Number(e.target.value)); setDailyReviewLimit(v); localStorage.setItem('jp_daily_review_limit', String(v)); }}
+                          className="w-20 p-2 rounded-lg border border-slate-200 text-center text-sm focus:outline-none focus:border-blue-400" />
+                        <span className="text-xs text-slate-400">題</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between gap-4">
+                      <label className="text-sm text-slate-600 whitespace-nowrap">單字每日新字上限</label>
+                      <div className="flex items-center gap-2">
+                        <input type="number" min={0} max={100} value={dailyNewVocabLimit}
+                          onChange={e => { const v = Math.max(0, Number(e.target.value)); setDailyNewVocabLimit(v); localStorage.setItem('jp_daily_vocab_limit', String(v)); }}
+                          className="w-20 p-2 rounded-lg border border-slate-200 text-center text-sm focus:outline-none focus:border-blue-400" />
+                        <span className="text-xs text-slate-400">字</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between gap-4">
+                      <label className="text-sm text-slate-600 whitespace-nowrap">文法每日新公式上限</label>
+                      <div className="flex items-center gap-2">
+                        <input type="number" min={0} max={50} value={dailyNewGrammarLimit}
+                          onChange={e => { const v = Math.max(0, Number(e.target.value)); setDailyNewGrammarLimit(v); localStorage.setItem('jp_daily_grammar_limit', String(v)); }}
+                          className="w-20 p-2 rounded-lg border border-slate-200 text-center text-sm focus:outline-none focus:border-blue-400" />
+                        <span className="text-xs text-slate-400">條</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between gap-4">
+                      <label className="text-sm text-slate-600 whitespace-nowrap">動詞每日新動詞上限</label>
+                      <div className="flex items-center gap-2">
+                        <input type="number" min={0} max={100} value={dailyNewVerbLimit}
+                          onChange={e => { const v = Math.max(0, Number(e.target.value)); setDailyNewVerbLimit(v); localStorage.setItem('jp_daily_verb_limit', String(v)); }}
+                          className="w-20 p-2 rounded-lg border border-slate-200 text-center text-sm focus:outline-none focus:border-blue-400" />
+                        <span className="text-xs text-slate-400">個</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
                 <div>
                   <h3 className="text-sm font-bold text-slate-700 mb-2 uppercase tracking-wider">作答模式</h3>
                   <div className="flex gap-2">
@@ -3603,6 +3728,9 @@ return parsed;
                   {isSyncing ? <RefreshCcw className="w-3 h-3 animate-spin"/> : null}{isSyncing ? '同步中…' : '⬇️ 下載 (覆蓋本地)'}
                 </button>
               </div>
+              <button onClick={() => { setShowSettingsModal(true); setShowDrawer(false); }} className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-50 transition-colors text-left w-full">
+                <span className="text-base">⚙️</span><span className="text-sm font-medium text-slate-700 flex-1">測驗與學習設定</span><span className="text-slate-300 text-xs">›</span>
+              </button>
               <button onClick={() => { setShowManualModal(true); setShowDrawer(false); }} className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-50 transition-colors text-left w-full">
                 <span className="text-base">📖</span><span className="text-sm font-medium text-slate-700 flex-1">使用說明</span><span className="text-slate-300 text-xs">›</span>
               </button>
@@ -3723,12 +3851,13 @@ return parsed;
               </div>
               <div className="grid grid-cols-3 gap-3">
                 <div className="bg-white border border-[#ece7df] rounded-2xl p-4 text-center">
-                  <div className="text-3xl font-black text-[#4a4640] leading-none mb-1.5">{todayQueue.length}</div>
-                  <div className="text-xs font-bold text-[#aaa295]">🗓️ 單字待複習</div>
+                  <div className="text-3xl font-black text-[#4a4640] leading-none mb-1.5">{effectiveTodayStats.reviewCount}</div>
+                  <div className="text-xs font-bold text-[#aaa295]">🗓️ 今日複習</div>
+                  {todayQueue.length > dailyReviewLimit && <div className="text-[10px] text-orange-400 mt-0.5">共 {todayQueue.length} 題，上限 {dailyReviewLimit}</div>}
                 </div>
                 <div className="bg-white border border-[#ece7df] rounded-2xl p-4 text-center">
-                  <div className="text-3xl font-black text-[#4a4640] leading-none mb-1.5">{todaySentenceQueue.length}</div>
-                  <div className="text-xs font-bold text-[#aaa295]">💬 例句待複習</div>
+                  <div className="text-3xl font-black text-[#4a4640] leading-none mb-1.5">{effectiveTodayStats.newVocabCount}</div>
+                  <div className="text-xs font-bold text-[#aaa295]">✨ 今日新字</div>
                 </div>
                 <div className="bg-white border border-[#ece7df] rounded-2xl p-4 text-center">
                   <div className="text-3xl font-black text-[#bd7256] leading-none mb-1.5">{Object.keys(vocabMistakes).length}</div>
@@ -3737,12 +3866,12 @@ return parsed;
               </div>
 
               {/* Primary Action */}
-              {todayQueue.length > 0 ? (
+              {effectiveTodayStats.total > 0 ? (
                 <button
                   onClick={() => startVocabSession('srs')}
                   className="w-full py-5 rounded-2xl font-bold text-lg flex justify-center items-center gap-2 transition-all bg-[#5b7ba3] text-white hover:bg-[#4f74a0] shadow-sm hover:shadow-md active:scale-[0.98]"
                 >
-                  🌅 開始今日複習 ({todayQueue.length} 題)
+                  🌅 開始今日學習 ({effectiveTodayStats.reviewCount} 複習 + {effectiveTodayStats.newVocabCount} 新字)
                 </button>
               ) : (
                 <div className="flex flex-col gap-2">
