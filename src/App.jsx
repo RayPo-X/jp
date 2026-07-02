@@ -159,6 +159,7 @@ const syncKanjiDB = (vocabDB, currentKanjiDB) => {
         newKanjiDB.push({
             id: `k_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
             kanji: k,
+            reading: '',
             meaning: '',
             tags: [],
           jlptLevel: 'Unknown',
@@ -1689,6 +1690,7 @@ return parsed;
   const [timeLeft, setTimeLeft] = useState(15);
   const [choiceOptions, setChoiceOptions] = useState([]);
   const [isPaused, setIsPaused] = useState(false);
+  const [kanjiReadingMode, setKanjiReadingMode] = useState(false);
 
   const actualTimeLimit = inputMode === 'keyboard' ? (timeLimit === 0 ? 0 : timeLimit + 15) : timeLimit;
   const TOTAL_QUESTIONS = 10;
@@ -1698,6 +1700,7 @@ return parsed;
       if (!window.confirm('確定要回首頁嗎？目前的測驗進度將會遺失。')) return;
     }
     setSearchTerm('');
+    setKanjiReadingMode(false);
     setAppState('home');
   };
 
@@ -1787,7 +1790,53 @@ return parsed;
     startVocabSession('theme', randomTheme);
   };
 
-  const loadNextVocab = (queue, currentMode = vocabTestMode) => {
+  const startKanjiSession = (mode) => {
+    const pool = [];
+    kanjiDB.forEach(entry => {
+      if (entry.reading && entry.reading.trim()) {
+        // 有手動填入讀音 → 直接用
+        pool.push({
+          id: entry.id,
+          word: entry.kanji,
+          reading: entry.reading.trim(),
+          meaning: entry.meaning || entry.kanji,
+          tags: entry.tags || [],
+          status: 'learning',
+          nextReview: 0,
+          _kanjiChar: entry.kanji,
+          _fromKanjiDB: true,
+        });
+      } else {
+        // 無讀音 → 從 vocabDB 關聯單字取一個
+        const associated = vocabDB.filter(v => v.word && v.word.includes(entry.kanji) && v.word !== v.reading);
+        if (associated.length > 0) {
+          const picked = associated[Math.floor(Math.random() * associated.length)];
+          pool.push({ ...picked, _kanjiChar: entry.kanji, _fromKanjiDB: false });
+        }
+      }
+    });
+
+    if (pool.length === 0) {
+      alert('漢字索引中沒有可出題的漢字！\n請先新增含漢字的單字，或在漢字索引中填入讀音。');
+      return;
+    }
+
+    const queue = pool.sort(() => Math.random() - 0.5);
+    setKanjiReadingMode(true);
+    setInputMode('choice');
+    setVocabTestMode('today_extra');
+    setActiveVocabQueue(queue);
+    setQuestionCount(1);
+    setScore(0);
+    setCombo(0);
+    setRoundHistory([]);
+    setIsRoundComplete(false);
+    setIsPaused(false);
+    loadNextVocab(queue, 'today_extra', 'choice');
+    setAppState('vocab_playing');
+  };
+
+  const loadNextVocab = (queue, currentMode = vocabTestMode, effectiveInputMode = null) => {
     if (queue.length === 0) { setIsRoundComplete(true); return; }
     const nextVocab = queue[0];
     setCurrentVocab(nextVocab);
@@ -1795,16 +1844,26 @@ return parsed;
     setFeedback(null);
     setExplanation('');
     setTimeLeft(actualTimeLimit);
-    
+
     let direction = 'j2c';
     if (currentMode === 'sentence_srs' || currentMode === 'sentence_infinite') {
         direction = Math.random() > 0.5 ? 'j2c' : 'c2j';
         setCurrentQuestionDirection(direction);
     }
-    
-    if (inputMode === 'choice') {
+
+    const resolvedInputMode = effectiveInputMode || inputMode;
+    if (resolvedInputMode === 'choice') {
         if (currentMode === 'sentence_srs' || currentMode === 'sentence_infinite') {
             setChoiceOptions(generateSentenceDistractors(nextVocab, vocabDB, direction));
+        } else if (nextVocab._fromKanjiDB) {
+            // 漢字直接讀音模式：從其他有讀音的漢字取 distractor，不足補 vocabDB
+            const opts = new Set([nextVocab.reading]);
+            const othersWithReading = kanjiDB.filter(k => k.reading && k.reading.trim() && k.reading.trim() !== nextVocab.reading);
+            [...othersWithReading].sort(() => Math.random() - 0.5).forEach(k => { if (opts.size < 4) opts.add(k.reading.trim()); });
+            if (opts.size < 4) {
+              [...vocabDB].sort(() => Math.random() - 0.5).forEach(v => { if (opts.size < 4 && v.reading && v.reading !== nextVocab.reading) opts.add(v.reading); });
+            }
+            setChoiceOptions(Array.from(opts).sort(() => Math.random() - 0.5));
         } else {
             setChoiceOptions(generateVocabDistractors(nextVocab, vocabDB));
         }
@@ -3929,6 +3988,46 @@ return parsed;
                 </button>
               </div>
 
+              {/* ── 漢字練習 ── */}
+              <div className="flex items-center gap-3 mt-1">
+                <div className="text-xs font-bold text-slate-400 tracking-widest whitespace-nowrap">漢字練習</div>
+                <div className="flex-1 border-t border-slate-100"/>
+              </div>
+
+              {(() => {
+                const kanjiSrsCount = todayQueue.filter(v => v.word && v.word.trim() !== '' && v.word !== v.reading).length;
+                const allKanjiCount = vocabDB.filter(v => !((v.example && v.example.trim().length > 0) || v.isSentence) && v.word && v.word.trim() !== '' && v.word !== v.reading).length;
+                return (
+                  <>
+                    <button
+                      onClick={() => startKanjiSession('srs')}
+                      disabled={kanjiSrsCount === 0}
+                      className={`w-full py-5 rounded-2xl font-bold text-lg flex justify-center items-center gap-2 transition-all ${
+                        kanjiSrsCount > 0
+                          ? 'bg-indigo-500 text-white hover:bg-indigo-600 shadow-sm hover:shadow-md active:scale-[0.98]'
+                          : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                      }`}
+                    >
+                      {kanjiSrsCount > 0 ? `🈶 今日漢字練習（${kanjiSrsCount} 個待複習）` : '✅ 今日漢字全部完成！'}
+                    </button>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        onClick={() => startKanjiSession('infinite')}
+                        disabled={allKanjiCount === 0}
+                        className="py-4 bg-white border border-[#ece7df] text-[#4a4640] rounded-2xl font-bold hover:bg-[#e8eef6] hover:border-[#cfdcea] transition-all text-sm flex flex-col items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed">
+                        <span className="text-xl">🈶</span>漢字無限特訓
+                      </button>
+                      <button
+                        onClick={() => setAppState('vocab_manage')}
+                        className="py-4 bg-white border border-[#ece7df] text-[#4a4640] rounded-2xl font-bold hover:bg-[#e8eef6] hover:border-[#cfdcea] transition-all text-sm flex flex-col items-center gap-1.5">
+                        <span className="text-xl">🔍</span>漢字索引
+                      </button>
+                    </div>
+                  </>
+                );
+              })()}
+
             </div>
 
             {/* ===== RIGHT: 動詞文法訓練場 ===== */}
@@ -4926,6 +5025,7 @@ return parsed;
                                    <div className="mt-2">{renderTags(kanji.tags, (tag) => setSearchTerm(tag))}</div>
                                  </div>
                                  <div className="text-right flex flex-col items-end gap-1">
+                                   <input type="text" value={kanji.reading || ''} onChange={e => setKanjiDB(prev => prev.map(k => k.id === kanji.id ? {...k, reading: e.target.value} : k))} placeholder="讀音（如：しょく）" className="text-right text-sm font-bold text-indigo-600 bg-transparent border-b border-transparent hover:border-indigo-300 focus:border-indigo-500 focus:outline-none w-32 placeholder:text-slate-300"/>
                                    <input type="text" value={kanji.meaning} onChange={e => setKanjiDB(prev => prev.map(k => k.id === kanji.id ? {...k, meaning: e.target.value} : k))} placeholder="備註..." className="text-right text-sm font-bold text-slate-600 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-indigo-500 focus:outline-none w-24 placeholder:text-slate-400"/>
                                    <select value={kanji.jlptLevel} onChange={e => setKanjiDB(prev => prev.map(k => k.id === kanji.id ? {...k, jlptLevel: e.target.value} : k))} className="text-xs font-bold text-slate-400 bg-transparent outline-none cursor-pointer hover:text-slate-600">
                                        <option value="Unknown">--</option>
@@ -5966,7 +6066,15 @@ return parsed;
                  ) : (
                      <>
                        <>
-                       {inputMode === 'kanji' ? (
+                       {kanjiReadingMode ? (
+                         <>
+                           <div className="text-sm text-slate-500 mb-3">請選出這個漢字的讀音：</div>
+                           <div className="text-7xl font-black text-slate-800 tracking-wide mb-3 py-2">{currentVocab._kanjiChar}</div>
+                           <div className="text-sm text-slate-400 mb-8">
+                             {currentVocab.meaning ? <span>（{currentVocab.meaning}）</span> : <span className="text-slate-200">—</span>}
+                           </div>
+                         </>
+                       ) : inputMode === 'kanji' ? (
                          <>
                            <div className="text-sm text-slate-500 mb-2">請打出這個單字的日文漢字：</div>
                            <div className="text-5xl font-black text-slate-800 tracking-wide mb-4 py-4">{currentVocab.reading}</div>
@@ -6034,8 +6142,33 @@ return parsed;
                </button>
             )}
 
+            {/* 漢字讀音模式：答題後揭示例字 */}
+            {appState === 'vocab_playing' && kanjiReadingMode && feedback !== null && (
+              <div className="mt-6 p-4 bg-indigo-50 border border-indigo-100 rounded-2xl text-left animate-in fade-in flex items-start gap-3">
+                <span className="text-2xl shrink-0">🈶</span>
+                <div>
+                  <div className="font-bold text-indigo-800 mb-1">漢字解析</div>
+                  {currentVocab._fromKanjiDB ? (
+                    <div className="text-lg text-slate-800 font-medium">
+                      <span className="text-3xl font-black text-indigo-700">{currentVocab._kanjiChar}</span>
+                      <span className="ml-2 text-indigo-500 font-bold">→ {currentVocab.reading}</span>
+                      {currentVocab.meaning && <span className="ml-3 text-slate-500 text-base">（{currentVocab.meaning}）</span>}
+                    </div>
+                  ) : (
+                    <div className="text-lg text-slate-800 font-medium">
+                      <span className="text-3xl font-black text-indigo-700">{currentVocab._kanjiChar}</span>
+                      <span className="ml-2 text-slate-400 text-base">出現在</span>
+                      <span className="ml-2 font-bold text-slate-700">{renderRuby(currentVocab.word)}</span>
+                      <span className="ml-1 text-indigo-500 font-bold">（{currentVocab.reading}）</span>
+                      <span className="ml-2 text-slate-500 text-base">{currentVocab.meaning}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Vocab 專屬例句展示 (對錯皆顯示) */}
-            {appState === 'vocab_playing' && feedback !== null && currentVocab.example && (
+            {appState === 'vocab_playing' && !kanjiReadingMode && feedback !== null && currentVocab.example && (
                <div className="mt-6 p-4 bg-amber-50 border border-amber-100 rounded-2xl text-left animate-in fade-in flex items-start gap-3">
                    <MessageSquareQuote className="w-6 h-6 text-amber-500 shrink-0 mt-0.5" />
                    <div><div className="font-bold text-amber-800 mb-1">情境例句與解析</div><div className="text-lg text-slate-800 leading-relaxed font-medium">{renderRuby(currentVocab.example)}</div></div>
