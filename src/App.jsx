@@ -1321,6 +1321,19 @@ return parsed;
     });
   }, []);
 
+  // ==== 每日文法有效統計 ====
+  const effectiveTodayGrammarStats = useMemo(() => {
+    const now = Date.now();
+    const srsCount = customGrammars.filter(g => g.status !== 'new' && (g.nextReview || 0) <= now).length;
+    const storedKey = `jp_daily_grammar_ids_${new Date().toISOString().slice(0, 10)}`;
+    const storedRaw = (() => { try { const s = localStorage.getItem(storedKey); return s ? JSON.parse(s) : null; } catch { return null; } })();
+    const newCount = storedRaw !== null
+      ? storedRaw.length
+      : Math.min(dailyNewGrammarLimit, customGrammars.filter(g => g.status === 'new').length);
+    return { srsCount, newCount, total: srsCount + newCount };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customGrammars, dailyNewGrammarLimit]);
+
   // ==== 文法 SRS 記憶系統 State ====
   const [grammarProgress, setGrammarProgress] = useState(() => {
     try {
@@ -3975,7 +3988,12 @@ return parsed;
                 );
               })()}
 
-              {/* Grammar SRS Primary Action */}
+              {/* ── 動詞練習 ── */}
+              <div className="flex items-center gap-3 mt-1">
+                <div className="text-xs font-bold text-slate-400 tracking-widest whitespace-nowrap">動詞練習</div>
+                <div className="flex-1 border-t border-slate-100"/>
+              </div>
+
               <button
                 onClick={startGrammarSRS}
                 disabled={todayGrammarQueue.length === 0}
@@ -3989,7 +4007,7 @@ return parsed;
               </button>
 
               <button onClick={() => setAppState('verb_learning_dashboard')}
-                className="w-full py-4 rounded-2xl font-bold text-sm flex justify-center items-center gap-2 transition-all bg-[#e8eef6] text-[#4f74a0] hover:bg-[#cfdcea] border border-[#cfdcea] mt-2"
+                className="w-full py-4 rounded-2xl font-bold text-sm flex justify-center items-center gap-2 transition-all bg-[#e8eef6] text-[#4f74a0] hover:bg-[#cfdcea] border border-[#cfdcea]"
               >
                 {(() => {
                    const weakest = getWeakestVerbForms(verbDB)[0];
@@ -3999,45 +4017,68 @@ return parsed;
                 })()}
               </button>
 
-              {/* Practice Modes */}
-              <div className="grid grid-cols-2 gap-3 mt-4">
-                <button onClick={() => startVerbRound('normal')}
-                  className="p-5 bg-white border-2 border-slate-100 hover:border-blue-300 hover:bg-blue-50 rounded-2xl transition-all text-left group active:scale-[0.97]">
-                  <div className="p-2 bg-blue-100 text-blue-600 rounded-xl w-fit mb-3 group-hover:bg-blue-500 group-hover:text-white transition-colors">
+              <button onClick={() => startVerbRound('normal')}
+                className="p-5 bg-white border-2 border-slate-100 hover:border-blue-300 hover:bg-blue-50 rounded-2xl transition-all text-left group active:scale-[0.97]">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-blue-100 text-blue-600 rounded-xl group-hover:bg-blue-500 group-hover:text-white transition-colors">
                     <RotateCcw className="w-5 h-5"/>
                   </div>
-                  <div className="font-bold text-slate-800 mb-1 leading-tight">自訂綜合特訓</div>
-                  <div className="text-xs text-slate-400 mt-1 leading-relaxed">嚴格依照右上角「設定」的勾選項目隨機出題</div>
-                </button>
-
-                <button onClick={() => startVerbRound('grammar')}
-                  className="p-5 bg-white border-2 border-slate-100 hover:border-emerald-300 hover:bg-emerald-50 rounded-2xl transition-all text-left group active:scale-[0.97] flex flex-col justify-between h-full">
                   <div>
-                    <div className="p-2 bg-emerald-100 text-emerald-600 rounded-xl w-fit mb-3 group-hover:bg-emerald-500 group-hover:text-white transition-colors">
-                      <Puzzle className="w-5 h-5"/>
-                    </div>
-                    <div className="font-bold text-slate-800 mb-1 leading-tight">文法測驗</div>
-                    <div className="text-xs text-slate-400 mt-1 leading-relaxed">專注集中練習您建立的「自訂文法公式」</div>
+                    <div className="font-bold text-slate-800 leading-tight">自訂綜合特訓</div>
+                    <div className="text-xs text-slate-400 mt-0.5">嚴格依照設定的勾選項目隨機出題</div>
                   </div>
-                  <div className="mt-4 flex flex-wrap items-center gap-2">
-                     <span className="text-xs font-bold text-emerald-700 bg-emerald-100 px-2 py-1 rounded-md">待複習 {grammarStats.dueTotal} 題</span>
-                     <span className={`text-xs font-bold px-2 py-1 rounded-md ${grammarStats.accuracy !== null ? 'text-blue-700 bg-blue-100' : 'text-slate-500 bg-slate-100'}`}>
-                        {grammarStats.accuracy !== null ? `正確率 ${grammarStats.accuracy}%` : '正確率：資料不足'}
-                     </span>
+                </div>
+              </button>
+
+              <button onClick={() => startVerbRound('rpg')}
+                className="p-5 bg-white border-2 border-slate-100 hover:border-red-300 hover:bg-red-50 rounded-2xl transition-all group active:scale-[0.97]">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-red-100 text-red-500 rounded-xl group-hover:bg-red-500 group-hover:text-white transition-colors flex-shrink-0">
+                    <Swords className="w-5 h-5"/>
                   </div>
-                </button>
+                  <div>
+                    <div className="font-bold text-slate-800 leading-tight">RPG 極限生存戰</div>
+                    <div className="text-xs text-slate-400 mt-0.5">3 滴血挑戰（依照您的設定出題）</div>
+                  </div>
+                </div>
+              </button>
+
+              {/* ── 文法練習 ── */}
+              <div className="flex items-center gap-3 mt-2">
+                <div className="text-xs font-bold text-slate-400 tracking-widest whitespace-nowrap">文法練習</div>
+                <div className="flex-1 border-t border-slate-100"/>
               </div>
 
-              {/* Game Mode */}
-              <button onClick={() => startVerbRound('rpg')}
-                className="w-full mt-3 p-5 bg-white border-2 border-slate-100 hover:border-red-300 hover:bg-red-50 rounded-2xl transition-all group active:scale-[0.97]">
-                <div className="flex items-center gap-4">
-                  <div className="p-3 bg-red-100 text-red-500 rounded-xl group-hover:bg-red-500 group-hover:text-white transition-colors flex-shrink-0">
-                    <Swords className="w-6 h-6"/>
+              {/* 今日文法 SRS 大按鈕 */}
+              <button
+                onClick={() => startVerbRound('grammar')}
+                disabled={effectiveTodayGrammarStats.total === 0}
+                className={`w-full py-5 rounded-2xl font-bold text-lg flex justify-center items-center gap-2 transition-all ${
+                  effectiveTodayGrammarStats.total > 0
+                    ? 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm hover:shadow-md active:scale-[0.98]'
+                    : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                }`}
+              >
+                {effectiveTodayGrammarStats.total > 0
+                  ? `🧩 今日文法學習（複習 ${effectiveTodayGrammarStats.srsCount} + 新公式 ${effectiveTodayGrammarStats.newCount} 條）`
+                  : '✅ 今日文法全部完成！'}
+              </button>
+
+              <button onClick={() => startVerbRound('grammar')}
+                className="p-5 bg-white border-2 border-slate-100 hover:border-emerald-300 hover:bg-emerald-50 rounded-2xl transition-all text-left group active:scale-[0.97]">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-emerald-100 text-emerald-600 rounded-xl group-hover:bg-emerald-500 group-hover:text-white transition-colors">
+                    <Puzzle className="w-5 h-5"/>
                   </div>
-                  <div className="text-left">
-                    <div className="font-bold text-slate-800 text-lg">RPG 極限生存戰</div>
-                    <div className="text-sm text-slate-500 mt-1">3 滴血挑戰（依照您的設定出題）</div>
+                  <div className="flex-1">
+                    <div className="font-bold text-slate-800 leading-tight">文法測驗（無上限）</div>
+                    <div className="text-xs text-slate-400 mt-0.5">不限每日配額，直接練習所有自訂文法公式</div>
+                  </div>
+                  <div className="flex flex-col items-end gap-1">
+                    <span className="text-xs font-bold text-emerald-700 bg-emerald-100 px-2 py-1 rounded-md">待複習 {grammarStats.dueTotal} 題</span>
+                    {grammarStats.accuracy !== null && (
+                      <span className="text-xs font-bold text-blue-700 bg-blue-100 px-2 py-1 rounded-md">正確率 {grammarStats.accuracy}%</span>
+                    )}
                   </div>
                 </div>
               </button>
