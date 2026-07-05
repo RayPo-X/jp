@@ -25,6 +25,24 @@ const renderFormulaText = (text) => {
   });
 };
 
+const renderGrammarTargetName = (text, answerBlankIndex) => {
+  if (!text) return null;
+  if (import.meta.env.DEV && answerBlankIndex === undefined) {
+    console.warn('[Grammar] answerBlankIndex 未設定，文法名稱：', text);
+  }
+  const parts = text.split(/(＿|_)/g);
+  let blankCount = 0;
+  return parts.map((part, i) => {
+    if (part === '＿' || part === '_') {
+      const isAnswer = blankCount === answerBlankIndex;
+      blankCount++;
+      if (isAnswer) return <span key={i} className="text-red-500">＿</span>;
+      return <span key={i} className="text-slate-400">＿</span>;
+    }
+    return <span key={i}>{part}</span>;
+  });
+};
+
 const renderTextWithStrikethrough = (text) => {
   if (!text) return null;
   const parts = text.split(/(~~.*?~~)/g);
@@ -444,8 +462,8 @@ const BASE_FORM_CARD_STYLES = {
 const getBaseFormCardStyle = (id) => BASE_FORM_CARD_STYLES[id] || { bg: 'bg-white', border: 'border-slate-200', hover: 'hover:border-emerald-300', underline: 'border-slate-300' };
 
 const DEFAULT_GRAMMARS = [
-  { id: 'g_tai', name: '想要 ( ＿たい)', baseForm: 'masu', removeStr: 'ます', appendStr: 'たい', appliesTo: ['verb'], example: '私は日本へ行きたいです' },
-  { id: 'g_nakereba', name: '必須 ( ＿なければなりません)', baseForm: 'nai', removeStr: 'い', appendStr: 'ければなりません', appliesTo: ['verb'], example: '明日早く起きなければなりません' }
+  { id: 'g_tai', name: '想要 ( ＿たい)', baseForm: 'masu', removeStr: 'ます', appendStr: 'たい', appliesTo: ['verb'], example: '私は日本へ行きたいです', answerBlankIndex: 0 },
+  { id: 'g_nakereba', name: '必須 ( ＿なければなりません)', baseForm: 'nai', removeStr: 'い', appendStr: 'ければなりません', appliesTo: ['verb'], example: '明日早く起きなければなりません', answerBlankIndex: 0 }
 ];
 
 
@@ -830,8 +848,8 @@ const getExplanation = (word, target) => {
   return rule;
 };
 
-const generateDistractors = (word, target, grammarDef) => {
-  const optionsMap = new Map(); 
+const generateDistractors = (word, target, grammarDef, allGrammars = []) => {
+  const optionsMap = new Map();
   let correctRuby = '';
   if (grammarDef) {
     const adjFormMap = { adj_i: 'jisho', adj_na: 'jisho', adj_all: 'jisho', noun: 'jisho' };
@@ -844,38 +862,74 @@ const generateDistractors = (word, target, grammarDef) => {
   }
   optionsMap.set(stripRuby(correctRuby), correctRuby);
 
-  const jishoRuby = word.jisho;
-  const stemRuby = jishoRuby.slice(0, -1);
+  if (grammarDef && allGrammars.length > 0) {
+    // Type 2: use other grammar rules applied to the same verb as distractors
+    const adjFormMap = { adj_i: 'jisho', adj_na: 'jisho', adj_all: 'jisho', noun: 'jisho' };
+    const otherGrammars = allGrammars.filter(g => g.id !== grammarDef.id && g.appliesTo.includes(word.type));
+    const sameBase = otherGrammars.filter(g => g.baseForm === grammarDef.baseForm);
+    const otherBase = otherGrammars.filter(g => g.baseForm !== grammarDef.baseForm);
+    const candidates = [...sameBase, ...otherBase].sort(() => Math.random() - 0.5);
+    for (const g of candidates) {
+      if (optionsMap.size >= 4) break;
+      const rb = adjFormMap[g.baseForm] || g.baseForm;
+      const baseStr = word[rb] || '';
+      if (!baseStr) continue;
+      const rx = new RegExp((g.removeStr || '') + '$');
+      const dRuby = baseStr.replace(rx, '') + g.appendStr;
+      const dPlain = stripRuby(dRuby);
+      if (!optionsMap.has(dPlain)) optionsMap.set(dPlain, dRuby);
+    }
+  } else if (!grammarDef) {
+    // Type 1: use real verb form fields as distractors
+    const formKeys = ['jisho','masu','te','ta','nai','nakatta','ba','volitional','potential','passive','causative','causative_passive'];
+    const candidates = formKeys.filter(k => k !== target && word[k]).sort(() => Math.random() - 0.5);
+    for (const k of candidates) {
+      if (optionsMap.size >= 4) break;
+      const dRuby = word[k];
+      const dPlain = stripRuby(dRuby);
+      if (!optionsMap.has(dPlain)) optionsMap.set(dPlain, dRuby);
+    }
+  }
 
-  const dummySuffixes = ['て', 'た', 'ない', 'なかった', 'る', 'ます', 'んだ', 'いて', 'いた', 'くて', 'かった', 'だ', 'じゃない', 'じゃなかった', 'って', 'った', 'いで', 'わ', 'あ', 'ら', 'く'];
-  let fallbackStem = stemRuby;
-  if (word.type === 'adj_na') fallbackStem = jishoRuby.slice(0, -1); 
-  
-  const shuffledSuffixes = [...dummySuffixes].sort(() => Math.random() - 0.5);
-  for (const suf of shuffledSuffixes) {
+  // fallback: random suffix generation if still not enough options
+  if (optionsMap.size < 4) {
+    const jishoRuby = word.jisho;
+    const stemRuby = jishoRuby.slice(0, -1);
+    let fallbackStem = stemRuby;
+    if (word.type === 'adj_na') fallbackStem = jishoRuby.slice(0, -1);
+    const dummySuffixes = ['て', 'た', 'ない', 'なかった', 'る', 'ます', 'んだ', 'いて', 'いた', 'くて', 'かった', 'だ', 'じゃない', 'じゃなかった', 'って', 'った', 'いで', 'わ', 'あ', 'ら', 'く'];
+    const shuffledSuffixes = [...dummySuffixes].sort(() => Math.random() - 0.5);
+    for (const suf of shuffledSuffixes) {
       if (optionsMap.size >= 4) break;
       let dummyWordRuby = fallbackStem + suf;
       if (grammarDef) {
-          const replaceRegex = new RegExp((grammarDef.removeStr || '') + '$');
-          dummyWordRuby = dummyWordRuby.replace(replaceRegex, '') + grammarDef.appendStr;
+        const replaceRegex = new RegExp((grammarDef.removeStr || '') + '$');
+        dummyWordRuby = dummyWordRuby.replace(replaceRegex, '') + grammarDef.appendStr;
       }
       const dummyWordPlain = stripRuby(dummyWordRuby);
       if (!optionsMap.has(dummyWordPlain) && dummyWordPlain !== stripRuby(correctRuby)) {
-          optionsMap.set(dummyWordPlain, dummyWordRuby);
+        optionsMap.set(dummyWordPlain, dummyWordRuby);
       }
+    }
   }
+
   return Array.from(optionsMap.entries()).map(([plain, ruby]) => ({ plain, ruby })).sort(() => Math.random() - 0.5).slice(0, 4);
 };
 
 const generateVocabDistractors = (correctVocab, allVocabs) => {
     const optionsMap = new Map();
     optionsMap.set(correctVocab.reading, correctVocab.reading);
-    
+
+    const correctInterval = correctVocab.interval || 0;
     let pool = allVocabs.filter(v => v.tag === correctVocab.tag && v.id !== correctVocab.id);
     if (pool.length < 3) pool = allVocabs.filter(v => v.id !== correctVocab.id);
-    
-    const shuffled = pool.sort(() => Math.random() - 0.5);
-    for (const v of shuffled) {
+
+    // prioritize words with similar SRS interval (harder to distinguish)
+    const close = pool.filter(v => Math.abs((v.interval || 0) - correctInterval) <= 10).sort(() => Math.random() - 0.5);
+    const rest = pool.filter(v => Math.abs((v.interval || 0) - correctInterval) > 10).sort(() => Math.random() - 0.5);
+    const ordered = [...close, ...rest];
+
+    for (const v of ordered) {
         if (optionsMap.size >= 4) break;
         optionsMap.set(v.reading, v.reading);
     }
@@ -921,6 +975,14 @@ const generateSentenceDistractors = (correctVocab, allVocabs, direction = 'j2c')
         }
     }
     return Array.from(optionsMap.values()).sort(() => Math.random() - 0.5);
+};
+
+const calcLatePenalty = (originalNextReview, newInterval) => {
+  if (!originalNextReview || originalNextReview <= 0) return newInterval;
+  const lateDays = Math.max(0, Math.floor((Date.now() - originalNextReview) / 86400000));
+  if (lateDays <= 2) return newInterval;
+  const penaltyFactor = Math.max(0.5, 1 - lateDays * 0.05);
+  return Math.max(1, Math.round(newInterval * penaltyFactor));
 };
 
 export default function App() {
@@ -1017,6 +1079,7 @@ return parsed;
   const [showOnlyImportantVerb, setShowOnlyImportantVerb] = useState(false);
   const [verbManageTypeTab, setVerbManageTypeTab] = useState('all');
   const [showVerbAddSection, setShowVerbAddSection] = useState(false);
+  const [showVerbQuickPaste, setShowVerbQuickPaste] = useState(() => localStorage.getItem('verbApp_showVerbQuickPaste') !== 'false');
   const [onlyImportantVocabTest, setOnlyImportantVocabTest] = useState(false);
   const [onlyImportantVerbTest, setOnlyImportantVerbTest] = useState(false);
   const [onlyImportantGrammarTest, setOnlyImportantGrammarTest] = useState(false);
@@ -1199,6 +1262,8 @@ return parsed;
   });
   const [vocabAutoFit, setVocabAutoFit] = useState(() => localStorage.getItem('verbApp_vocabAutoFit') !== 'false');
   const [verbAutoFit, setVerbAutoFit] = useState(() => localStorage.getItem('verbApp_verbAutoFit') !== 'false');
+  const [hiddenVerbCols, setHiddenVerbCols] = useState(() => { try { return new Set(JSON.parse(localStorage.getItem('verbApp_hiddenVerbCols') || '[]')); } catch { return new Set(); } });
+  const [showVerbColPicker, setShowVerbColPicker] = useState(false);
 
   useEffect(() => {
     localStorage.setItem('verbApp_vocabColWidths', JSON.stringify(vocabColWidths));
@@ -1208,6 +1273,8 @@ return parsed;
   }, [verbColWidths]);
   useEffect(() => { localStorage.setItem('verbApp_vocabAutoFit', vocabAutoFit); }, [vocabAutoFit]);
   useEffect(() => { localStorage.setItem('verbApp_verbAutoFit', verbAutoFit); }, [verbAutoFit]);
+  useEffect(() => { localStorage.setItem('verbApp_hiddenVerbCols', JSON.stringify([...hiddenVerbCols])); }, [hiddenVerbCols]);
+  useEffect(() => { localStorage.setItem('verbApp_showVerbQuickPaste', String(showVerbQuickPaste)); }, [showVerbQuickPaste]);
 
   useEffect(() => {
     const handleMouseMove = (e) => {
@@ -1314,6 +1381,21 @@ return parsed;
     } catch { return DEFAULT_GRAMMARS.map(g => ({ ...g, status: 'new', ef: 2.5, interval: 0, repetitions: 0, totalAttempts: 0, totalCorrect: 0, nextReview: 0, tags: g.tag ? [g.tag] : [] })); }
   });
   useEffect(() => { localStorage.setItem('verbApp_customGrammars', JSON.stringify(customGrammars)); }, [customGrammars]);
+  // 一次性遷移：補上缺少 answerBlankIndex 的舊有文法（預設為最後一個空格）
+  useEffect(() => {
+    setCustomGrammars(prev => {
+      const needsMigration = prev.some(g => {
+        const bc = ((g.name || '').match(/[＿_]/g) || []).length;
+        return bc >= 1 && g.answerBlankIndex === undefined;
+      });
+      if (!needsMigration) return prev;
+      return prev.map(g => {
+        if (g.answerBlankIndex !== undefined) return g;
+        const bc = ((g.name || '').match(/[＿_]/g) || []).length;
+        return bc >= 1 ? { ...g, answerBlankIndex: bc - 1 } : g;
+      });
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     setCustomGrammars(prev => {
       if (!prev.some(g => !g.addedAt)) return prev;
@@ -1577,18 +1659,22 @@ return parsed;
       }
     sorted.sort((a, b) => {
       if (!a) return 1; if (!b) return -1;
-      if (!a) return 1; if (!b) return -1;
       let aVal, bVal;
-      switch (verbSortConfig.key) {
+      const key = verbSortConfig.key;
+      const getTs = (v) => { const p = String(v.id||'').split('_'); for (const x of p) { const n = Number(x); if (!isNaN(n) && n > 1000000000000) return n; } return 0; };
+      const getAcc = (v) => { let c=0,w=0; if(v.stats) ACTIVE_VERB_FORMS.forEach(f=>{if(v.stats[f]){c+=v.stats[f].correct;w+=v.stats[f].wrong;}}); const t=c+w; return t===0?-1:c/t; };
+      const statusOrder = { mastered: 2, learning: 1, not_started: 0 };
+      switch (key) {
+        case 'isImportant': aVal = a.isImportant ? 1 : 0; bVal = b.isImportant ? 1 : 0; break;
+        case 'status': aVal = statusOrder[a.status||'not_started']??0; bVal = statusOrder[b.status||'not_started']??0; break;
+        case 'accuracy': aVal = getAcc(a); bVal = getAcc(b); break;
         case 'tag': aVal = a.tag || ''; bVal = b.tag || ''; break;
         case 'type': aVal = (a.type || '') + (a.group || ''); bVal = (b.type || '') + (b.group || ''); break;
         case 'word': aVal = a.jisho || ''; bVal = b.jisho || ''; break;
         case 'meaning': aVal = a.meaning || ''; bVal = b.meaning || ''; break;
         case 'difficulty': aVal = a.difficulty || 'easy'; bVal = b.difficulty || 'easy'; break;
-        case 'dateAdded':
-        default:
-          const getTs = (id) => { const p = String(id||'').split('_'); for (const x of p) { const n = Number(x); if (!isNaN(n) && n > 1000000000000) return n; } return 0; };
-          aVal = a.addedAt || getTs(a.id); bVal = b.addedAt || getTs(b.id); break;
+        case 'dateAdded': aVal = a.addedAt || getTs(a); bVal = b.addedAt || getTs(b); break;
+        default: aVal = a[key] || ''; bVal = b[key] || ''; break;
       }
       if (aVal < bVal) return verbSortConfig.direction === 'asc' ? -1 : 1;
       if (aVal > bVal) return verbSortConfig.direction === 'asc' ? 1 : -1;
@@ -1605,8 +1691,8 @@ return parsed;
   };
 
   const renderVerbSortIcon = (key) => {
-    if (verbSortConfig.key !== key) return null;
-    return <span className="ml-1 text-indigo-500">{verbSortConfig.direction === 'asc' ? '↑' : '↓'}</span>;
+    if (verbSortConfig.key === key) return <span className="ml-1 text-indigo-600 font-bold">{verbSortConfig.direction === 'asc' ? '↑' : '↓'}</span>;
+    return <span className="ml-1 text-slate-300">↕</span>;
   };
 
 
@@ -1689,6 +1775,7 @@ return parsed;
   const [explanation, setExplanation] = useState('');
   const [timeLeft, setTimeLeft] = useState(15);
   const [choiceOptions, setChoiceOptions] = useState([]);
+  const [usedHint, setUsedHint] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [kanjiReadingMode, setKanjiReadingMode] = useState(false);
 
@@ -1696,7 +1783,7 @@ return parsed;
   const TOTAL_QUESTIONS = 10;
 
   const goHome = () => {
-    if (window.confirm && (appState === 'vocab_playing' || appState === 'verb_playing')) {
+    if (window.confirm && (appState === 'vocab_playing' || appState === 'verb_playing') && !isRoundComplete) {
       if (!window.confirm('確定要回首頁嗎？目前的測驗進度將會遺失。')) return;
     }
     setSearchTerm('');
@@ -1792,7 +1879,10 @@ return parsed;
 
   const startKanjiSession = (mode) => {
     const pool = [];
+    const now = Date.now();
     kanjiDB.forEach(entry => {
+      const isDue = !entry.nextReview || entry.nextReview <= now;
+      if (mode === 'srs' && !isDue) return;
       if (entry.reading && entry.reading.trim()) {
         // 有手動填入讀音 → 直接用
         pool.push({
@@ -1802,13 +1892,15 @@ return parsed;
           meaning: entry.meaning || entry.kanji,
           tags: entry.tags || [],
           status: 'learning',
-          nextReview: 0,
+          nextReview: entry.nextReview || 0,
           _kanjiChar: entry.kanji,
           _fromKanjiDB: true,
         });
       } else {
         // 無讀音 → 從 vocabDB 關聯單字取一個
-        const associated = vocabDB.filter(v => v.word && v.word.includes(entry.kanji) && v.word !== v.reading);
+        const allAssociated = vocabDB.filter(v => v.word && v.word.includes(entry.kanji) && v.word !== v.reading);
+        const dueAssociated = mode === 'srs' ? allAssociated.filter(v => v.nextReview <= now) : allAssociated;
+        const associated = dueAssociated.length > 0 ? dueAssociated : (mode === 'infinite' ? allAssociated : []);
         if (associated.length > 0) {
           const picked = associated[Math.floor(Math.random() * associated.length)];
           pool.push({ ...picked, _kanjiChar: entry.kanji, _fromKanjiDB: false });
@@ -1822,9 +1914,10 @@ return parsed;
     }
 
     const queue = pool.sort(() => Math.random() - 0.5);
+    const kanjiVocabTestMode = mode === 'srs' ? 'srs' : 'today_extra';
     setKanjiReadingMode(true);
     setInputMode('choice');
-    setVocabTestMode('today_extra');
+    setVocabTestMode(kanjiVocabTestMode);
     setActiveVocabQueue(queue);
     setQuestionCount(1);
     setScore(0);
@@ -1832,7 +1925,7 @@ return parsed;
     setRoundHistory([]);
     setIsRoundComplete(false);
     setIsPaused(false);
-    loadNextVocab(queue, 'today_extra', 'choice');
+    loadNextVocab(queue, kanjiVocabTestMode, 'choice');
     setAppState('vocab_playing');
   };
 
@@ -1937,7 +2030,7 @@ return parsed;
       explanation: currentVocab.word ? `核心單字：${currentVocab.word}` : `純假名單字`
     }]);
 
-    if (vocabTestMode === 'srs' || vocabTestMode === 'sentence_srs') {
+    if ((vocabTestMode === 'srs' || vocabTestMode === 'sentence_srs') && !kanjiReadingMode) {
        let quality = 0;
        if (isCorrect) {
            if (timeSpent <= actualTimeLimit / 2) quality = 5;
@@ -1956,6 +2049,7 @@ return parsed;
                    else if (reps === 3) interval = 7;
                    else if (reps === 4) interval = 14;
                    else interval = Math.round(interval * ef);
+                   if (interval > 0) interval = calcLatePenalty(v.nextReview, interval);
                    reps++;
                    if (reps >= 5) status = 'mastered';
                } else { reps = 0; interval = 0; status = 'learning'; }
@@ -1965,7 +2059,16 @@ return parsed;
        }));
     }
 
-    if (!isCorrect && (vocabTestMode === 'srs' || vocabTestMode === 'today_extra')) {
+    // 漢字模式：無論對錯都更新 kanjiDB，今天不再重複出題（一天考一輪）
+    if (kanjiReadingMode && currentVocab._kanjiChar) {
+      setKanjiDB(prev => prev.map(k =>
+        k.kanji === currentVocab._kanjiChar
+          ? { ...k, lastReviewed: Date.now(), nextReview: Date.now() + 86400000 }
+          : k
+      ));
+    }
+
+    if (!isCorrect && (vocabTestMode === 'srs' || vocabTestMode === 'today_extra') && !kanjiReadingMode) {
       setActiveVocabQueue(prev => [...prev.slice(1), prev[0]]);
     }
 
@@ -2099,7 +2202,8 @@ return parsed;
     setTimeLeft(actualTimeLimit);
     setIsPaused(false);
 
-    if (inputMode === 'choice') setChoiceOptions(generateDistractors(selectedItem.word, selectedItem.target, selectedItem.grammarDef));
+    setUsedHint(false);
+    if (inputMode === 'choice') setChoiceOptions(generateDistractors(selectedItem.word, selectedItem.target, selectedItem.grammarDef, customGrammars));
   };
 
   const processVerbAnswer = (answerToCheck = null) => {
@@ -2111,8 +2215,13 @@ return parsed;
     let exp = '';
     if (currentGrammarDef) {
        const baseName = verbForms.find(f => f.id === currentGrammarDef.baseForm)?.label || GRAMMAR_ADJ_FORMS.find(f => f.id === currentGrammarDef.baseForm)?.label || currentGrammarDef.baseForm;
-       exp = `自訂文法【${currentGrammarDef.name}】變化規則：接在【${baseName}】後` +
-             (currentGrammarDef.removeStr ? `去掉「${currentGrammarDef.removeStr}」，` : '，') + `加上「${currentGrammarDef.appendStr}」。`;
+       const _r = currentGrammarDef.removeStr; const _a = currentGrammarDef.appendStr;
+       let _changeDesc = '';
+       if (_r && _a) _changeDesc = `去掉「${_r}」，加上「${_a}」`;
+       else if (_r && !_a) _changeDesc = `去掉「${_r}」後即為答案，無需加上字尾`;
+       else if (!_r && _a) _changeDesc = `加上「${_a}」`;
+       else _changeDesc = `直接使用【${baseName}】的形態，無需加上字尾`;
+       exp = `自訂文法【${currentGrammarDef.name}】變化規則：接在【${baseName}】後，${_changeDesc}。`;
     } else exp = getExplanation(currentVerb, currentTarget);
 
     setFeedback(isCorrect ? 'correct' : 'incorrect');
@@ -2162,6 +2271,7 @@ return parsed;
           else if (reps === 4) interval = 5;
           else if (reps === 5) interval = 10;
           else interval = Math.round(interval * ef);
+          if (interval > 0) interval = calcLatePenalty(existing.nextReview, interval);
           reps++;
         } else { reps = 0; interval = 0; }
         return {
@@ -2195,6 +2305,7 @@ return parsed;
           else if (reps === 3) interval = 5;
           else if (reps === 4) interval = 10;
           else interval = Math.round(interval * ef);
+          if (interval > 0) interval = calcLatePenalty(g.nextReview, interval);
           reps++;
           if (reps >= 5) status = 'mastered';
           else status = 'learning';
@@ -2248,8 +2359,9 @@ return parsed;
     setExplanation('');
     setTimeLeft(actualTimeLimit);
     setIsPaused(false);
+    setUsedHint(false);
     if (inputMode === 'choice') setChoiceOptions(generateDistractors(firstItem.word, firstItem.target, null));
-    
+
     setActiveVocabQueue(queue.slice(1));
     setAppState('verb_playing');
   };
@@ -2851,7 +2963,7 @@ return parsed;
   const [editingGrammarId, setEditingGrammarId] = useState(null);
   const [grammarSortConfig, setGrammarSortConfig] = useState({ key: null, direction: null });
   const [grammarFilterTag, setGrammarFilterTag] = useState('');
-  const [newGrammar, setNewGrammar] = useState({ name: '', translation: '', baseForm: 'te', removeStr: '', appendStr: '', appliesTo: ['verb'], example: '', exampleTranslation: '', extraExamples: [], processExample: '', note: '', tag: '', tags: [], structureNote: '' });
+  const [newGrammar, setNewGrammar] = useState({ name: '', translation: '', baseForm: 'te', removeStr: '', appendStr: '', appliesTo: ['verb'], example: '', exampleTranslation: '', extraExamples: [], processExample: '', note: '', tag: '', tags: [], structureNote: '', answerBlankIndex: undefined });
   const [isGrammarExtraOpen, setIsGrammarExtraOpen] = useState(false);
   const [isGrammarFormReordering, setIsGrammarFormReordering] = useState(false);
   const [grammarTagsOpen, setGrammarTagsOpen] = useState(false);
@@ -2883,12 +2995,17 @@ return parsed;
       removeStr: g.removeStr || '',
       appendStr: g.appendStr || '',
       appliesTo: g.appliesTo || ['verb'],
-      translation: g.translation || '', example: g.example || '', exampleTranslation: g.exampleTranslation || '', extraExamples: g.extraExamples || [], processExample: g.processExample || '', note: g.note || '', tag: g.tag || '', tags: g.tags || [], structureNote: g.structureNote || ''
+      translation: g.translation || '', example: g.example || '', exampleTranslation: g.exampleTranslation || '', extraExamples: g.extraExamples || [], processExample: g.processExample || '', note: g.note || '', tag: g.tag || '', tags: g.tags || [], structureNote: g.structureNote || '', answerBlankIndex: g.answerBlankIndex
     });
   };
 
   const handleAddGrammar = () => {
     if (!newGrammar.name) { alert('請填寫文法名稱！'); return; }
+    const blankCountSave = ((newGrammar.name || '').match(/[＿_]/g) || []).length;
+    if (blankCountSave >= 1 && newGrammar.answerBlankIndex === undefined) {
+      alert('請選擇「答案空格位置」！\n文法名稱含有空格符號（＿），需指定答案要填入哪一格。');
+      return;
+    }
 
     if (editingGrammarId) {
         setCustomGrammars(prev => prev.map(g => g.id === editingGrammarId ? { ...g, ...newGrammar } : g));
@@ -2898,7 +3015,7 @@ return parsed;
         if (isDup) { alert(`「${newGrammar.name.trim()}」已存在於文法公式庫中！`); return; }
         setCustomGrammars(prev => [...prev, { ...newGrammar, id: `g_custom_${Date.now()}`, addedAt: Date.now() }]);
     }
-    setNewGrammar({ name: '', translation: '', baseForm: 'te', removeStr: '', appendStr: '', appliesTo: ['verb'], example: '', exampleTranslation: '', processExample: '', note: '', tag: '', tags: [], structureNote: '' });
+    setNewGrammar({ name: '', translation: '', baseForm: 'te', removeStr: '', appendStr: '', appliesTo: ['verb'], example: '', exampleTranslation: '', processExample: '', note: '', tag: '', tags: [], structureNote: '', answerBlankIndex: undefined });
   };
 
   const getInitialVerbInputs = () => {
@@ -2921,10 +3038,24 @@ return parsed;
                   next.group = '1';
               }
           }
-          if ((key === 'masu' || key === 'group' || key === 'type') && next.type === 'verb' && next.masu) {
-              const autoGen = autoConjugateVerb(next.masu, next.group);
-              if (autoGen) {
-                  return { ...next, ...autoGen };
+          if ((key === 'masu' || key === 'jisho' || key === 'group' || key === 'type') && next.type === 'verb') {
+              const jishoToUse = key === 'jisho' ? value.trim() : (next.masu ? deriveJishoFromMasu(next.masu, next.group) : '');
+              if (jishoToUse) {
+                  const fullForms = autoConjugate(jishoToUse, next.group);
+                  const effectiveMasu = key === 'masu' ? next.masu : (fullForms.masu || next.masu || '');
+                  const getBaseVal = (base) => {
+                      if (base === 'te') return fullForms.te || '';
+                      if (base === 'ta') return fullForms.ta || '';
+                      if (base === 'nai') return fullForms.nai || '';
+                      if (base === 'nai_stem') { const n = fullForms.nai || ''; return n.endsWith('い') ? n.slice(0, -1) : n; }
+                      if (base === 'jisho') return jishoToUse;
+                      if (base === 'masu') return effectiveMasu;
+                      if (base === 'masu_stem') { return effectiveMasu.endsWith('ます') ? effectiveMasu.slice(0, -2) : effectiveMasu; }
+                      return '';
+                  };
+                  const customForms = {};
+                  verbForms.forEach(f => { if (f.base) { const bv = getBaseVal(f.base); if (bv) customForms[f.id] = bv + (f.suffix || ''); } });
+                  return { ...next, jisho: jishoToUse, ...fullForms, masu: effectiveMasu, ...customForms };
               }
           }
           return next;
@@ -3077,7 +3208,9 @@ return parsed;
   };
 
   const handleAddVerb = () => {
-    if (!verbInputs.masu || !verbInputs.meaning) return alert('請填寫至少 masu, meaning');
+    if (!verbInputs.masu && !verbInputs.meaning) return alert('請填寫「ます形」和「中文意思」欄位');
+    if (!verbInputs.masu) return alert('請填寫「ます形」欄位');
+    if (!verbInputs.meaning) return alert('請填寫「中文意思」欄位（在上方類型選擇旁）');
     const isVerbDuplicate = verbDB.some(ev => (ev.jisho && ev.jisho === verbInputs.jisho) || (ev.masu && ev.masu === verbInputs.masu));
     if (isVerbDuplicate) {
         alert('此動詞/形容詞已存在於題庫中（辭書形或ます形重複），禁止重複新增！');
@@ -3086,6 +3219,59 @@ return parsed;
     const newTag = guessTag(verbInputs.meaning, vocabDB);
     setVerbDB(prev => [...prev, { ...verbInputs, tag: newTag, tags: newTag && newTag !== '自訂' ? [newTag] : [], id: `${verbInputs.type}_custom_${Date.now()}`, addedAt: Date.now() }]);
     setVerbInputs(getInitialVerbInputs());
+  };
+
+  const handleFillMissingForms = () => {
+    let updatedCount = 0;
+    setVerbDB(prev => prev.map(v => {
+      const jishoToUse = v.jisho || (v.masu ? deriveJishoFromMasu(v.masu, v.group) : '');
+      if (!jishoToUse) return v;
+
+      let forms = {};
+      if (v.type === 'adj_i') {
+        const isIrregular = v.irregular || jishoToUse === 'いい' || jishoToUse === '良い' || jishoToUse === '良[よ]い';
+        if (isIrregular) {
+          forms = { masu: 'いいです', te: 'よくて', ta: 'よかった', nai: 'よくない', nakatta: 'よくなかった', ba: 'よければ' };
+        } else if (jishoToUse.endsWith('い')) {
+          const stem = jishoToUse.slice(0, -1);
+          forms = { masu: jishoToUse + 'です', te: stem + 'くて', ta: stem + 'かった', nai: stem + 'くない', nakatta: stem + 'くなかった', ba: stem + 'ければ' };
+        }
+      } else if (v.type === 'adj_na') {
+        const stem = jishoToUse.endsWith('だ') ? jishoToUse.slice(0, -1) : jishoToUse;
+        forms = { masu: stem + 'です', te: stem + 'で', ta: stem + 'だった', nai: stem + 'じゃない', nakatta: stem + 'じゃなかった', ba: stem + 'なら' };
+      } else {
+        forms = autoConjugate(jishoToUse, v.group);
+      }
+
+      if (!Object.keys(forms).length) return v;
+
+      const effectiveMasu = forms.masu || v.masu || '';
+      const getBaseVal = (base) => {
+        if (base === 'te') return forms.te || '';
+        if (base === 'ta') return forms.ta || '';
+        if (base === 'nai') return forms.nai || '';
+        if (base === 'nai_stem') { const n = forms.nai || ''; return n.endsWith('い') ? n.slice(0, -1) : n; }
+        if (base === 'jisho') return jishoToUse;
+        if (base === 'masu') return effectiveMasu;
+        if (base === 'masu_stem') { return effectiveMasu.endsWith('ます') ? effectiveMasu.slice(0, -2) : effectiveMasu.endsWith('です') ? effectiveMasu.slice(0, -2) : effectiveMasu; }
+        return '';
+      };
+
+      const updates = { jisho: v.jisho || jishoToUse };
+      verbForms.forEach(f => {
+        if (!v[f.id]) {
+          const computed = f.base ? (getBaseVal(f.base) ? getBaseVal(f.base) + (f.suffix || '') : '') : (forms[f.id] || '');
+          if (computed) updates[f.id] = computed;
+        }
+      });
+
+      if (Object.keys(updates).length > 1 || (updates.jisho && !v.jisho)) {
+        updatedCount++;
+        return { ...v, ...updates };
+      }
+      return v;
+    }));
+    setTimeout(() => alert(`已補全 ${updatedCount} 筆動詞的空白變化型`), 50);
   };
 
   // 在 Theme Select 中取得有效主題清單
@@ -3889,7 +4075,7 @@ return parsed;
               </div>
             </div>
             {/* Two Column Layout */}
-          <div className="grid lg:grid-cols-2 gap-8 items-start">
+          <div className="grid lg:grid-cols-2 gap-8 items-stretch">
 
             {/* ===== LEFT: 單字記憶庫 ===== */}
             <div className="flex flex-col gap-4">
@@ -3907,34 +4093,42 @@ return parsed;
               </div>
 
               {/* Stats Cards */}
-              <div className="grid grid-cols-3 gap-3 mb-3">
-                <div className="bg-white border border-[#ece7df] rounded-2xl p-4 text-center">
-                  <div className="text-3xl font-black text-[#4a4640] leading-none mb-1.5">{vocabDB.filter(v => v.status === 'new').length}</div>
-                  <div className="text-xs font-bold text-[#aaa295]">📚 待學習</div>
+              <div className="flex flex-col gap-3">
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="bg-white border border-[#ece7df] rounded-2xl p-4 text-center">
+                    <div className="text-3xl font-black text-[#4a4640] leading-none mb-1.5">{vocabDB.filter(v => v.status === 'new').length}</div>
+                    <div className="text-xs font-bold text-[#aaa295]">📚 待學習</div>
+                  </div>
+                  <div className="bg-white border border-[#ece7df] rounded-2xl p-4 text-center">
+                    <div className="text-3xl font-black text-[#5b7ba3] leading-none mb-1.5">{vocabDB.filter(v => v.status === 'learning').length}</div>
+                    <div className="text-xs font-bold text-[#aaa295]">🎯 已學習</div>
+                  </div>
+                  <div className="bg-white border border-[#ece7df] rounded-2xl p-4 text-center">
+                    <div className="text-3xl font-black text-[#54916c] leading-none mb-1.5">{vocabDB.filter(v => v.status === 'mastered').length}</div>
+                    <div className="text-xs font-bold text-[#aaa295]">🏆 精通</div>
+                  </div>
                 </div>
-                <div className="bg-white border border-[#ece7df] rounded-2xl p-4 text-center">
-                  <div className="text-3xl font-black text-[#5b7ba3] leading-none mb-1.5">{vocabDB.filter(v => v.status === 'learning').length}</div>
-                  <div className="text-xs font-bold text-[#aaa295]">🎯 已學習</div>
-                </div>
-                <div className="bg-white border border-[#ece7df] rounded-2xl p-4 text-center">
-                  <div className="text-3xl font-black text-[#54916c] leading-none mb-1.5">{vocabDB.filter(v => v.status === 'mastered').length}</div>
-                  <div className="text-xs font-bold text-[#aaa295]">🏆 精通</div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="bg-white border border-[#ece7df] rounded-2xl p-4 text-center">
+                    <div className="text-3xl font-black text-[#4a4640] leading-none mb-1.5">{effectiveTodayStats.reviewCount}</div>
+                    <div className="text-xs font-bold text-[#aaa295]">🗓️ 今日複習</div>
+                    {todayQueue.length > dailyReviewLimit && <div className="text-[10px] text-orange-400 mt-0.5">共 {todayQueue.length} 題，上限 {dailyReviewLimit}</div>}
+                  </div>
+                  <div className="bg-white border border-[#ece7df] rounded-2xl p-4 text-center">
+                    <div className="text-3xl font-black text-[#4a4640] leading-none mb-1.5">{effectiveTodayStats.newVocabCount}</div>
+                    <div className="text-xs font-bold text-[#aaa295]">✨ 今日新字</div>
+                  </div>
+                  <div className="bg-white border border-[#ece7df] rounded-2xl p-4 text-center">
+                    <div className="text-3xl font-black text-[#bd7256] leading-none mb-1.5">{Object.keys(vocabMistakes).length}</div>
+                    <div className="text-xs font-bold text-[#aaa295]">📒 錯題本</div>
+                  </div>
                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-3">
-                <div className="bg-white border border-[#ece7df] rounded-2xl p-4 text-center">
-                  <div className="text-3xl font-black text-[#4a4640] leading-none mb-1.5">{effectiveTodayStats.reviewCount}</div>
-                  <div className="text-xs font-bold text-[#aaa295]">🗓️ 今日複習</div>
-                  {todayQueue.length > dailyReviewLimit && <div className="text-[10px] text-orange-400 mt-0.5">共 {todayQueue.length} 題，上限 {dailyReviewLimit}</div>}
-                </div>
-                <div className="bg-white border border-[#ece7df] rounded-2xl p-4 text-center">
-                  <div className="text-3xl font-black text-[#4a4640] leading-none mb-1.5">{effectiveTodayStats.newVocabCount}</div>
-                  <div className="text-xs font-bold text-[#aaa295]">✨ 今日新字</div>
-                </div>
-                <div className="bg-white border border-[#ece7df] rounded-2xl p-4 text-center">
-                  <div className="text-3xl font-black text-[#bd7256] leading-none mb-1.5">{Object.keys(vocabMistakes).length}</div>
-                  <div className="text-xs font-bold text-[#aaa295]">📒 錯題本</div>
-                </div>
+
+              {/* ── 單字練習 ── */}
+              <div className="flex items-center gap-3 mt-1">
+                <div className="text-xs font-bold text-slate-400 tracking-widest whitespace-nowrap">單字練習</div>
+                <div className="flex-1 border-t border-slate-100"/>
               </div>
 
               {/* Primary Action */}
@@ -3988,6 +4182,8 @@ return parsed;
                 </button>
               </div>
 
+              <div className="flex-1"/>
+
               {/* ── 漢字練習 ── */}
               <div className="flex items-center gap-3 mt-1">
                 <div className="text-xs font-bold text-slate-400 tracking-widest whitespace-nowrap">漢字練習</div>
@@ -3995,7 +4191,12 @@ return parsed;
               </div>
 
               {(() => {
-                const kanjiSrsCount = todayQueue.filter(v => v.word && v.word.trim() !== '' && v.word !== v.reading).length;
+                const nowKanji = Date.now();
+                const kanjiSrsCount = kanjiDB.filter(k => {
+                  if (k.nextReview && k.nextReview > nowKanji) return false;
+                  if (k.reading && k.reading.trim()) return true;
+                  return vocabDB.some(v => v.word && v.word.includes(k.kanji) && v.word !== v.reading && v.nextReview <= nowKanji);
+                }).length;
                 const allKanjiCount = vocabDB.filter(v => !((v.example && v.example.trim().length > 0) || v.isSentence) && v.word && v.word.trim() !== '' && v.word !== v.reading).length;
                 return (
                   <>
@@ -4015,13 +4216,19 @@ return parsed;
                       <button
                         onClick={() => startKanjiSession('infinite')}
                         disabled={allKanjiCount === 0}
-                        className="py-4 bg-white border border-[#ece7df] text-[#4a4640] rounded-2xl font-bold hover:bg-[#e8eef6] hover:border-[#cfdcea] transition-all text-sm flex flex-col items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed">
-                        <span className="text-xl">🈶</span>漢字無限特訓
+                        className="p-5 bg-white border border-[#ece7df] text-[#4a4640] rounded-2xl font-bold hover:bg-[#e8eef6] hover:border-[#cfdcea] transition-all text-sm flex items-center gap-3 disabled:opacity-40 disabled:cursor-not-allowed">
+                        <div className="p-2 bg-indigo-100 text-indigo-700 rounded-xl flex-shrink-0 flex items-center justify-center">
+                          <span className="text-sm font-black leading-none">有</span>
+                        </div>
+                        漢字無限特訓
                       </button>
                       <button
                         onClick={() => setAppState('vocab_manage')}
-                        className="py-4 bg-white border border-[#ece7df] text-[#4a4640] rounded-2xl font-bold hover:bg-[#e8eef6] hover:border-[#cfdcea] transition-all text-sm flex flex-col items-center gap-1.5">
-                        <span className="text-xl">🔍</span>漢字索引
+                        className="p-5 bg-white border border-[#ece7df] text-[#4a4640] rounded-2xl font-bold hover:bg-[#e8eef6] hover:border-[#cfdcea] transition-all text-sm flex items-center gap-3">
+                        <div className="p-2 bg-slate-100 text-slate-600 rounded-xl flex-shrink-0">
+                          <Search className="w-4 h-4"/>
+                        </div>
+                        漢字索引
                       </button>
                     </div>
                   </>
@@ -4141,6 +4348,8 @@ return parsed;
                   </div>
                 </div>
               </button>
+
+              <div className="flex-1"/>
 
               {/* ── 文法練習 ── */}
               <div className="flex items-center gap-3 mt-2">
@@ -5300,7 +5509,7 @@ return parsed;
                     <div className="overflow-y-auto flex-1 pr-1">
                       {(() => {
                         const gf = {
-                          name: <div><label className={`block text-sm font-bold ${gc.label} mb-1.5`}>文法名稱 (提示語)</label><div className="flex gap-2 items-center"><input id="grammar-name-input" type="text" value={newGrammar.name} onChange={e => setNewGrammar(p => ({...p, name: e.target.value.replaceAll('~', '_').replaceAll('～', '_').replaceAll('〜', '_')}))} placeholder="例：〔名〕と〔名〕とどちらが_ですか" className={`flex-1 p-4 rounded-xl border ${gc.input} outline-none`}/><button type="button" title="插入名詞佔位符" onClick={() => { const el = document.getElementById('grammar-name-input'); if (!el) return; const s = el.selectionStart ?? newGrammar.name.length; const v = newGrammar.name; const nv = v.slice(0,s)+'〔名〕'+v.slice(el.selectionEnd??s); setNewGrammar(p=>({...p,name:nv})); setTimeout(()=>{el.focus();el.setSelectionRange(s+3,s+3);},0); }} className={`px-3 py-2 rounded-xl border font-bold text-sm transition-colors shrink-0 ${gc.advBtn}`}>〔名〕</button></div></div>,
+                          name: (() => { const blanksInName = ((newGrammar.name||'').match(/[＿_]/g)||[]).length; return (<div className="space-y-3"><div><label className={`block text-sm font-bold ${gc.label} mb-1.5`}>文法名稱 (提示語)</label><div className="flex gap-2 items-center"><input id="grammar-name-input" type="text" value={newGrammar.name} onChange={e => { const raw = e.target.value.replaceAll('~','_').replaceAll('～','_').replaceAll('〜','_'); const count = (raw.match(/[＿_]/g)||[]).length; setNewGrammar(p => { const newIdx = count === 0 ? undefined : count === 1 ? 0 : (p.answerBlankIndex !== undefined && p.answerBlankIndex < count ? p.answerBlankIndex : undefined); return {...p, name: raw, answerBlankIndex: newIdx}; }); }} placeholder="例：〔名〕と〔名〕とどちらが_ですか" className={`flex-1 p-4 rounded-xl border ${gc.input} outline-none`}/><button type="button" title="插入名詞佔位符" onClick={() => { const el = document.getElementById('grammar-name-input'); if (!el) return; const s = el.selectionStart ?? newGrammar.name.length; const v = newGrammar.name; const nv = v.slice(0,s)+'〔名〕'+v.slice(el.selectionEnd??s); setNewGrammar(p=>({...p,name:nv})); setTimeout(()=>{el.focus();el.setSelectionRange(s+3,s+3);},0); }} className={`px-3 py-2 rounded-xl border font-bold text-sm transition-colors shrink-0 ${gc.advBtn}`}>〔名〕</button></div></div>{blanksInName >= 2 && (<div><label className={`block text-sm font-bold ${gc.label} mb-1.5`}>答案空格位置 <span className="text-red-500">*</span></label><div className="flex gap-2 flex-wrap">{Array.from({length: blanksInName}, (_,i) => (<button key={i} type="button" onClick={() => setNewGrammar(p => ({...p, answerBlankIndex: i}))} className={`px-4 py-2 rounded-xl border font-bold text-sm transition-colors ${newGrammar.answerBlankIndex === i ? 'bg-red-500 text-white border-red-500' : gc.advBtn}`}>第 {i+1} 格</button>))}</div>{newGrammar.answerBlankIndex === undefined && <p className="text-xs text-red-500 mt-1.5">* 必須選擇答案要填入哪一格</p>}</div>)}{blanksInName >= 1 && (<div><label className="block text-xs font-bold text-slate-400 mb-1">預覽效果</label><div className="p-3 rounded-xl border bg-white text-center text-lg font-bold tracking-wide">{(() => { const parts = (newGrammar.name||'').split(/(＿|_)/g); let bc=0; return parts.map((part,i) => { if (part==='＿'||part==='_') { const isAns = bc === newGrammar.answerBlankIndex; bc++; return isAns ? <span key={i} className="text-red-500 font-black">【動詞】</span> : <span key={i} className="text-slate-400">＿</span>; } return <span key={i}>{part}</span>; }); })()}{blanksInName>=2 && newGrammar.answerBlankIndex===undefined && <span className="text-slate-300 text-sm ml-2">← 請先選擇答案格</span>}</div></div>)}</div>); })(),
                           translation: <div><label className={`block text-sm font-bold ${gc.label} mb-1.5`}>文法中文翻譯</label><input type="text" value={newGrammar.translation || ''} onChange={e => setNewGrammar(p => ({...p, translation: e.target.value}))} placeholder="例：請不要～" className={`w-full p-4 rounded-xl border ${gc.input} outline-none`}/></div>,
                           baseForm: <div><label className={`block text-sm font-bold ${gc.label} mb-1.5`}>接續方式</label><select value={newGrammar.baseForm} onChange={e => setNewGrammar(p => ({...p, baseForm: e.target.value}))} className={`w-full p-4 rounded-xl border ${gc.input} outline-none bg-white`}><optgroup label="動詞">{verbForms.filter(opt => !opt.id.startsWith('adj_')).map(opt => <option key={opt.id} value={opt.id}>{opt.label}</option>)}</optgroup><optgroup label="形容詞">{GRAMMAR_ADJ_FORMS.map(opt => <option key={opt.id} value={opt.id}>{opt.label}</option>)}</optgroup><optgroup label="名詞"><option value="noun">名詞</option></optgroup></select></div>,
                           tag: null,
@@ -5413,10 +5622,15 @@ return parsed;
                    <span className="text-indigo-600 text-sm font-bold">{showVerbAddSection ? '▲ 收起' : '▼ 展開'}</span>
                  </button>
                  {showVerbAddSection && <div className="px-6 pb-6">
-                 <div className="mb-6 bg-white p-5 rounded-2xl border border-indigo-200 shadow-sm">
-                   <div className="flex items-center gap-2 mb-3 text-sm font-bold text-indigo-700"><Sparkles className="w-5 h-5"/> 快速貼上區 (智慧解析與自動變化)</div>
-                   <textarea value={verbImportText} onChange={e => setVerbImportText(e.target.value)} placeholder="支援群組標籤與例句！例如：&#10;【第一類動詞】&#10;飲[の]む&#10;喝&#10;💬 水を飲む。&#10;&#10;【第二類動詞】&#10;食[た]べる&#10;吃" className="w-full p-4 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 text-sm h-32 resize-y placeholder:text-slate-400 leading-relaxed"/>
-                   <button onClick={handleVerbSmartImport} className="mt-3 w-full py-3 bg-indigo-100 text-indigo-800 rounded-xl font-bold hover:bg-indigo-200 transition-colors flex items-center justify-center gap-2"><Sparkles className="w-4 h-4"/> 解析文字並送至確認區</button>
+                 <div className="mb-6 bg-white rounded-2xl border border-indigo-200 shadow-sm overflow-hidden">
+                   <button onClick={() => setShowVerbQuickPaste(v => !v)} className="w-full flex items-center justify-between px-5 py-4 hover:bg-indigo-50 transition-colors">
+                     <div className="flex items-center gap-2 text-sm font-bold text-indigo-700"><Sparkles className="w-5 h-5"/> 快速貼上區 (智慧解析與自動變化)</div>
+                     <span className="text-indigo-500 text-xs font-bold">{showVerbQuickPaste ? '▲ 收起' : '▼ 展開'}</span>
+                   </button>
+                   {showVerbQuickPaste && <div className="px-5 pb-5">
+                     <textarea value={verbImportText} onChange={e => setVerbImportText(e.target.value)} placeholder="支援群組標籤與例句！例如：&#10;【第一類動詞】&#10;飲[の]む&#10;喝&#10;💬 水を飲む。&#10;&#10;【第二類動詞】&#10;食[た]べる&#10;吃" className="w-full p-4 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 text-sm h-32 resize-y placeholder:text-slate-400 leading-relaxed"/>
+                     <button onClick={handleVerbSmartImport} className="mt-3 w-full py-3 bg-indigo-100 text-indigo-800 rounded-xl font-bold hover:bg-indigo-200 transition-colors flex items-center justify-center gap-2"><Sparkles className="w-4 h-4"/> 解析文字並送至確認區</button>
+                   </div>}
                  </div>
                  {verbBatchItems.length > 0 && (
                    <div className="mb-6 bg-white rounded-2xl border border-indigo-200 shadow-sm overflow-hidden">
@@ -5479,7 +5693,7 @@ return parsed;
                    <div><label className="block text-sm font-bold text-indigo-700 mb-1">類型</label><select value={verbInputs.type} onChange={e=>{const t=e.target.value; handleVerbInputChange('type',t); if(t==='adj_i') handleVerbInputChange('group','i'); else if(t==='adj_na') handleVerbInputChange('group','na'); else handleVerbInputChange('group','1');}} className="w-full p-3 rounded-xl border border-indigo-200"><option value="verb">動詞 (verb)</option><option value="adj_i">い形容詞 (adj_i)</option><option value="adj_na">な形容詞 (adj_na)</option></select></div>
                    <div><label className="block text-sm font-bold text-indigo-700 mb-1">群組/分類</label><select value={verbInputs.group} onChange={e=>handleVerbInputChange('group', e.target.value)} className="w-full p-3 rounded-xl border border-indigo-200" disabled={verbInputs.type !== 'verb'}>{verbInputs.type === 'adj_i' ? <option value="i">い型</option> : verbInputs.type === 'adj_na' ? <option value="na">な型</option> : <><option value="1">第一類動詞（五段動詞）</option><option value="2">第二類動詞（上一・下一段動詞）</option><option value="3">第三類動詞（不規則動詞）</option></>}</select></div>
                    <div><label className="block text-sm font-bold text-indigo-700 mb-1">難易度</label><select value={verbInputs.difficulty} onChange={e=>handleVerbInputChange('difficulty', e.target.value)} className="w-full p-3 rounded-xl border border-indigo-200"><option value="n5">N5</option><option value="n4">N4</option><option value="n3">N3</option><option value="n2">N2</option><option value="n1">N1</option></select></div>
-                   <div><label className="block text-sm font-bold text-indigo-700 mb-1">中文意思</label><input type="text" value={verbInputs.meaning} onChange={e=>handleVerbInputChange('meaning', e.target.value)} placeholder="例：去" className="w-full p-3 rounded-xl border border-indigo-200"/></div>
+                   <div><label className="flex items-center justify-between mb-1"><span className="text-sm font-bold text-indigo-700">中文意思</span>{verbInputs.meaning && <button type="button" onClick={() => handleVerbInputChange('meaning', '')} className="text-xs text-slate-400 hover:text-rose-500 transition-colors">✕ 清除</button>}</label><input type="text" value={verbInputs.meaning} onChange={e=>handleVerbInputChange('meaning', e.target.value)} placeholder="例：去" className="w-full p-3 rounded-xl border border-indigo-200"/></div>
                  </div>
                  <div className="mb-4">
                    <label className="flex items-center gap-2 cursor-pointer w-fit">
@@ -5488,11 +5702,7 @@ return parsed;
                      <span className="text-xs text-slate-400">（如いい→よかった，活用形與辭書形字根不同時勾選）</span>
                    </label>
                  </div>
-                 <div className="mb-4">
-                   <label className="block text-sm font-bold text-indigo-700 mb-1">例句 (選填，支援漢字[假名]自動標音)</label>
-                   <input type="text" value={verbInputs.example || ''} onChange={e=>handleVerbInputChange('example', e.target.value)} placeholder="例：雨[あめ]が降[ふ]るので、行[い]きません。" className="w-full p-3 rounded-xl border border-indigo-200"/>
-                 </div>
-                 <div className="flex justify-between items-center mb-4 mt-6"><h4 className="font-bold text-indigo-800">各變化型設定</h4><button onClick={() => {
+                 <div className="flex justify-between items-center mb-4 mt-6"><h4 className="font-bold text-indigo-800">各變化型設定</h4><div className="flex items-center gap-2"><button type="button" onClick={() => { setVerbInputs(prev => { const cleared = Object.assign({}, prev); verbForms.forEach(f => { cleared[f.id] = ''; }); return cleared; }); }} className="text-sm text-slate-500 bg-slate-100 px-3 py-2 rounded-xl font-bold hover:bg-rose-50 hover:text-rose-600 flex items-center gap-1 transition-colors">✕ 清除變化型</button><button onClick={() => {
   let jishoToUse = verbInputs.jisho;
   if (!jishoToUse && verbInputs.masu) {
     jishoToUse = deriveJishoFromMasu(verbInputs.masu, verbInputs.group);
@@ -5533,7 +5743,7 @@ return parsed;
   } else {
     alert('無法自動產生，請確認格式是否正確！');
   }
-}} className="text-sm text-indigo-700 bg-indigo-100 px-4 py-2 rounded-xl font-bold hover:bg-indigo-200 flex items-center gap-1 transition-colors"><Sparkles className="w-4 h-4"/> 自動產生變化型</button></div><div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-4">
+}} className="text-sm text-indigo-700 bg-indigo-100 px-4 py-2 rounded-xl font-bold hover:bg-indigo-200 flex items-center gap-1 transition-colors"><Sparkles className="w-4 h-4"/> 自動產生變化型</button></div></div><div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-4">
                    
                    {verbForms.map((f, idx) => {
                         if ((verbInputs.type === 'adj_i' || verbInputs.type === 'adj_na') && f.id === 'masu') return null;
@@ -5557,6 +5767,7 @@ return parsed;
                           <div className="flex items-center gap-1 mb-1">
                             <GripHorizontal className="w-4 h-4 text-indigo-400 shrink-0 cursor-grab" title="拖曳以排序" />
                               <span className="text-sm font-bold text-indigo-700 flex-1 min-w-0 truncate">{f.label}</span>
+                              {(f.id === 'jisho' || f.id === 'masu') && <span className="text-[10px] text-indigo-400 bg-indigo-50 px-1.5 py-0.5 rounded-full border border-indigo-100 shrink-0 whitespace-nowrap">✨ 貼入自動填全</span>}
                               {f.base && <span className="text-[10px] text-indigo-300 shrink-0">⚡</span>}
                             <button
                               type="button"
@@ -5613,6 +5824,10 @@ return parsed;
                         </div>
                     );})}
                  </div>
+                 <div className="mt-4">
+                   <label className="flex items-center justify-between mb-1"><span className="text-sm font-bold text-indigo-700">例句 (選填，支援漢字[假名]自動標音)</span>{verbInputs.example && <button type="button" onClick={() => handleVerbInputChange('example', '')} className="text-xs text-slate-400 hover:text-rose-500 transition-colors">✕ 清除</button>}</label>
+                   <input type="text" value={verbInputs.example || ''} onChange={e=>handleVerbInputChange('example', e.target.value)} placeholder="例：雨[あめ]が降[ふ]るので、行[い]きません。" className="w-full p-3 rounded-xl border border-indigo-200"/>
+                 </div>
 
                  <div className="mt-6 border-t border-indigo-100 pt-6 pb-6">
                     <h4 className="font-bold text-indigo-800 mb-3 flex items-center gap-2 text-sm"><Settings className="w-4 h-4"/> 自訂動詞變化欄位</h4>
@@ -5659,7 +5874,43 @@ return parsed;
               </div>
 
               <div className="overflow-x-auto">
-                 <div className="flex justify-end mb-2 gap-2">
+                 <div className="flex justify-end mb-2 gap-2 flex-wrap items-start">
+                   {/* 欄位顯示/隱藏 */}
+                   <div className="relative">
+                     <button
+                       onClick={() => setShowVerbColPicker(v => !v)}
+                       className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border transition-colors ${showVerbColPicker ? 'bg-indigo-500 text-white border-indigo-500' : 'text-slate-500 hover:text-indigo-600 bg-slate-100 hover:bg-indigo-50 border-slate-200 hover:border-indigo-300'}`}
+                       title="顯示/隱藏欄位"
+                     >☰ 欄位 {hiddenVerbCols.size > 0 && <span className="bg-rose-500 text-white rounded-full text-[10px] px-1.5 py-0.5 ml-0.5">{hiddenVerbCols.size}</span>}</button>
+                     {showVerbColPicker && (
+                       <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-50 p-3 min-w-[180px]">
+                         <div className="text-[11px] font-bold text-slate-400 mb-2 uppercase tracking-wider">欄位顯示設定</div>
+                         <div className="space-y-1 max-h-72 overflow-y-auto">
+                           {verbTableColumnOrder.map(colId => {
+                             const isBuiltIn = colDefinitions[colId];
+                             const isVerbForm = verbForms.find(f => f.id === colId);
+                             if (!isBuiltIn && !isVerbForm) return null;
+                             const label = isBuiltIn ? isBuiltIn.label : isVerbForm.label;
+                             const isVisible = !hiddenVerbCols.has(colId);
+                             return (
+                               <label key={colId} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer">
+                                 <input type="checkbox" checked={isVisible} onChange={() => setHiddenVerbCols(prev => { const next = new Set(prev); if (next.has(colId)) next.delete(colId); else next.add(colId); return next; })} className="w-3.5 h-3.5 accent-indigo-500 cursor-pointer"/>
+                                 <span className="text-xs text-slate-700">{label}</span>
+                               </label>
+                             );
+                           })}
+                         </div>
+                         {hiddenVerbCols.size > 0 && (
+                           <button onClick={() => setHiddenVerbCols(new Set())} className="mt-2 w-full text-xs text-indigo-600 hover:text-indigo-800 font-bold py-1 border-t border-slate-100">全部顯示</button>
+                         )}
+                       </div>
+                     )}
+                   </div>
+                   <button
+                     onClick={handleFillMissingForms}
+                     className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 hover:border-emerald-400 px-3 py-1.5 rounded-lg transition-colors"
+                     title="對所有動詞，只補全空白的變化型欄位，不覆蓋已有值"
+                   >✨ 補全空白變化型</button>
                    <button
                      onClick={() => { setVerbAutoFit(v => !v); }}
                      className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border transition-colors ${verbAutoFit ? 'bg-indigo-500 text-white border-indigo-500 hover:bg-indigo-600' : 'text-slate-500 hover:text-indigo-600 bg-slate-100 hover:bg-indigo-50 border-slate-200 hover:border-indigo-300'}`}
@@ -5686,15 +5937,16 @@ return parsed;
                      ↩ 重設欄寬
                    </button>
                  </div>
-               <table className="text-left text-sm table-fixed" style={verbAutoFit ? { width: '100%' } : { width: verbTableColumnOrder.reduce((acc, colId) => acc + (verbColWidths[colId] ?? (VERB_DEFAULT_WIDTHS[colId] || (verbForms.find(f => f.id === colId) ? 120 : 100))), 0) }}>
+               {(() => { const visibleVerbCols = verbTableColumnOrder.filter(id => !hiddenVerbCols.has(id)); return (<>
+               <table className="text-left text-sm table-fixed" style={verbAutoFit ? { width: '100%' } : { width: visibleVerbCols.reduce((acc, colId) => acc + (verbColWidths[colId] ?? (VERB_DEFAULT_WIDTHS[colId] || (verbForms.find(f => f.id === colId) ? 120 : 100))), 0) }}>
                  <thead className="bg-slate-50 text-slate-600"><tr>
-                    {verbTableColumnOrder.map((colId, idx) => {
+                    {visibleVerbCols.map((colId, idx) => {
         const isBuiltIn = colDefinitions[colId];
         const isVerbForm = verbForms.find(f => f.id === colId);
         if (!isBuiltIn && !isVerbForm) return null;
         
         const label = isBuiltIn ? isBuiltIn.label : isVerbForm.label;
-        const sortable = isBuiltIn ? isBuiltIn.sortable : false;
+        const sortable = colId !== 'actions' && (isBuiltIn ? isBuiltIn.sortable : !!isVerbForm);
         
         return (
                                     <th key={colId} 
@@ -5767,7 +6019,7 @@ return parsed;
                     {sortedVerbDB.map(v => editingVerbId === v.id ? (
                        /* 編輯中的列：只標記高亮，實際編輯在 Modal */
                        <tr key={'edit-'+v.id} className="border-b-2 border-indigo-400 bg-indigo-50/60 ring-2 ring-inset ring-indigo-300">
-                          {verbTableColumnOrder.map(colId => {
+                          {visibleVerbCols.map(colId => {
                             if (colId === 'actions') return (
                               <td key={colId} className="p-4 text-center">
                                 <span className="text-xs font-bold text-indigo-500 animate-pulse">編輯中…</span>
@@ -5782,7 +6034,7 @@ return parsed;
                        </tr>
                      ) : (
                        <tr key={v.id} id={"item-" + v.id} className={"border-b border-slate-50 hover:bg-slate-50/50 transition-colors " + (selectedVerbIds.has(v.id) ? "bg-indigo-50 " : "") + (targetId === v.id ? "bg-amber-100 ring-2 ring-amber-400" : "")}>
-                          {verbTableColumnOrder.map(colId => {
+                          {visibleVerbCols.map(colId => {
     if (colId === 'isImportant') {
         return <td key={colId} className="p-4 text-center">
             <button onClick={() => setVerbDB(prev => prev.map(x => x.id === v.id ? { ...x, isImportant: !x.isImportant } : x))} className={`p-2 rounded-lg transition-colors ${v.isImportant ? 'text-amber-500 bg-amber-50 hover:bg-amber-100' : 'text-slate-400 hover:text-amber-500 hover:bg-amber-50'}`} title="標記為重要"><Star className={`w-4 h-4 ${v.isImportant ? 'fill-current' : ''}`}/></button>
@@ -5875,6 +6127,7 @@ return parsed;
                     ))}
                  </tbody>
                </table>
+               </>); })()}
               </div>
            </div>
         </div>
@@ -6032,7 +6285,7 @@ return parsed;
 
             <div className="flex justify-between items-start mb-8 gap-2">
                <div className="flex flex-col gap-2">
-                  <button onClick={goHome} className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold rounded-lg border border-slate-200 transition-colors" title="中斷目前測驗，已答對的進度會保留">
+                  <button onClick={() => { setKanjiReadingMode(false); setAppState('home'); }} className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold rounded-lg border border-slate-200 transition-colors" title="中斷目前測驗，已答對的進度會保留">
                     <Save className="w-3.5 h-3.5" /> 中斷儲存並離開
                   </button>
                   {appState === 'verb_playing' && verbTestMode === 'rpg' ? (
@@ -6093,7 +6346,41 @@ return parsed;
             )}
 
             {appState === 'verb_playing' && currentVerb && (
-               <><div className="text-sm text-slate-500 mb-2">請將以下單字轉換為</div><div className="text-2xl font-bold mb-6 border-b-2 inline-block px-2 pb-1 text-blue-700 border-blue-500">{getTargetName(currentTarget)}</div><div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8"><div className="text-5xl font-black text-slate-800 tracking-wide">{renderRuby(currentVerb[sourceForm])}</div><div className="text-slate-400 hidden sm:block"><ArrowRight className="w-8 h-8" /></div><div className="text-lg text-slate-500 font-medium bg-slate-50 px-4 py-2 rounded-xl">{currentVerb.meaning}</div></div></>
+               <>
+                 {inputMode === 'choice' && currentGrammarDef && currentGrammarDef.translation ? (
+                   <div className="text-sm text-slate-500 mb-6">請選出表達『<span className="font-semibold text-slate-700">{currentGrammarDef.translation}</span>』的正確形式</div>
+                 ) : (
+                   <><div className="text-sm text-slate-500 mb-2">請將以下單字轉換為</div><div className="text-2xl font-bold mb-6 border-b-2 inline-block px-2 pb-1 text-blue-700 border-blue-500">{renderGrammarTargetName(getTargetName(currentTarget), currentGrammarDef ? currentGrammarDef.answerBlankIndex : undefined)}</div></>
+                 )}
+                 <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8"><div className="text-5xl font-black text-slate-800 tracking-wide">{renderRuby(currentVerb[sourceForm])}</div><div className="text-slate-400 hidden sm:block"><ArrowRight className="w-8 h-8" /></div><div className="text-lg text-slate-500 font-medium bg-slate-50 px-4 py-2 rounded-xl">{currentVerb.meaning}</div></div>
+               </>
+            )}
+
+            {appState === 'verb_playing' && inputMode === 'choice' && feedback === null && (
+              <div className="mb-4 max-w-lg mx-auto">
+                {!usedHint ? (
+                  <button onClick={() => setUsedHint(true)} className="w-full py-2 px-4 rounded-xl border border-slate-200 text-slate-400 text-sm hover:border-blue-300 hover:text-blue-500 transition-all">
+                    💡 需要提示嗎？
+                  </button>
+                ) : (
+                  <div className="p-3 rounded-xl border border-amber-200 bg-amber-50 text-left text-sm">
+                    <div className="font-bold text-amber-700 mb-1">📖 提示已開啟</div>
+                    {currentGrammarDef ? (() => {
+                      const baseName = verbForms.find(f => f.id === currentGrammarDef.baseForm)?.label || GRAMMAR_ADJ_FORMS.find(f => f.id === currentGrammarDef.baseForm)?.label || currentGrammarDef.baseForm;
+                      const _r = currentGrammarDef.removeStr; const _a = currentGrammarDef.appendStr;
+                      return (
+                        <div className="text-amber-800 space-y-1">
+                          <div>此公式接【{baseName}】</div>
+                          {(_r || _a) && <div>{_r ? `去掉「${_r}」` : ''}{_r && _a ? '，' : ''}{_a ? `加上「${_a}」` : ''}</div>}
+                          {currentGrammarDef.processExample && <div className="text-slate-600 mt-1">例：{currentGrammarDef.processExample}</div>}
+                        </div>
+                      );
+                    })() : (
+                      <div className="text-amber-800">{getExplanation(currentVerb, currentTarget)}</div>
+                    )}
+                  </div>
+                )}
+              </div>
             )}
 
             {inputMode === 'choice' ? (
