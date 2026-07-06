@@ -461,6 +461,8 @@ const BASE_FORM_CARD_STYLES = {
 };
 const getBaseFormCardStyle = (id) => BASE_FORM_CARD_STYLES[id] || { bg: 'bg-white', border: 'border-slate-200', hover: 'hover:border-emerald-300', underline: 'border-slate-300' };
 
+const DAILY_ADD_GOALS = { vocab: 5, verb: 3, grammar: 1, kanji: 3 };
+
 const DEFAULT_GRAMMARS = [
   { id: 'g_tai', name: '想要 ( ＿たい)', baseForm: 'masu', removeStr: 'ます', appendStr: 'たい', appliesTo: ['verb'], example: '私は日本へ行きたいです', answerBlankIndex: 0 },
   { id: 'g_nakereba', name: '必須 ( ＿なければなりません)', baseForm: 'nai', removeStr: 'い', appendStr: 'ければなりません', appliesTo: ['verb'], example: '明日早く起きなければなりません', answerBlankIndex: 0 }
@@ -663,7 +665,7 @@ const THEME_KEYWORDS = {
     '學習與教育': /學習|讀書|書本|寫字|教學|課程|文字|語言|算術|考試|題目|成績|合格|畢業|入學|班級|校園|老師|學生|鉛筆|紙張|筆記本|黑板|作業|練習|複習|預習|背單字|查字典|翻譯|文法|單字|漢字|假名|片假名|平假名|困難|簡單/,
     '工作與職場': /工作|上班|職業|業務|勤務|請假|會議|辦公室|公司|社長|部門|課長|報告|計畫|企劃|客戶|電話|郵件|寄信|收件|列印|複印|傳真|下班|加班|出差|薪水|薪資|履歷|面試|同事|老闆|主管|員工|任務|緊急|忙碌/,
     '娛樂與休閒': /玩耍|遊戲|娛樂|唱歌|跑步|游泳|爬山|海邊|旅遊|旅行|拍照|攝影|畫畫|看電影|電影|電視|音樂|漫畫|動漫|網路|運動|棒球|籃球|足球|網球|釣魚|散步|野餐|露營|節慶|派對|舞蹈|演出|練習|休閒|嗜好|興趣/,
-    '自然與天氣': /天氣|下雨|下雪|颳風|天晴|陰天|起霧|打雷|暴風|溫度|炎熱|寒冷|涼爽|溫暖|春天|夏天|秋天|冬天|花朵|草地|樹木|森林|山岳|河川|海洋|湖泊|島嶼|石頭|土地|天空|陽光|黑暗|紅色|藍色|綠色|黃色|白色|黑色|動物|貓咪|狗狗|鳥類|昆蟲|大自然|季節|氣溫|颱風/,
+    '自然與天氣': /天氣|下雨|下雪|颳風|天晴|陰天|起霧|打雷|暴風|溫度|炎熱|寒冷|涼爽|溫暖|春天|夏天|秋天|冬天|花朵|草地|樹木|森林|山岳|河川|海洋|湖泊|島嶼|石頭|土地|天空|陽光|黑暗|大自然|季節|氣溫|颱風/,
     '時間與日期': /星期|幾點|幾分|幾秒|今年|今月|今天|昨天|明天|後天|這週|早上|晚上|中午|夜晚|早晨|傍晚|時間|期間|開始|結束|很久|快點|慢慢|新的|舊的|古老|上次|下次|每天|常常|偶爾|總是|已經|還沒|剛剛|馬上|立刻|將要|過去|未來|現在|等待|月份|日期|年度|週末|假日|時刻/,
     '問候與社交': /你好|我們|他們|她們|名字|姓名|年齡|男生|女生|兒子|父親|母親|兄弟|姐妹|朋友|家人|親戚|夫妻|丈夫|妻子|孩子|老人|年輕人|先生|小姐|同學|夥伴|見面|打招呼|介紹|謝謝|道歉|拜託|請問|再見|歡迎|祝賀|禮物|邀請|約定|聚會|說話|聊天/,
     '感情與心情': /高興|開心|快樂|幸福|興奮|感動|滿足|舒適|愉快|難過|悲傷|傷心|痛苦|絕望|失望|後悔|寂寞|孤獨|害怕|恐懼|緊張|不安|擔心|焦慮|憤怒|生氣|煩躁|羞恥|害羞|尷尬|嫉妒|羨慕|驚訝|震驚|感激|懷念|思念|無聊|疲憊|輕鬆|平靜|溫暖|冷漠|憂鬱/,
@@ -675,7 +677,9 @@ const THEME_KEYWORDS = {
     '科技與媒體': /電腦|手機|網路|軟體|程式|系統|數位|螢幕|鍵盤|滑鼠|應用程式|社群媒體|平台|網站|搜尋|下載|上傳|資料|密碼|帳號|登入|登出|更新|安裝|病毒|駭客|人工智慧|機器人|自動化|電子|無線|藍牙|衛星|新聞|報紙|雜誌|廣播|電視台|媒體|記者|報導|採訪|直播|頻道|訂閱/,
     '政治與法律': /政治|選舉|投票|政府|議會|國會|法院|法官|律師|警察|憲法|法律|條約|協議|政策|制度|改革|革命|獨立|統一|外交|大使|邊境|移民|難民|稅金|預算|補助|腐敗|貪污|抗議|示威|戰爭|軍隊|和平|裁軍|聯合國|主權|領土|判決|起訴|犯罪|刑罰|禁止|允許|批准/,
     '醫療與科學': /醫療|手術|治療|診斷|處方|藥物|疫苗|注射|病毒|細菌|感染|傳染|免疫|過敏|症狀|發病|康復|住院|出院|急救|手術室|醫師|護士|研究|實驗|分析|數據|結果|理論|假設|證明|發現|發明|科技|化學|物理|生物|遺傳|基因|細胞|分子|元素|反應|能量|輻射|太空|宇宙/,
-    '環境與資源': /環境|生態|汙染|排放|溫室效應|氣候變遷|暖化|臭氧|廢氣|廢水|垃圾|回收|再生能源|節能|省電|資源|能源|石油|天然氣|煤炭|核能|太陽能|風力|水力|森林|砍伐|保育|滅絕|物種|生物多樣|水資源|乾旱|洪水|颱風|地震|火山|海平面|碳排|減碳/
+    '環境與資源': /環境|生態|汙染|排放|溫室效應|氣候變遷|暖化|臭氧|廢氣|廢水|垃圾|回收|再生能源|節能|省電|資源|能源|石油|天然氣|煤炭|核能|太陽能|風力|水力|森林|砍伐|保育|滅絕|物種|生物多樣|水資源|乾旱|洪水|颱風|地震|火山|海平面|碳排|減碳/,
+    '顏色': /紅色|藍色|綠色|黃色|白色|黑色|粉紅|橘色|紫色|灰色|銀色|金色|棕色|茶色|深藍|彩色|顏色/,
+    '動物': /貓|狗|鳥|魚|蟲|熊|兔子|老鼠|大象|長頸鹿|獅子|老虎|猴子|馬|豬|牛|羊|蛇|青蛙|貘|烏龜|鯊魚|鯨魚|海豚|企鵝|動物|寵物/
 };
 
 const parsePasteInput = (text) => {
@@ -1048,7 +1052,28 @@ return parsed;
   const [todayNewVocabCount, setTodayNewVocabCount] = useState(() => { try { return Number(localStorage.getItem(`jp_daily_new_vocab_${new Date().toISOString().slice(0,10)}`) || 0); } catch { return 0; } });
 
   // ==== 每日上限 Helper 函式 ====
-  const todayDateStr = () => new Date().toISOString().slice(0, 10);
+  const todayDateStr = () => { const jst = new Date(Date.now() + 9 * 3600000); return jst.toISOString().slice(0, 10); };
+  const getTodayVocabAddCount    = () => parseInt(localStorage.getItem(`jp_daily_add_vocab_${todayDateStr()}`)    || '0');
+  const getTodayVerbAddCount     = () => parseInt(localStorage.getItem(`jp_daily_add_verb_${todayDateStr()}`)     || '0');
+  const getTodayGrammarAddCount  = () => parseInt(localStorage.getItem(`jp_daily_add_grammar_${todayDateStr()}`)  || '0');
+  const getTodayKanjiAddCount    = () => parseInt(localStorage.getItem(`jp_daily_add_kanji_${todayDateStr()}`)    || '0');
+  const checkAndUpdateStreak = () => {
+    const today = todayDateStr();
+    const allMet = getTodayVocabAddCount() >= DAILY_ADD_GOALS.vocab &&
+                   getTodayVerbAddCount()  >= DAILY_ADD_GOALS.verb  &&
+                   getTodayGrammarAddCount()>= DAILY_ADD_GOALS.grammar &&
+                   getTodayKanjiAddCount() >= DAILY_ADD_GOALS.kanji;
+    if (!allMet) return;
+    const stored = localStorage.getItem('jp_last_streak_date') || '';
+    if (stored === today) return;
+    const yesterday = (() => { const d = new Date(Date.now() + 9*3600000 - 86400000); return d.toISOString().slice(0,10); })();
+    const cur = parseInt(localStorage.getItem('jp_add_streak') || '0');
+    const next = (stored === yesterday || cur === 0) ? cur + 1 : 1;
+    setAddStreak(next);
+    setLastStreakDate(today);
+    localStorage.setItem('jp_add_streak', String(next));
+    localStorage.setItem('jp_last_streak_date', today);
+  };
   const getTodayNewVocabCount  = () => { try { return Number(localStorage.getItem(`jp_daily_new_vocab_${todayDateStr()}`) || 0); } catch { return 0; } };
   const addTodayNewVocabCount  = (n) => { try { const k = `jp_daily_new_vocab_${todayDateStr()}`; localStorage.setItem(k, String(getTodayNewVocabCount() + n)); } catch {} };
   const getTodayGrammarIds = () => { try { const s = localStorage.getItem(`jp_daily_grammar_ids_${todayDateStr()}`); return s ? JSON.parse(s) : null; } catch { return null; } };
@@ -1094,6 +1119,7 @@ return parsed;
   useEffect(() => { localStorage.setItem('verbApp_tagKeywordsMap', JSON.stringify(tagKeywordsMap)); }, [tagKeywordsMap]);
 
   useEffect(() => { localStorage.setItem('verbApp_vocabDB', JSON.stringify(vocabDB)); }, [vocabDB]);
+  useEffect(() => { const t = setInterval(() => setClockNow(new Date()), 1000); return () => clearInterval(t); }, []);
   useEffect(() => {
     setVocabDB(prev => {
       if (!prev.some(v => !v.addedAt)) return prev;
@@ -1110,7 +1136,9 @@ return parsed;
   // ==== 每日有效統計（混搭模式）====
   const effectiveTodayStats = useMemo(() => {
     const reviewCount  = Math.min(todayQueue.length, dailyReviewLimit);
-    const newVocabSlots = Math.max(0, dailyNewVocabLimit - getTodayNewVocabCount());
+    const dynamicNewSlots = Math.max(0, dailyReviewLimit - todayQueue.length);
+    const remainingNewLimit = Math.max(0, dailyNewVocabLimit - getTodayNewVocabCount());
+    const newVocabSlots = Math.min(dynamicNewSlots, remainingNewLimit);
     const newVocabAvail = vocabDB.filter(v => !((v.example && v.example.trim().length > 0) || v.isSentence) && v.status === 'new').length;
     const newVocabCount = Math.min(newVocabSlots, newVocabAvail);
     return { reviewCount, newVocabCount, total: reviewCount + newVocabCount };
@@ -1707,6 +1735,16 @@ return parsed;
   const [inputMode, setInputMode] = useState('choice'); 
   const [autoAdvance, setAutoAdvance] = useState(false); 
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showManualModal, setShowManualModal] = useState(false);
+  const [auditCopied, setAuditCopied] = useState(false);
+  useEffect(() => {
+    const anyOpen = showSettingsModal || showManualModal;
+    document.body.style.overflow = anyOpen ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [showSettingsModal, showManualModal]);
+  const [clockNow, setClockNow] = useState(new Date());
+  const [addStreak, setAddStreak] = useState(() => parseInt(localStorage.getItem('jp_add_streak') || '0'));
+  const [lastStreakDate, setLastStreakDate] = useState(() => localStorage.getItem('jp_last_streak_date') || '');
 
   const handleExportBackup = () => {
     const backupData = {
@@ -1725,6 +1763,119 @@ return parsed;
     document.body.appendChild(downloadAnchorNode);
     downloadAnchorNode.click();
     downloadAnchorNode.remove();
+  };
+
+  const buildAuditPrompt = () => {
+    const _vocabDB = JSON.parse(localStorage.getItem('verbApp_vocabDB') || '[]');
+    const _customGrammars = JSON.parse(localStorage.getItem('verbApp_customGrammars') || '[]');
+    const _verbDB = JSON.parse(localStorage.getItem('verbApp_verbDB') || '[]');
+    const _settings = {
+      dailyReviewLimit: localStorage.getItem('jp_daily_review_limit') || 80,
+      dailyNewVocabLimit: localStorage.getItem('jp_daily_vocab_limit') || 30,
+      dailyNewGrammarLimit: localStorage.getItem('jp_daily_grammar_limit') || 5,
+      dailyNewVerbLimit: localStorage.getItem('jp_daily_verb_limit') || 15,
+    };
+    const vocabStats = {
+      total: _vocabDB.length,
+      mastered: _vocabDB.filter(v => v.status === 'mastered').length,
+      learning: _vocabDB.filter(v => v.status === 'learning').length,
+      newItems: _vocabDB.filter(v => v.status === 'new').length,
+    };
+    const grammarStats = {
+      total: _customGrammars.length,
+      mastered: _customGrammars.filter(g => g.status === 'mastered').length,
+      learning: _customGrammars.filter(g => g.status === 'learning').length,
+      newItems: _customGrammars.filter(g => g.status === 'new').length,
+    };
+    const hardVocab = _vocabDB.filter(v => v.ef && v.ef < 1.8).sort((a, b) => a.ef - b.ef).slice(0, 20);
+    const hardGrammar = _customGrammars.filter(g => g.ef && g.ef < 1.8).sort((a, b) => a.ef - b.ef).slice(0, 10);
+    return `
+你是一位日語教學系統分析師。以下是我的「jp-verb-dojo」日語 SRS 學習系統的完整資料快照，請幫我進行全面稽核。
+
+═══════════════════════════════
+【系統概述】
+═══════════════════════════════
+這是一個 React+Vite 的 SRS（間隔重複）日語學習 App，使用 SM-2 演算法。
+功能：單字測驗、動詞變化練習、文法測驗，三個模組各自有 SRS 複習佇列。
+資料全存在 localStorage，無後端。
+
+【SRS 設定】
+- 每日複習上限：${_settings.dailyReviewLimit} 題
+- 每日新單字：${_settings.dailyNewVocabLimit} 個
+- 每日新文法：${_settings.dailyNewGrammarLimit} 個
+- 每日新動詞：${_settings.dailyNewVerbLimit} 個
+
+【學習進度統計】
+單字：共 ${vocabStats.total} 個 | 已掌握 ${vocabStats.mastered} | 學習中 ${vocabStats.learning} | 未開始 ${vocabStats.newItems}
+文法：共 ${grammarStats.total} 條 | 已掌握 ${grammarStats.mastered} | 學習中 ${grammarStats.learning} | 未開始 ${grammarStats.newItems}
+動詞：共 ${_verbDB.length} 個
+
+═══════════════════════════════
+【單字資料庫（全部 ${_vocabDB.length} 筆）】
+═══════════════════════════════
+${_vocabDB.map(v => `${v.word}（${v.reading || '-'}）- ${v.meaning} [${v.tag || '未分類'}] ef:${v.ef?.toFixed(2) || 'N/A'}`).join('\n')}
+
+═══════════════════════════════
+【文法資料庫（全部 ${_customGrammars.length} 條）】
+═══════════════════════════════
+${_customGrammars.map(g => `${g.name} - ${g.translation || '無中文說明'}\n  例句：${g.example || '無'}\n  說明：${g.explanation || '無'}`).join('\n---\n')}
+
+═══════════════════════════════
+【動詞資料庫（全部 ${_verbDB.length} 個）】
+═══════════════════════════════
+${_verbDB.map(v => {
+      const groupLabel =
+        v.type === 'adj_i'  ? 'い形容詞' :
+        v.type === 'adj_na' ? 'な形容詞' :
+        v.group === 1       ? '五段動詞' :
+        v.group === 2       ? '一段動詞' :
+        v.group === 3       ? '不規則動詞（サ変・カ変）' :
+        `${v.type || '?'}/${v.group || '?'}`;
+      return `${stripRuby(v.jisho || '')}【${groupLabel}】- ${v.meaning || '無中文'}`;
+    }).join('\n')}
+
+═══════════════════════════════
+【高錯誤率項目（ef < 1.8，最需要注意）】
+═══════════════════════════════
+單字：${hardVocab.map(v => `${v.word}(ef:${v.ef?.toFixed(2)})`).join(', ') || '無'}
+文法：${hardGrammar.map(g => `${g.name}(ef:${g.ef?.toFixed(2)})`).join(', ') || '無'}
+
+═══════════════════════════════
+【請幫我稽核以下幾個面向】
+═══════════════════════════════
+
+**1. 資料品質檢查**
+- 單字的中文意思有沒有明顯錯誤？
+- 文法的例句是否自然、正確？
+- 動詞的類別（五段/一段/サ變/カ變）標記是否正確？
+- 有沒有重複的條目？
+
+**2. 主題標籤分析**
+- 各主題的分布是否均衡？
+- 有沒有明顯被分到錯誤類別的單字？
+
+**3. SRS 學習狀況分析**
+- 從 ef 值分布看，學習者在哪些類型的題目上最弱？
+- 高錯誤率的項目有沒有共同特徵？
+- 每日限制設定是否合理？
+
+**4. 系統設計改進建議**
+根據這份資料，你認為這個學習系統還缺少什麼功能？或者哪些地方的設計可以改進？
+（例如：學習路徑、題目難度、資料補全、UI 體驗等）
+
+**5. 學習建議**
+根據目前的進度和錯誤模式，給學習者（日語 N4-N3 程度）具體的學習建議。
+
+請用中文回覆，盡量具體指出問題所在。
+`.trim();
+  };
+
+  const handleExportAudit = () => {
+    const prompt = buildAuditPrompt();
+    navigator.clipboard.writeText(prompt).then(() => {
+      setAuditCopied(true);
+      setTimeout(() => setAuditCopied(false), 3000);
+    });
   };
 
   const handleImportBackup = (e) => {
@@ -1752,7 +1903,6 @@ return parsed;
     e.target.value = '';
   };
 
-  const [showManualModal, setShowManualModal] = useState(false);
   const [showTagMgr, setShowTagMgr] = useState(false);
   const [showDrawer, setShowDrawer] = useState(false);
   const [pasteText, setPasteText] = useState('');
@@ -2398,6 +2548,8 @@ return parsed;
     }
   }, [batchInputs]);
   const [editingKanjiId, setEditingKanjiId] = useState(null);
+  const [showKanjiAddForm, setShowKanjiAddForm] = useState(false);
+  const [newKanjiEntry, setNewKanjiEntry] = useState({ kanji:'', onyomi:'', kunyomi:'', meaning:'', jlptLevel:'Unknown' });
   const [autoUnlock, setAutoUnlock] = useState(false);
   const obsidianFileRef = React.useRef(null);
   const [obsidianScannedWords, setObsidianScannedWords] = useState([]);
@@ -2430,7 +2582,24 @@ return parsed;
     }
   }, [verbBatchItems]);
   const [addToReviewNow, setAddToReviewNow] = useState(true);
-  const [batchLayoutMode, setBatchLayoutMode] = useState(() => localStorage.getItem('verbApp_batchLayoutMode') || 'grid3');
+  const [batchLayoutMode, setBatchLayoutMode] = useState(() => localStorage.getItem('verbApp_batchLayoutMode') || 'compact');
+  const [expandedBatchIdx, setExpandedBatchIdx] = useState(new Set());
+  const [autoSuggestedBatchIdx, setAutoSuggestedBatchIdx] = useState(new Set());
+  const [pendingTagOverrides, setPendingTagOverrides] = useState({});
+
+  // 功能 A：い形 vs な形 分類速測
+  const [adjClassifyQuiz, setAdjClassifyQuiz] = useState([]);
+  const [adjClassifyIndex, setAdjClassifyIndex] = useState(0);
+  const [adjClassifyScore, setAdjClassifyScore] = useState(0);
+  const [adjClassifyFeedback, setAdjClassifyFeedback] = useState(null); // null | 'correct' | 'wrong'
+
+  // 功能 B：専項動詞變化練習
+  const [verbFocusForm, setVerbFocusForm] = useState('te');
+  const [verbFocusQuestion, setVerbFocusQuestion] = useState(null);
+  const [verbFocusFeedback, setVerbFocusFeedback] = useState(null); // null | 'correct' | 'wrong'
+  const [verbFocusScore, setVerbFocusScore] = useState(0);
+  const [verbFocusTotal, setVerbFocusTotal] = useState(0);
+
   const [showObsidianHelp, setShowObsidianHelp] = useState(false);
   const [showObsidianSection, setShowObsidianSection] = useState(() => localStorage.getItem('verbApp_showObsidian') === 'true');
   const [showQuickPasteSection, setShowQuickPasteSection] = useState(() => localStorage.getItem('verbApp_showQuickPaste') === 'true');
@@ -2761,6 +2930,10 @@ return parsed;
     if (newVocabs.length > 0) {
         setVocabDB(prev => [...prev, ...newVocabs]);
         setBatchInputs(Array.from({ length: 5 }, () => ({ word: '', reading: '', meaning: '', tag: '自訂', tags: [], example: '', isSentence: false })));
+        // 每日新增計數
+        const _vk = `jp_daily_add_vocab_${todayDateStr()}`;
+        localStorage.setItem(_vk, String(getTodayVocabAddCount() + newVocabs.length));
+        checkAndUpdateStreak();
         alert(`成功加入 ${newVocabs.length} 個單字/例句到學習序列！`);
     } else alert('沒有找到可儲存的內容，請確認至少填寫「中文」與「平假名」或「例句」。');
   };
@@ -3014,6 +3187,9 @@ return parsed;
         const isDup = customGrammars.some(g => g.name.trim() === newGrammar.name.trim());
         if (isDup) { alert(`「${newGrammar.name.trim()}」已存在於文法公式庫中！`); return; }
         setCustomGrammars(prev => [...prev, { ...newGrammar, id: `g_custom_${Date.now()}`, addedAt: Date.now() }]);
+        const _gk = `jp_daily_add_grammar_${todayDateStr()}`;
+        localStorage.setItem(_gk, String(getTodayGrammarAddCount() + 1));
+        checkAndUpdateStreak();
     }
     setNewGrammar({ name: '', translation: '', baseForm: 'te', removeStr: '', appendStr: '', appliesTo: ['verb'], example: '', exampleTranslation: '', processExample: '', note: '', tag: '', tags: [], structureNote: '', answerBlankIndex: undefined });
   };
@@ -3204,6 +3380,9 @@ return parsed;
       return { ...v, tag: finalTag, tags: finalTags, id: v.type + '_custom_' + Date.now() + '_' + i, addedAt: Date.now() + i };
     })]);
     setVerbBatchItems([]);
+    const _vk = `jp_daily_add_verb_${todayDateStr()}`;
+    localStorage.setItem(_vk, String(getTodayVerbAddCount() + toSave.length));
+    checkAndUpdateStreak();
     alert('成功儲存 ' + toSave.length + ' 個詞彙！');
   };
 
@@ -3218,6 +3397,9 @@ return parsed;
     }
     const newTag = guessTag(verbInputs.meaning, vocabDB);
     setVerbDB(prev => [...prev, { ...verbInputs, tag: newTag, tags: newTag && newTag !== '自訂' ? [newTag] : [], id: `${verbInputs.type}_custom_${Date.now()}`, addedAt: Date.now() }]);
+    const _vk1 = `jp_daily_add_verb_${todayDateStr()}`;
+    localStorage.setItem(_vk1, String(getTodayVerbAddCount() + 1));
+    checkAndUpdateStreak();
     setVerbInputs(getInitialVerbInputs());
   };
 
@@ -3322,6 +3504,9 @@ return parsed;
         };
       });
       setVerbDB(prev => [...prev, ...newVerbs]);
+      const _vk2 = `jp_daily_add_verb_${todayDateStr()}`;
+      localStorage.setItem(_vk2, String(getTodayVerbAddCount() + newVerbs.length));
+      checkAndUpdateStreak();
     }
     const saved = vocabItems.length + verbItems.length;
     const grammarCount = parsedPasteItems.filter(i => i.selected && i.type === 'grammar').length;
@@ -3651,7 +3836,7 @@ return parsed;
             <div className="flex items-center gap-3">
               <button onClick={goHome} className="p-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200 transition-colors"><Home className="w-5 h-5" /></button>
               <h1 className="font-bold text-slate-800 hidden sm:block">
-                {appState === 'vocab_playing' ? '單字記憶特訓' : appState === 'verb_playing' ? '動詞變化特訓' : appState === 'theme_select' ? '主題闖關大廳' : appState === 'vocab_manage' ? '管理單字記憶庫' : '管理自訂文法'}
+                {appState === 'vocab_playing' ? '單字記憶特訓' : appState === 'verb_playing' ? '動詞變化特訓' : appState === 'theme_select' ? '主題闖關大廳' : appState === 'vocab_manage' ? '管理單字記憶庫' : appState === 'tag_manage' ? '標籤管理' : appState === 'adj_classify_playing' ? '形容詞分類速測' : appState === 'verb_focus_select' ? '専項動詞特訓' : appState === 'verb_focus_playing' ? '専項動詞特訓' : '管理自訂文法'}
               </h1>
             </div>
             {(appState === 'verb_playing' || appState === 'vocab_playing') && (
@@ -3686,6 +3871,13 @@ return parsed;
                         <span className="text-xs text-slate-400">字</span>
                       </div>
                     </div>
+                    <div className="text-xs text-slate-400 -mt-1 ml-1">實際新字數量會依當日複習壓力自動調整</div>
+                    <div className="flex items-center justify-between gap-4">
+                      <label className="text-sm text-slate-600 whitespace-nowrap">📝 每日新增目標（固定）</label>
+                      <div className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 font-mono">
+                        單字 {DAILY_ADD_GOALS.vocab} / 動詞 {DAILY_ADD_GOALS.verb} / 文法 {DAILY_ADD_GOALS.grammar} / 漢字 {DAILY_ADD_GOALS.kanji}
+                      </div>
+                    </div>
                     <div className="flex items-center justify-between gap-4">
                       <label className="text-sm text-slate-600 whitespace-nowrap">文法每日新公式上限</label>
                       <div className="flex items-center gap-2">
@@ -3695,6 +3887,7 @@ return parsed;
                         <span className="text-xs text-slate-400">條</span>
                       </div>
                     </div>
+                    <div className="text-xs text-slate-400 -mt-1 ml-1">實際數量依當日複習壓力自動調整</div>
                     <div className="flex items-center justify-between gap-4">
                       <label className="text-sm text-slate-600 whitespace-nowrap">動詞每日新動詞上限</label>
                       <div className="flex items-center gap-2">
@@ -3704,6 +3897,7 @@ return parsed;
                         <span className="text-xs text-slate-400">個</span>
                       </div>
                     </div>
+                    <div className="text-xs text-slate-400 -mt-1 ml-1">實際數量依當日複習壓力自動調整</div>
                   </div>
                 </div>
                 <div>
@@ -3782,7 +3976,8 @@ return parsed;
                  
 
 
-  <button onClick={() => { setShowSettingsModal(false); if(appState === 'verb_playing') { generateVerbQuestion(verbTestMode); } }} className="w-full mt-8 py-3 bg-slate-800 text-white rounded-xl font-bold">完成設定</button>
+  <button onClick={handleExportAudit} className="w-full mt-6 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-bold transition-colors">📋 匯出系統稽核報告</button>
+  <button onClick={() => { setShowSettingsModal(false); if(appState === 'verb_playing') { generateVerbQuestion(verbTestMode); } }} className="w-full mt-3 py-3 bg-slate-800 text-white rounded-xl font-bold">完成設定</button>
           </div>
         </div>
       )}
@@ -3797,75 +3992,170 @@ return parsed;
                 <button onClick={()=>setShowManualModal(false)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"><XCircle className="w-7 h-7"/></button>
              </div>
              <div className="p-6 overflow-y-auto space-y-8 text-slate-700">
+
+               {/* 第一章：首頁 */}
                <section>
                  <h3 className="text-xl font-bold text-slate-800 mb-4 border-b-2 border-amber-200 pb-2 flex items-center gap-2"><Home className="w-6 h-6 text-amber-500"/> 一、首頁：學習的起點</h3>
-                 <div className="space-y-4">
-                    <div className="bg-slate-50 p-4 rounded-2xl">
-                       <h4 className="font-bold text-amber-700 mb-2">1. 每日新詞解鎖 (Daily Unlock)</h4>
-                       <ul className="list-disc list-inside space-y-1 text-slate-600 ml-2">
-                          <li><strong>用途</strong>：每天開始時，先從這裡獲取新的單字。</li>
-                          <li><strong>操作</strong>：拉桿選擇解鎖數量（最高 10 個），選定主題。</li>
-                          <li><strong>邏輯</strong>：系統會從您「完全沒背過」的資料庫中抽出新詞，解鎖後立刻進入預習狀態。</li>
-                       </ul>
-                    </div>
-                    <div className="bg-slate-50 p-4 rounded-2xl">
-                       <h4 className="font-bold text-amber-700 mb-2">2. 今日複習任務 (SRS Review)</h4>
-                       <ul className="list-disc list-inside space-y-1 text-slate-600 ml-2">
-                          <li><strong>用途</strong>：系統根據遺忘曲線，自動安排今天需要複習的任務。</li>
-                          <li><strong>內容</strong>：包含「字卡測驗」與「文法測驗」，精準對付您最容易忘記的部分。</li>
-                       </ul>
-                    </div>
-                    <div className="bg-slate-50 p-4 rounded-2xl">
-                       <h4 className="font-bold text-amber-700 mb-2">3. 智慧單字庫與公式庫</h4>
-                       <ul className="list-disc list-inside space-y-1 text-slate-600 ml-2">
-                          <li>可以查看您所有的學習進度，並能快速進入「動詞與形容詞庫」或建立「文法公式庫」。</li>
-                       </ul>
-                    </div>
+                 <div className="space-y-3">
+                   <div className="bg-amber-50 p-4 rounded-2xl">
+                     <h4 className="font-bold text-amber-700 mb-2">📊 兩欄佈局</h4>
+                     <ul className="list-disc list-inside space-y-1 text-slate-600 ml-2">
+                       <li><strong>左欄：單字記憶庫</strong> — 顯示單字 SRS 統計、今日複習題數、今日新字數量。</li>
+                       <li><strong>右欄：動詞文法訓練場</strong> — 顯示動詞庫統計、今日動詞 SRS 到期、今日文法到期數。</li>
+                     </ul>
+                   </div>
+                   <div className="bg-amber-50 p-4 rounded-2xl">
+                     <h4 className="font-bold text-amber-700 mb-2">⚠️ 複習壓力指示器</h4>
+                     <ul className="list-disc list-inside space-y-1 text-slate-600 ml-2">
+                       <li>每個模組的統計卡都有壓力提示：<strong>橘色 = 積壓偏多</strong>、<strong>黃色 = 建議今日練習</strong>。</li>
+                       <li>當單字複習積壓過多時，系統會自動暫停新字解鎖，優先清掉舊複習。</li>
+                     </ul>
+                   </div>
+                   <div className="bg-amber-50 p-4 rounded-2xl">
+                     <h4 className="font-bold text-amber-700 mb-2">📝 今日新增任務卡</h4>
+                     <ul className="list-disc list-inside space-y-1 text-slate-600 ml-2">
+                       <li>首頁頂部有兩個任務卡：<strong>今日新增單字</strong> 與 <strong>今日新增動詞/形容詞</strong>，顯示當日進度點點。</li>
+                       <li>點擊任務卡可直接跳轉到對應的管理庫新增資料。</li>
+                       <li>目標數量可在右上角「⚙️ 設定」中調整（1–5 個）。</li>
+                     </ul>
+                   </div>
+                   <div className="bg-amber-50 p-4 rounded-2xl">
+                     <h4 className="font-bold text-amber-700 mb-2">✨ 每日新詞解鎖</h4>
+                     <ul className="list-disc list-inside space-y-1 text-slate-600 ml-2">
+                       <li>首頁下方的解鎖區，從「尚未學習」的單字中抽出新詞，解鎖後立即進入 SRS 系統。</li>
+                       <li>系統會依當日複習壓力自動計算可解鎖的新字數量上限。</li>
+                     </ul>
+                   </div>
                  </div>
                </section>
 
+               {/* 第二章：單字練習 */}
                <section>
-                 <h3 className="text-xl font-bold text-slate-800 mb-4 border-b-2 border-blue-200 pb-2 flex items-center gap-2"><Swords className="w-6 h-6 text-blue-500"/> 二、測驗模式介紹</h3>
-                 <div className="space-y-4">
-                    <div className="bg-blue-50 p-4 rounded-2xl">
-                       <h4 className="font-bold text-blue-700 mb-2">1. 單字字卡測驗 (Vocab Test)</h4>
-                       <p className="mb-2">主要考驗您對<strong>單字本身</strong>的理解。支援選擇題與打字輸入。</p>
-                       <ul className="list-disc list-inside space-y-1 text-slate-600 ml-2">
-                          <li><strong>一般模式</strong>：看日文選中文。</li>
-                          <li><strong>例句填空測驗</strong>：若單字有例句，系統會將單字挖空，讓您依上下文選出正確讀音。</li>
-                       </ul>
-                    </div>
-                    <div className="bg-blue-50 p-4 rounded-2xl">
-                       <h4 className="font-bold text-blue-700 mb-2">2. 文法測驗 (Grammar Dojo)</h4>
-                       <p className="mb-2"><strong>不考單字意思</strong>，專門訓練大腦的<strong>文法變形反應速度</strong>！</p>
-                       <ul className="list-disc list-inside space-y-1 text-slate-600 ml-2">
-                          <li>畫面上出現動詞或形容詞原形（如：食べる），您必須回答指定的變化形態（如：食べて）。</li>
-                          <li>考題會自動從您的「文法公式庫」中隨機抽取。</li>
-                       </ul>
-                    </div>
+                 <h3 className="text-xl font-bold text-slate-800 mb-4 border-b-2 border-blue-200 pb-2 flex items-center gap-2"><span className="text-blue-500 text-xl">📚</span> 二、單字練習（6 種模式）</h3>
+                 <div className="space-y-3">
+                   <div className="bg-blue-50 p-4 rounded-2xl">
+                     <h4 className="font-bold text-blue-700 mb-1">🌅 今日 SRS 學習（主要入口）</h4>
+                     <p className="text-slate-600 text-sm">根據遺忘曲線安排今日複習，並動態加入新字。複習壓力低時新字自動增加；壓力高時暫停新字，優先清掉複習。</p>
+                   </div>
+                   <div className="grid grid-cols-2 gap-3">
+                     <div className="bg-blue-50 p-3 rounded-xl">
+                       <h4 className="font-bold text-blue-700 mb-1 text-sm">🎮 主題單字闖關</h4>
+                       <p className="text-slate-600 text-xs">依主題分類作答，適合針對特定場景集中練習。</p>
+                     </div>
+                     <div className="bg-blue-50 p-3 rounded-xl">
+                       <h4 className="font-bold text-blue-700 mb-1 text-sm">🔥 單字錯題特訓</h4>
+                       <p className="text-slate-600 text-xs">專攻歷史上答錯過的單字，有錯題才能使用。</p>
+                     </div>
+                     <div className="bg-blue-50 p-3 rounded-xl">
+                       <h4 className="font-bold text-blue-700 mb-1 text-sm">🎯 例句專屬 SRS</h4>
+                       <p className="text-slate-600 text-xs">含例句的單字獨立 SRS，挖空填入正確讀音。</p>
+                     </div>
+                     <div className="bg-blue-50 p-3 rounded-xl">
+                       <h4 className="font-bold text-blue-700 mb-1 text-sm">♾️ 例句無極限特訓</h4>
+                       <p className="text-slate-600 text-xs">不限配額，所有例句無限循環練習。</p>
+                     </div>
+                   </div>
+                   <div className="bg-blue-50 p-3 rounded-xl">
+                     <h4 className="font-bold text-blue-700 mb-1 text-sm">漢字讀音練習</h4>
+                     <p className="text-slate-600 text-xs">從您的單字庫自動抽取含漢字的單字，考驗讀音（平假名）。同樣有 SRS 支援。</p>
+                   </div>
                  </div>
                </section>
 
+               {/* 第三章：動詞練習 */}
                <section>
-                 <h3 className="text-xl font-bold text-slate-800 mb-4 border-b-2 border-indigo-200 pb-2 flex items-center gap-2"><Settings className="w-6 h-6 text-indigo-500"/> 三、進階管理功能</h3>
-                 <div className="space-y-4">
-                    <div className="bg-indigo-50 p-4 rounded-2xl">
-                       <h4 className="font-bold text-indigo-700 mb-2">1. 動詞與形容詞庫 (Verbs & Adjectives DB)</h4>
-                       <ul className="list-disc list-inside space-y-1 text-slate-600 ml-2">
-                          <li><strong>自動變形</strong>：存入單字時，系統自動幫您算出十二種以上的時態與變化（ます形、て形、使役被動等）！支援動詞、い形容詞、な形容詞。</li>
-                          <li><strong>智慧貼上區</strong>：直接貼上一大串日文文本，系統會自動分析出裡面的動詞和形容詞，讓您一鍵加入資料庫。</li>
-                       </ul>
-                    </div>
-                    <div className="bg-indigo-50 p-4 rounded-2xl">
-                       <h4 className="font-bold text-indigo-700 mb-2">2. 文法公式庫 (Custom Grammar)</h4>
-                       <p className="mb-2">將「文法句型」模組化，把規則教給系統，它就會自動幫您出題！</p>
-                       <ul className="list-disc list-inside space-y-1 text-slate-600 ml-2">
-                          <li><strong>自由建立公式</strong>：設定接續的「基礎形」（如接在 て形 後），以及要刪除或「加上的字尾」（如加上 ください）。</li>
-                          <li><strong>動態示範單字</strong>：在畫面上方隨意選擇您資料庫中的任何一個單字（🏃動詞 或 ✨形容詞），底下所有的公式範例都會瞬間跟著變身！</li>
-                       </ul>
-                    </div>
+                 <h3 className="text-xl font-bold text-slate-800 mb-4 border-b-2 border-violet-200 pb-2 flex items-center gap-2"><Swords className="w-6 h-6 text-violet-500"/> 三、動詞練習（6 種模式）</h3>
+                 <div className="space-y-3">
+                   <div className="bg-violet-50 p-4 rounded-2xl">
+                     <h4 className="font-bold text-violet-700 mb-1">📝 今日變化複習 SRS（主要入口）</h4>
+                     <p className="text-slate-600 text-sm">依 SRS 間隔安排到期的動詞變化題，每次最多 20 題。連續答對越多次，下次複習間隔越長。</p>
+                   </div>
+                   <div className="bg-violet-50 p-4 rounded-2xl">
+                     <h4 className="font-bold text-violet-700 mb-1">🎯 動詞弱點特訓</h4>
+                     <p className="text-slate-600 text-sm">系統自動分析您各變化形的正確率，優先出您最弱的題型，幫助集中突破。</p>
+                   </div>
+                   <div className="grid grid-cols-2 gap-3">
+                     <div className="bg-violet-50 p-3 rounded-xl">
+                       <h4 className="font-bold text-violet-700 mb-1 text-sm">🔄 自訂綜合特訓</h4>
+                       <p className="text-slate-600 text-xs">依設定中勾選的變化形隨機出題，完全自訂範圍。</p>
+                     </div>
+                     <div className="bg-violet-50 p-3 rounded-xl">
+                       <h4 className="font-bold text-violet-700 mb-1 text-sm">⚔️ RPG 極限生存戰</h4>
+                       <p className="text-slate-600 text-xs">3 滴血制，答錯扣血，血量耗盡結算。適合挑戰極限。</p>
+                     </div>
+                     <div className="bg-violet-50 p-3 rounded-xl">
+                       <h4 className="font-bold text-violet-700 mb-1 text-sm">⚡ 形容詞分類速測</h4>
+                       <p className="text-slate-600 text-xs">看形容詞快速判斷 い形 或 な形，15 題限時測驗，最後顯示正確率。</p>
+                     </div>
+                     <div className="bg-violet-50 p-3 rounded-xl">
+                       <h4 className="font-bold text-violet-700 mb-1 text-sm">🎯 専項動詞特訓</h4>
+                       <p className="text-slate-600 text-xs">選擇單一變化形（て形、可能形等）集中練習，系統動態偵測資料庫中有哪些欄位可練習。</p>
+                     </div>
+                   </div>
                  </div>
                </section>
+
+               {/* 第四章：文法練習 */}
+               <section>
+                 <h3 className="text-xl font-bold text-slate-800 mb-4 border-b-2 border-emerald-200 pb-2 flex items-center gap-2"><span className="text-emerald-500 text-xl">🧩</span> 四、文法練習</h3>
+                 <div className="space-y-3">
+                   <div className="bg-emerald-50 p-4 rounded-2xl">
+                     <h4 className="font-bold text-emerald-700 mb-1">🧩 今日文法 SRS</h4>
+                     <p className="text-slate-600 text-sm">依間隔複習安排到期的文法公式，同時包含複習舊公式與學習新公式。文法公式庫越豐富，考題越多元。</p>
+                   </div>
+                   <div className="bg-emerald-50 p-4 rounded-2xl">
+                     <h4 className="font-bold text-emerald-700 mb-1">文法測驗（無上限）</h4>
+                     <p className="text-slate-600 text-sm">不受每日配額限制，可隨時練習所有文法公式。顯示您的歷史正確率。</p>
+                   </div>
+                 </div>
+               </section>
+
+               {/* 第五章：資料管理 */}
+               <section>
+                 <h3 className="text-xl font-bold text-slate-800 mb-4 border-b-2 border-slate-200 pb-2 flex items-center gap-2"><Settings className="w-6 h-6 text-slate-500"/> 五、資料管理（右上角 ☰ 選單）</h3>
+                 <div className="space-y-3">
+                   <div className="bg-slate-50 p-4 rounded-2xl">
+                     <h4 className="font-bold text-slate-700 mb-2">📚 單字記憶庫</h4>
+                     <ul className="list-disc list-inside space-y-1 text-slate-600 ml-2 text-sm">
+                       <li>批次新增單字，支援 <strong>3 種排版</strong>（2欄 / 3個 / 6個），依輸入習慣選擇。</li>
+                       <li>中文意思欄位失焦時，自動建議最適合的主題標籤（✨ 自動建議標記）。</li>
+                       <li>可單筆刪除、重設 SRS 進度、標記重要單字（⭐）。</li>
+                     </ul>
+                   </div>
+                   <div className="bg-slate-50 p-4 rounded-2xl">
+                     <h4 className="font-bold text-slate-700 mb-2">🔄 動詞與形容詞庫</h4>
+                     <ul className="list-disc list-inside space-y-1 text-slate-600 ml-2 text-sm">
+                       <li>支援動詞（第一、二、三類）、い形容詞、な形容詞分別建立。</li>
+                       <li><strong>智慧貼上</strong>：貼上筆記文字，系統自動分析並列出可加入的動詞與單字，勾選後一鍵匯入。</li>
+                       <li>批次新增，填入 ます形後可自動推算其他變化形。</li>
+                     </ul>
+                   </div>
+                   <div className="bg-slate-50 p-4 rounded-2xl">
+                     <h4 className="font-bold text-slate-700 mb-2">🧩 文法公式庫</h4>
+                     <ul className="list-disc list-inside space-y-1 text-slate-600 ml-2 text-sm">
+                       <li>自訂文法句型：設定「接在哪個形後面」＋「刪除什麼、加上什麼字尾」。</li>
+                       <li>畫面頂部選一個動詞，所有公式範例即時更新，可即時驗證是否正確。</li>
+                     </ul>
+                   </div>
+                   <div className="bg-slate-50 p-4 rounded-2xl">
+                     <h4 className="font-bold text-slate-700 mb-2">🏷️ 標籤管理</h4>
+                     <ul className="list-disc list-inside space-y-1 text-slate-600 ml-2 text-sm">
+                       <li>為每個標籤設定辨識關鍵字，新增單字時系統可自動配對標籤。</li>
+                       <li>「未分類單字」工具：快速將標記為「自訂/未知」的單字重新分類，或一鍵套用 AI 建議標籤。</li>
+                       <li>累積 5 筆以上的標籤會顯示「自動學習中」，配對準確率更高。</li>
+                     </ul>
+                   </div>
+                   <div className="bg-slate-50 p-4 rounded-2xl">
+                     <h4 className="font-bold text-slate-700 mb-2">⏱️ SRS 間隔複習原理</h4>
+                     <ul className="list-disc list-inside space-y-1 text-slate-600 ml-2 text-sm">
+                       <li>每次答對後，下次複習間隔自動延長（1天 → 3天 → 7天 → 14天…）。</li>
+                       <li>答錯則間隔縮短，強制重新鞏固記憶。</li>
+                       <li>「精通」狀態 = 連續答對多次，間隔超過 21 天。</li>
+                     </ul>
+                   </div>
+                 </div>
+               </section>
+
              </div>
              <div className="p-6 border-t border-slate-100 bg-slate-50 rounded-b-3xl text-center">
                 <button onClick={()=>setShowManualModal(false)} className="px-8 py-3 bg-slate-800 text-white rounded-xl font-bold hover:bg-slate-700 transition-colors">我了解了，開始訓練！</button>
@@ -3874,61 +4164,6 @@ return parsed;
         </div>
       )}
 
-      {showTagMgr && (() => {
-        const allTags = Object.keys(globalTagStats).sort((a,b) => globalTagStats[b] - globalTagStats[a]);
-        const vocabTagCounts = {};
-        vocabDB.forEach(v => { if (v.tag && v.tag !== '自訂' && v.tag !== '未分類') vocabTagCounts[v.tag] = (vocabTagCounts[v.tag] || 0) + 1; });
-        const handleKw = (tag, raw) => {
-          const kws = raw.split(/[,，、\s]+/).map(k => k.trim()).filter(k => k.length >= 2);
-          setTagKeywordsMap(prev => ({ ...prev, [tag]: kws }));
-        };
-        return (
-          <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4" onClick={() => setShowTagMgr(false)}>
-            <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
-              <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100">
-                <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">🏷️ 標籤管理</h2>
-                <button onClick={() => setShowTagMgr(false)} className="text-slate-400 hover:text-slate-600"><XCircle className="w-6 h-6"/></button>
-              </div>
-              <div className="overflow-y-auto flex-1 p-6">
-                <p className="text-xs text-slate-400 mb-4">設定關鍵字後，新增單字時系統可自動配對該標籤（需 2 字以上，逗號分隔）。「自動學習中」表示方法 2 已累積足夠資料。</p>
-                <div className="space-y-2">
-                  {allTags.length === 0 && <p className="text-center text-slate-400 py-8 text-sm">尚未建立任何標籤</p>}
-                  {allTags.map(tag => {
-                    const total = globalTagStats[tag] || 0;
-                    const vocabCount = vocabTagCounts[tag] || 0;
-                    const hasLearnedEnough = vocabCount >= 5;
-                    const hasKeywords = (tagKeywordsMap[tag] || []).length > 0;
-                    return (
-                      <div key={tag} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100 hover:border-violet-200 transition-colors">
-                        <div className="w-24 shrink-0">
-                          <div className="text-sm font-bold text-slate-700 truncate" title={tag}>{tag}</div>
-                          <div className="text-[10px] text-slate-400 mt-0.5">{total} 筆資料</div>
-                        </div>
-                        <input
-                          type="text"
-                          key={`${tag}-${(tagKeywordsMap[tag]||[]).join(',')}`}
-                          defaultValue={(tagKeywordsMap[tag] || []).join(', ')}
-                          onBlur={e => handleKw(tag, e.target.value)}
-                          onKeyDown={e => e.key === 'Enter' && handleKw(tag, e.target.value)}
-                          placeholder="辨識關鍵字（選填）"
-                          className="flex-1 min-w-0 px-3 py-1.5 text-sm bg-white border border-slate-200 rounded-lg focus:border-violet-400 focus:ring-1 focus:ring-violet-100 outline-none"
-                        />
-                        <div className="shrink-0 flex flex-col items-end gap-1">
-                          {hasKeywords && <span className="text-[10px] text-violet-600 bg-violet-50 px-2 py-0.5 rounded-md border border-violet-200">關鍵字 ✓</span>}
-                          {hasLearnedEnough && <span className="text-[10px] text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">自動學習中</span>}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-              <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 rounded-b-3xl">
-                <button onClick={() => setShowTagMgr(false)} className="w-full py-3 bg-slate-800 text-white rounded-xl font-bold hover:bg-slate-700 transition-colors text-sm">完成</button>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
 
       {/* ===== Side Drawer ===== */}
       {showDrawer && (
@@ -3952,7 +4187,7 @@ return parsed;
                 { icon: '📚', label: '單字記憶庫', action: () => { setAppState('vocab_manage'); setShowDrawer(false); } },
                 { icon: '🔄', label: '動詞與形容詞庫', action: () => { setAppState('verb_manage'); setShowDrawer(false); } },
                 { icon: '🧩', label: '文法公式庫', action: () => { setAppState('grammar_manage'); setShowDrawer(false); } },
-                { icon: '🏷️', label: '標籤管理', action: () => { setShowTagMgr(true); setShowDrawer(false); } },
+                { icon: '🏷️', label: '標籤管理', action: () => { setAppState('tag_manage'); setShowDrawer(false); } },
               ].map(item => (
                 <button key={item.label} onClick={item.action} className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-50 transition-colors text-left w-full">
                   <span className="text-base">{item.icon}</span><span className="text-sm font-medium text-slate-700 flex-1">{item.label}</span><span className="text-slate-300 text-xs">›</span>
@@ -4026,6 +4261,10 @@ return parsed;
                   <BookOpen className="w-4 h-4"/>
                   <span className="hidden sm:inline text-sm font-bold">說明</span>
                 </button>
+                <button onClick={() => setShowSettingsModal(true)} className="p-2 bg-white text-slate-600 rounded-xl hover:bg-slate-50 transition-colors border border-slate-200 flex items-center gap-1.5 shadow-sm">
+                  <Settings className="w-4 h-4"/>
+                  <span className="hidden sm:inline text-sm font-bold">設定</span>
+                </button>
               </div>
             </div>
             
@@ -4072,7 +4311,84 @@ return parsed;
                        <div className="text-xl font-bold text-slate-700">{dashboardStats.kanjiTotal}</div>
                     </div>
                  </div>
+                 {/* JST Clock + Reset Countdown */}
+                 {(() => {
+                   const nowMs = clockNow.getTime();
+                   const jstNow = new Date(nowMs + 9 * 3600000);
+                   const jstTimeStr = jstNow.toISOString().slice(11, 19);
+                   // 下一個 JST 00:00 = UTC 的下一個 15:00（即 JST 隔日 00:00）
+                   const nowJSTms = nowMs + 9 * 3600000;
+                   const nextJSTMidnightUTC = Math.ceil(nowJSTms / 86400000) * 86400000 - 9 * 3600000;
+                   const diff = nextJSTMidnightUTC - nowMs;
+                   const hh = String(Math.floor(diff / 3600000)).padStart(2, '0');
+                   const mm = String(Math.floor((diff % 3600000) / 60000)).padStart(2, '0');
+                   const ss = String(Math.floor((diff % 60000) / 1000)).padStart(2, '0');
+                   const isUrgent = diff < 3600000;
+                   return (
+                     <div className="mt-4 bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3 flex items-center justify-between gap-4">
+                       <div className="flex items-center gap-2">
+                         <span className="text-slate-400 text-xs">🕐 現在時刻</span>
+                         <span className="font-mono font-bold text-slate-700 text-sm tracking-wider">{jstTimeStr}</span>
+                         <span className="text-slate-300 text-xs">JST</span>
+                       </div>
+                       <div className="w-px h-5 bg-slate-200 hidden sm:block"/>
+                       <div className="flex flex-col items-end sm:items-center sm:flex-row gap-1 sm:gap-2">
+                         <span className="text-slate-400 text-xs">🔄 重整まで</span>
+                         <span className={`font-mono font-bold text-sm tracking-wider ${isUrgent ? 'text-orange-500' : 'text-slate-700'}`}>{hh}:{mm}:{ss}</span>
+                         <span className="text-slate-300 text-xs hidden sm:inline">（毎日 00:00 JST）</span>
+                       </div>
+                     </div>
+                   );
+                 })()}
               </div>
+              {/* 每日新增任務卡（四類整合） */}
+              {(() => {
+                const counts = {
+                  vocab:   getTodayVocabAddCount(),
+                  verb:    getTodayVerbAddCount(),
+                  grammar: getTodayGrammarAddCount(),
+                  kanji:   getTodayKanjiAddCount(),
+                };
+                const metCount = Object.keys(DAILY_ADD_GOALS).filter(k => counts[k] >= DAILY_ADD_GOALS[k]).length;
+                const allMet = metCount === 4;
+                const cats = [
+                  { key:'vocab',   icon:'📚', label:'單字',   action:() => setAppState('vocab_manage') },
+                  { key:'verb',    icon:'🔤', label:'動詞',   action:() => setAppState('verb_manage') },
+                  { key:'grammar', icon:'📖', label:'文法',   action:() => setAppState('grammar_manage') },
+                  { key:'kanji',   icon:'🈶', label:'漢字',   action:() => { setAppState('vocab_manage'); setVocabManageTab('kanji'); } },
+                ];
+                return (
+                  <div className={`mt-4 rounded-2xl border px-4 py-3 transition-colors ${allMet ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-200'}`}>
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-xs font-bold text-slate-700">📝 今日新增任務</span>
+                      {addStreak > 0 && <span className="text-[10px] font-bold text-amber-500">🔥 {addStreak} 天連續</span>}
+                    </div>
+                    <div className="grid grid-cols-4 gap-2 mb-2">
+                      {cats.map(c => {
+                        const cnt = counts[c.key];
+                        const goal = DAILY_ADD_GOALS[c.key];
+                        const met = cnt >= goal;
+                        return (
+                          <button key={c.key} onClick={c.action}
+                            className={`rounded-xl p-2 text-center transition-all hover:scale-[1.03] active:scale-95 border ${met ? 'bg-emerald-100 border-emerald-300' : 'bg-white border-slate-200 hover:border-slate-300'}`}>
+                            <div className="text-base mb-1">{c.icon}</div>
+                            <div className="text-[10px] font-bold text-slate-600 mb-1.5">{c.label}</div>
+                            <div className="flex justify-center gap-0.5 flex-wrap mb-1">
+                              {Array.from({length: goal}, (_, i) => (
+                                <div key={i} className={`w-2.5 h-2.5 rounded-full border ${i < cnt ? (met ? 'bg-emerald-500 border-emerald-500' : 'bg-blue-400 border-blue-400') : 'bg-white border-slate-300'}`}/>
+                              ))}
+                            </div>
+                            <div className={`text-[9px] font-bold ${met ? 'text-emerald-600' : 'text-slate-400'}`}>{cnt}/{goal}</div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className={`text-[10px] font-medium text-center ${allMet ? 'text-emerald-600' : 'text-slate-400'}`}>
+                      {allMet ? '✅ 今日全部達標！' : `今日進度：${metCount} / 4 類達標`}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
             {/* Two Column Layout */}
           <div className="grid lg:grid-cols-2 gap-8 items-stretch">
@@ -4112,7 +4428,11 @@ return parsed;
                   <div className="bg-white border border-[#ece7df] rounded-2xl p-4 text-center">
                     <div className="text-3xl font-black text-[#4a4640] leading-none mb-1.5">{effectiveTodayStats.reviewCount}</div>
                     <div className="text-xs font-bold text-[#aaa295]">🗓️ 今日複習</div>
-                    {todayQueue.length > dailyReviewLimit && <div className="text-[10px] text-orange-400 mt-0.5">共 {todayQueue.length} 題，上限 {dailyReviewLimit}</div>}
+                    {todayQueue.length > dailyReviewLimit
+                      ? <div className="text-[10px] text-orange-400 mt-0.5">⚠️ 積壓 {todayQueue.length - dailyReviewLimit} 題，新字已暫停</div>
+                      : todayQueue.length > dailyReviewLimit * 0.8
+                      ? <div className="text-[10px] text-yellow-500 mt-0.5">複習壓力偏高</div>
+                      : null}
                   </div>
                   <div className="bg-white border border-[#ece7df] rounded-2xl p-4 text-center">
                     <div className="text-3xl font-black text-[#4a4640] leading-none mb-1.5">{effectiveTodayStats.newVocabCount}</div>
@@ -4271,6 +4591,11 @@ return parsed;
                       <div className="bg-white border border-[#ece7df] rounded-2xl p-4 text-center">
                         <div className="text-3xl font-black text-[#5b7ba3] leading-none mb-1.5">{verbDB.filter(v => v.status === 'learning').length}</div>
                         <div className="text-xs font-bold text-[#aaa295]">🗓️ 待複習</div>
+                        {todayGrammarQueue.length > dailyNewVerbLimit * 2
+                          ? <div className="text-[10px] text-orange-400 mt-0.5">⚠️ 積壓偏多</div>
+                          : todayGrammarQueue.length > dailyNewVerbLimit
+                          ? <div className="text-[10px] text-yellow-500 mt-0.5">建議今日練習</div>
+                          : null}
                       </div>
                       <div className="bg-white border border-[#ece7df] rounded-2xl p-4 text-center">
                         <div className="text-3xl font-black text-[#54916c] leading-none mb-1.5">{verbDB.filter(v => v.status === 'mastered').length}</div>
@@ -4286,8 +4611,14 @@ return parsed;
                         <div className="text-3xl font-black text-[#bd7256] leading-none mb-1.5">{totalVerbMistakes}</div>
                         <div className="text-xs font-bold text-[#aaa295]">❌ 累積錯題</div>
                       </div>
-                      <div className="bg-white border border-dashed border-[#cfc7b8] rounded-2xl p-4 text-center flex items-center justify-center">
-                        <div className="text-sm font-bold text-[#cfc7b8]">JLPT N5→N1</div>
+                      <div className="bg-white border border-[#ece7df] rounded-2xl p-4 text-center">
+                        <div className="text-3xl font-black text-[#4a4640] leading-none mb-1.5">{effectiveTodayGrammarStats.srsCount}</div>
+                        <div className="text-xs font-bold text-[#aaa295]">🧩 文法到期</div>
+                        {effectiveTodayGrammarStats.srsCount > 20
+                          ? <div className="text-[10px] text-orange-400 mt-0.5">⚠️ 積壓偏多</div>
+                          : effectiveTodayGrammarStats.srsCount > 10
+                          ? <div className="text-[10px] text-yellow-500 mt-0.5">建議今日複習</div>
+                          : null}
                       </div>
                     </div>
                   </div>
@@ -4323,31 +4654,33 @@ return parsed;
                 })()}
               </button>
 
-              <button onClick={() => startVerbRound('normal')}
-                className="p-5 bg-white border-2 border-slate-100 hover:border-blue-300 hover:bg-blue-50 rounded-2xl transition-all text-left group active:scale-[0.97]">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-blue-100 text-blue-600 rounded-xl group-hover:bg-blue-500 group-hover:text-white transition-colors">
-                    <RotateCcw className="w-5 h-5"/>
-                  </div>
-                  <div>
-                    <div className="font-bold text-slate-800 leading-tight">自訂綜合特訓</div>
-                    <div className="text-xs text-slate-400 mt-0.5">嚴格依照設定的勾選項目隨機出題</div>
-                  </div>
-                </div>
-              </button>
-
-              <button onClick={() => startVerbRound('rpg')}
-                className="p-5 bg-white border-2 border-slate-100 hover:border-red-300 hover:bg-red-50 rounded-2xl transition-all group active:scale-[0.97]">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-red-100 text-red-500 rounded-xl group-hover:bg-red-500 group-hover:text-white transition-colors flex-shrink-0">
-                    <Swords className="w-5 h-5"/>
-                  </div>
-                  <div>
-                    <div className="font-bold text-slate-800 leading-tight">RPG 極限生存戰</div>
-                    <div className="text-xs text-slate-400 mt-0.5">3 滴血挑戰（依照您的設定出題）</div>
-                  </div>
-                </div>
-              </button>
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <button onClick={() => startVerbRound('normal')}
+                  className="py-4 bg-white border border-[#ece7df] text-[#4a4640] rounded-2xl font-bold hover:bg-[#e8eef6] hover:border-[#cfdcea] transition-all text-sm flex flex-col items-center gap-1.5 active:scale-[0.97]">
+                  <span className="text-xl">🔄</span>自訂綜合特訓
+                </button>
+                <button onClick={() => startVerbRound('rpg')}
+                  className="py-4 bg-white border border-[#ece7df] text-[#4a4640] rounded-2xl font-bold hover:bg-[#e8eef6] hover:border-[#cfdcea] transition-all text-sm flex flex-col items-center gap-1.5 active:scale-[0.97]">
+                  <span className="text-xl">⚔️</span>RPG 極限生存戰
+                </button>
+                <button onClick={() => {
+                    const adjs = verbDB.filter(v => v.type === 'adj_i' || v.type === 'adj_na');
+                    if (adjs.length === 0) return;
+                    const shuffled = [...adjs].sort(() => Math.random() - 0.5).slice(0, 15);
+                    setAdjClassifyQuiz(shuffled);
+                    setAdjClassifyIndex(0);
+                    setAdjClassifyScore(0);
+                    setAdjClassifyFeedback(null);
+                    setAppState('adj_classify_playing');
+                  }}
+                  className="py-4 bg-white border border-[#ece7df] text-[#4a4640] rounded-2xl font-bold hover:bg-[#e8eef6] hover:border-[#cfdcea] transition-all text-sm flex flex-col items-center gap-1.5 active:scale-[0.97]">
+                  <span className="text-xl">⚡</span>形容詞分類速測
+                </button>
+                <button onClick={() => setAppState('verb_focus_select')}
+                  className="py-4 bg-white border border-[#ece7df] text-[#4a4640] rounded-2xl font-bold hover:bg-[#e8eef6] hover:border-[#cfdcea] transition-all text-sm flex flex-col items-center gap-1.5 active:scale-[0.97]">
+                  <span className="text-xl">🎯</span>専項動詞特訓
+                </button>
+              </div>
 
               <div className="flex-1"/>
 
@@ -4892,8 +5225,8 @@ return parsed;
                   <div className="flex items-center gap-3">
                     <h4 className="font-bold text-amber-800">確認與編輯區</h4>
                     <div className="flex gap-1 bg-slate-100 p-1 rounded-xl">
-                      {[{mode:'list',label:'☰ 清單'},{mode:'grid2',label:'▪▪ 2欄'},{mode:'grid3',label:'▪▪▪ 3欄'}].map(({mode,label}) => (
-                        <button key={mode} onClick={() => { setBatchLayoutMode(mode); localStorage.setItem('verbApp_batchLayoutMode', mode); }} className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${batchLayoutMode === mode ? 'bg-white text-amber-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>{label}</button>
+                      {[{mode:'grid2',label:'▪▪ 2欄'},{mode:'compact',label:'▪▪▪ 3個'},{mode:'full',label:'▪▪▪▪▪▪ 6個'}].map(({mode,label}) => (
+                        <button key={mode} onClick={() => { setBatchLayoutMode(mode); localStorage.setItem('verbApp_batchLayoutMode', mode); setExpandedBatchIdx(new Set()); }} className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${batchLayoutMode === mode ? 'bg-white text-amber-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>{label}</button>
                       ))}
                     </div>
                   </div>
@@ -4915,75 +5248,71 @@ return parsed;
                 </div>
                 <datalist id="theme-suggestions">{Array.from(new Set([...Object.keys(THEME_KEYWORDS), ...vocabDB.map(v => v.tag)])).filter(Boolean).map(tag => <option key={tag} value={tag} />)}</datalist>
 
-                <div className={batchLayoutMode === 'list' ? 'space-y-3 mb-6 max-h-[640px] overflow-y-auto pr-2' : batchLayoutMode === 'grid2' ? 'grid grid-cols-2 gap-3 mb-6 max-h-[640px] overflow-y-auto pr-2' : 'grid grid-cols-3 gap-3 mb-6 max-h-[640px] overflow-y-auto pr-2'}>
+                <div className={batchLayoutMode === 'grid2' ? 'grid grid-cols-2 gap-3 mb-6 max-h-[640px] overflow-y-auto pr-2' : batchLayoutMode === 'full' ? 'grid grid-cols-3 gap-3 mb-6 max-h-[560px] overflow-y-auto pr-2' : 'grid grid-cols-3 gap-3 mb-6 max-h-[280px] overflow-y-auto pr-2'}>
                    {batchInputs.map((item, idx) => (
-                     batchLayoutMode === 'list' ? (
-                      <div key={idx} className={`flex flex-col gap-3 p-4 bg-white rounded-2xl border shadow-sm transition-all focus-within:shadow-md ${selectedBatchIds.has(idx) ? 'border-amber-400 bg-amber-50' : 'border-amber-100 focus-within:border-amber-400'}`}>
-                        <div className="flex gap-2 items-center">
-                          <input type="checkbox" checked={selectedBatchIds.has(idx)} onChange={() => toggleBatchSelect(idx)} className="w-4 h-4 cursor-pointer accent-amber-500 shrink-0"/>
-                          <div className="relative w-40 flex items-center">
-                            <input type="text" placeholder="主題/標籤" value={item.tag} onChange={e => {const n=[...batchInputs]; n[idx].tag=e.target.value; setBatchInputs(n);}} className={`w-full pl-3 pr-8 py-3 rounded-xl outline-none text-sm font-bold border ${getTagStyle(item.tag)}`} list="theme-suggestions" />
-                            <button onClick={() => handleRematchBatchTheme(idx)} title="自動重配主題" className="absolute right-2 p-1 text-slate-400 hover:text-amber-500 transition-colors"><Sparkles className="w-4 h-4"/></button>
-                          </div>
-                          <input type="text" placeholder="漢字/原形 (留空即純假名)" value={item.word} onChange={e => {const n=[...batchInputs]; n[idx].word=e.target.value; setBatchInputs(n);}} className="flex-1 p-3 rounded-xl border border-slate-200 outline-none focus:border-amber-500 text-sm font-bold"/>
-                          <input type="text" placeholder="平假名 (例: たべる)" value={item.reading} onChange={e => {const n=[...batchInputs]; n[idx].reading=e.target.value; setBatchInputs(n);}} className="flex-1 p-3 rounded-xl border border-slate-200 outline-none focus:border-amber-500 text-sm font-bold"/>
-                          <input type="text" placeholder="中文 (例: 吃)" value={item.meaning} onChange={e => {const n=[...batchInputs]; n[idx].meaning=e.target.value; setBatchInputs(n);}} className="flex-1 p-3 rounded-xl border border-slate-200 outline-none focus:border-amber-500 text-sm font-bold"/>
-                          <button onClick={() => setBatchInputs(batchInputs.filter((_, i) => i !== idx))} className="shrink-0 px-3 py-2 text-sm font-bold text-red-500 hover:text-white hover:bg-red-500 bg-red-50 rounded-xl transition-colors flex items-center gap-1"><Trash2 className="w-4 h-4"/> 刪除</button>
-                        </div>
-                        <div className="flex items-center gap-2 relative">
-                          <MessageSquareQuote className="w-5 h-5 text-amber-400 absolute left-3" />
-                          <input type="text" placeholder="附加例句 (選填，支援「漢字[假名]」注音格式。例如: 水[みず]を飲[の]みます。)" value={item.example} onChange={e => {const n=[...batchInputs]; n[idx].example=e.target.value; setBatchInputs(n);}} className="w-full pl-10 pr-3 py-2.5 bg-slate-50 rounded-xl border border-slate-200 outline-none focus:border-amber-500 focus:bg-white text-sm text-slate-600"/>
-                        </div>
-                        {item.example.trim() && (
-                          <div className="flex items-center gap-2 relative">
-                            <span className="absolute left-3 text-sm text-amber-400">🌐</span>
-                            <input type="text" placeholder="例句中文翻譯 (選填)" value={item.exampleMeaning || ''} onChange={e => {const n=[...batchInputs]; n[idx].exampleMeaning=e.target.value; setBatchInputs(n);}} className="w-full pl-9 pr-3 py-2.5 bg-slate-50 rounded-xl border border-slate-200 outline-none focus:border-amber-500 focus:bg-white text-sm text-slate-600"/>
-                          </div>
-                        )}
-                        <div className="flex items-center gap-2 relative">
-                          <span className="absolute left-3 text-sm text-slate-400">📝</span>
-                          <input type="text" placeholder="個人備註 (選填，例：容易混淆、常考)" value={item.note || ''} onChange={e => {const n=[...batchInputs]; n[idx].note=e.target.value; setBatchInputs(n);}} className="w-full pl-8 pr-3 py-2.5 bg-slate-50 rounded-xl border border-slate-200 outline-none focus:border-amber-500 focus:bg-white text-sm text-slate-600"/>
-                        </div>
-                        <div className="flex items-center gap-4 px-2 mt-1">
-                          <label className="flex items-center gap-2 cursor-pointer text-sm font-bold text-slate-600 hover:text-fuchsia-600 transition-colors">
-                            <input type="checkbox" checked={!!item.isSentence} onChange={e => {const n=[...batchInputs]; n[idx].isSentence=e.target.checked; setBatchInputs(n);}} className="w-4 h-4 accent-fuchsia-600"/>
-                            <span>✅ 這是一句完整例句（啟用例句特訓與專屬標記）</span>
-                          </label>
-                        </div>
-                      </div>
-                     ) : (
                       <div key={idx} className={`flex flex-col gap-2 p-4 bg-white rounded-2xl border shadow-sm transition-all focus-within:shadow-md ${selectedBatchIds.has(idx) ? 'border-amber-400 bg-amber-50' : 'border-amber-100 focus-within:border-amber-400'}`}>
                         <div className="flex items-center gap-2">
                           <input type="checkbox" checked={selectedBatchIds.has(idx)} onChange={() => toggleBatchSelect(idx)} className="w-4 h-4 cursor-pointer accent-amber-500 shrink-0"/>
                           <div className="relative flex-1">
-                            <input type="text" placeholder="主題/標籤" value={item.tag} onChange={e => {const n=[...batchInputs]; n[idx].tag=e.target.value; setBatchInputs(n);}} className={`w-full pl-3 pr-8 py-2 rounded-xl outline-none text-sm font-bold border ${getTagStyle(item.tag)}`} list="theme-suggestions" />
+                            <input type="text" placeholder="主題/標籤" value={item.tag}
+                              onChange={e => {
+                                const n=[...batchInputs]; n[idx].tag=e.target.value; setBatchInputs(n);
+                                if (autoSuggestedBatchIdx.has(idx)) setAutoSuggestedBatchIdx(prev => { const s=new Set(prev); s.delete(idx); return s; });
+                              }}
+                              className={`w-full pl-3 pr-8 py-2 rounded-xl outline-none text-sm font-bold border ${autoSuggestedBatchIdx.has(idx) ? 'bg-yellow-50 border-yellow-300' : getTagStyle(item.tag)}`} list="theme-suggestions" />
+                            {autoSuggestedBatchIdx.has(idx) && <span className="absolute -top-4 left-0 text-[10px] text-yellow-600 font-bold">✨ 自動建議</span>}
                             <button onClick={() => handleRematchBatchTheme(idx)} title="自動重配主題" className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-amber-500 transition-colors"><Sparkles className="w-4 h-4"/></button>
                           </div>
                           <button onClick={() => setBatchInputs(batchInputs.filter((_, i) => i !== idx))} className="shrink-0 p-2 text-red-400 hover:text-white hover:bg-red-500 bg-red-50 rounded-xl transition-colors"><Trash2 className="w-4 h-4"/></button>
                         </div>
                         <input type="text" placeholder="漢字/原形 (留空即純假名)" value={item.word} onChange={e => {const n=[...batchInputs]; n[idx].word=e.target.value; setBatchInputs(n);}} className="w-full p-2.5 rounded-xl border border-slate-200 outline-none focus:border-amber-500 text-sm font-bold"/>
                         <input type="text" placeholder="平假名 (例: たべる)" value={item.reading} onChange={e => {const n=[...batchInputs]; n[idx].reading=e.target.value; setBatchInputs(n);}} className="w-full p-2.5 rounded-xl border border-slate-200 outline-none focus:border-amber-500 text-sm font-bold"/>
-                        <input type="text" placeholder="中文 (例: 吃)" value={item.meaning} onChange={e => {const n=[...batchInputs]; n[idx].meaning=e.target.value; setBatchInputs(n);}} className="w-full p-2.5 rounded-xl border border-slate-200 outline-none focus:border-amber-500 text-sm font-bold"/>
-                        <div className="relative">
-                          <MessageSquareQuote className="w-4 h-4 text-amber-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                          <input type="text" placeholder="附加例句 (選填)" value={item.example} onChange={e => {const n=[...batchInputs]; n[idx].example=e.target.value; setBatchInputs(n);}} className="w-full pl-8 pr-3 py-2.5 bg-slate-50 rounded-xl border border-slate-200 outline-none focus:border-amber-500 focus:bg-white text-sm text-slate-600"/>
-                        </div>
-                        {item.example.trim() && (
-                          <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-amber-400">🌐</span>
-                            <input type="text" placeholder="例句中文翻譯 (選填)" value={item.exampleMeaning || ''} onChange={e => {const n=[...batchInputs]; n[idx].exampleMeaning=e.target.value; setBatchInputs(n);}} className="w-full pl-8 pr-3 py-2.5 bg-slate-50 rounded-xl border border-slate-200 outline-none focus:border-amber-500 focus:bg-white text-sm text-slate-600"/>
-                          </div>
-                        )}
-                        <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">📝</span>
-                          <input type="text" placeholder="個人備註 (選填)" value={item.note || ''} onChange={e => {const n=[...batchInputs]; n[idx].note=e.target.value; setBatchInputs(n);}} className="w-full pl-8 pr-3 py-2.5 bg-slate-50 rounded-xl border border-slate-200 outline-none focus:border-amber-500 focus:bg-white text-sm text-slate-600"/>
-                        </div>
-                        <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-500 hover:text-fuchsia-600 transition-colors px-1">
-                          <input type="checkbox" checked={!!item.isSentence} onChange={e => {const n=[...batchInputs]; n[idx].isSentence=e.target.checked; setBatchInputs(n);}} className="w-4 h-4 accent-fuchsia-600"/>
-                          <span>✅ 完整例句（啟用例句特訓）</span>
-                        </label>
+                        <input type="text" placeholder="中文 (例: 吃)" value={item.meaning}
+                          onChange={e => {const n=[...batchInputs]; n[idx].meaning=e.target.value; setBatchInputs(n);}}
+                          onBlur={e => {
+                            const meaning = e.target.value.trim();
+                            if (!meaning) return;
+                            if (item.tag !== '自訂' && item.tag !== '未知') return;
+                            const suggested = guessTag(meaning, vocabDB);
+                            if (suggested && suggested !== '自訂' && suggested !== item.tag) {
+                              const n=[...batchInputs]; n[idx].tag=suggested; setBatchInputs(n);
+                              setAutoSuggestedBatchIdx(prev => new Set([...prev, idx]));
+                            }
+                          }}
+                          className="w-full p-2.5 rounded-xl border border-slate-200 outline-none focus:border-amber-500 text-sm font-bold"/>
+                        {(() => {
+                          const hasOptionalData = !!(item.example?.trim() || item.note?.trim() || item.isSentence);
+                          const isGrid3Mode = batchLayoutMode === 'compact' || batchLayoutMode === 'full';
+                          const showOptional = !isGrid3Mode || expandedBatchIdx.has(idx) || hasOptionalData;
+                          return (<>
+                            {showOptional && (<>
+                              <div className="relative">
+                                <MessageSquareQuote className="w-4 h-4 text-amber-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                                <input type="text" placeholder="附加例句 (選填)" value={item.example} onChange={e => {const n=[...batchInputs]; n[idx].example=e.target.value; setBatchInputs(n);}} className="w-full pl-8 pr-3 py-2.5 bg-slate-50 rounded-xl border border-slate-200 outline-none focus:border-amber-500 focus:bg-white text-sm text-slate-600"/>
+                              </div>
+                              {item.example.trim() && (
+                                <div className="relative">
+                                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-amber-400">🌐</span>
+                                  <input type="text" placeholder="例句中文翻譯 (選填)" value={item.exampleMeaning || ''} onChange={e => {const n=[...batchInputs]; n[idx].exampleMeaning=e.target.value; setBatchInputs(n);}} className="w-full pl-8 pr-3 py-2.5 bg-slate-50 rounded-xl border border-slate-200 outline-none focus:border-amber-500 focus:bg-white text-sm text-slate-600"/>
+                                </div>
+                              )}
+                              <div className="relative">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">📝</span>
+                                <input type="text" placeholder="個人備註 (選填)" value={item.note || ''} onChange={e => {const n=[...batchInputs]; n[idx].note=e.target.value; setBatchInputs(n);}} className="w-full pl-8 pr-3 py-2.5 bg-slate-50 rounded-xl border border-slate-200 outline-none focus:border-amber-500 focus:bg-white text-sm text-slate-600"/>
+                              </div>
+                              <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-500 hover:text-fuchsia-600 transition-colors px-1">
+                                <input type="checkbox" checked={!!item.isSentence} onChange={e => {const n=[...batchInputs]; n[idx].isSentence=e.target.checked; setBatchInputs(n);}} className="w-4 h-4 accent-fuchsia-600"/>
+                                <span>✅ 完整例句（啟用例句特訓）</span>
+                              </label>
+                            </>)}
+                            {isGrid3Mode && !hasOptionalData && (
+                              <button onClick={() => setExpandedBatchIdx(prev => { const next = new Set(prev); if(next.has(idx)) next.delete(idx); else next.add(idx); return next; })} className="text-xs text-slate-400 hover:text-amber-600 transition-colors py-1 text-center w-full border border-dashed border-slate-200 rounded-lg hover:border-amber-300">
+                                {expandedBatchIdx.has(idx) ? '▲ 收合選填欄位' : '▼ 展開選填欄位'}
+                              </button>
+                            )}
+                          </>);
+                        })()}
                       </div>
-                     )
                    ))}
                 </div>
                 <div className="mb-4 mt-2">
@@ -5215,6 +5544,79 @@ return parsed;
 
              {vocabManageTab === 'kanji' && (
                 <div className="mt-2 animate-in fade-in">
+                   {/* 手動新增漢字表單 */}
+                   <div className="mb-4">
+                     <button onClick={() => setShowKanjiAddForm(v => !v)}
+                       className="flex items-center gap-2 px-4 py-2 bg-indigo-500 text-white rounded-xl font-bold text-sm hover:bg-indigo-600 transition-colors">
+                       <Plus className="w-4 h-4"/> {showKanjiAddForm ? '收合' : '＋ 手動新增漢字'}
+                     </button>
+                     {showKanjiAddForm && (
+                       <div className="mt-3 bg-indigo-50 border border-indigo-200 rounded-2xl p-5 space-y-3">
+                         <div className="grid grid-cols-2 gap-3">
+                           <div>
+                             <label className="text-xs font-bold text-slate-600 mb-1 block">漢字（必填，1字）</label>
+                             <input type="text" maxLength={1} value={newKanjiEntry.kanji}
+                               onChange={e => setNewKanjiEntry(p => ({...p, kanji: e.target.value}))}
+                               placeholder="例：食" className="w-full px-3 py-2 rounded-xl border border-indigo-200 text-2xl font-black text-center focus:outline-none focus:border-indigo-500 bg-white"/>
+                           </div>
+                           <div>
+                             <label className="text-xs font-bold text-slate-600 mb-1 block">JLPT 等級</label>
+                             <select value={newKanjiEntry.jlptLevel} onChange={e => setNewKanjiEntry(p => ({...p, jlptLevel: e.target.value}))}
+                               className="w-full px-3 py-2 rounded-xl border border-indigo-200 focus:outline-none focus:border-indigo-500 bg-white font-bold text-sm">
+                               <option value="Unknown">--</option>
+                               <option value="N5">N5</option><option value="N4">N4</option>
+                               <option value="N3">N3</option><option value="N2">N2</option><option value="N1">N1</option>
+                             </select>
+                           </div>
+                         </div>
+                         <div className="grid grid-cols-2 gap-3">
+                           <div>
+                             <label className="text-xs font-bold text-slate-600 mb-1 block">音読み（必填）</label>
+                             <input type="text" value={newKanjiEntry.onyomi}
+                               onChange={e => setNewKanjiEntry(p => ({...p, onyomi: e.target.value}))}
+                               placeholder="例：しょく" className="w-full px-3 py-2 rounded-xl border border-indigo-200 focus:outline-none focus:border-indigo-500 bg-white text-sm"/>
+                           </div>
+                           <div>
+                             <label className="text-xs font-bold text-slate-600 mb-1 block">訓読み（選填）</label>
+                             <input type="text" value={newKanjiEntry.kunyomi}
+                               onChange={e => setNewKanjiEntry(p => ({...p, kunyomi: e.target.value}))}
+                               placeholder="例：た（べる）" className="w-full px-3 py-2 rounded-xl border border-indigo-200 focus:outline-none focus:border-indigo-500 bg-white text-sm"/>
+                           </div>
+                         </div>
+                         <div>
+                           <label className="text-xs font-bold text-slate-600 mb-1 block">中文意思（必填）</label>
+                           <input type="text" value={newKanjiEntry.meaning}
+                             onChange={e => setNewKanjiEntry(p => ({...p, meaning: e.target.value}))}
+                             placeholder="例：食、吃" className="w-full px-3 py-2 rounded-xl border border-indigo-200 focus:outline-none focus:border-indigo-500 bg-white text-sm"/>
+                         </div>
+                         <button onClick={() => {
+                           const { kanji, onyomi, meaning, kunyomi, jlptLevel } = newKanjiEntry;
+                           if (!kanji.trim()) return alert('請填寫漢字欄位');
+                           if (!/[一-鿿]/.test(kanji)) return alert('請輸入有效的漢字');
+                           if (!onyomi.trim()) return alert('請填寫音読み');
+                           if (!meaning.trim()) return alert('請填寫中文意思');
+                           if (kanjiDB.some(k => k.kanji === kanji.trim())) return alert(`「${kanji}」已存在，請直接在索引中編輯`);
+                           const newEntry = {
+                             id: `kanji_manual_${Date.now()}`, kanji: kanji.trim(),
+                             reading: onyomi.trim(), kunyomi: kunyomi.trim(), meaning: meaning.trim(),
+                             jlptLevel, tags: [], isManual: true,
+                             dateAdded: Date.now(), ef: 2.5, interval: 0, repetitions: 0,
+                             nextReview: 0, status: 'new',
+                           };
+                           setKanjiDB(prev => [...prev, newEntry]);
+                           const _kk = `jp_daily_add_kanji_${todayDateStr()}`;
+                           localStorage.setItem(_kk, String(getTodayKanjiAddCount() + 1));
+                           checkAndUpdateStreak();
+                           setNewKanjiEntry({ kanji:'', onyomi:'', kunyomi:'', meaning:'', jlptLevel:'Unknown' });
+                           setShowKanjiAddForm(false);
+                           alert(`已新增：${kanji}`);
+                         }} className="w-full py-2.5 bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-indigo-700 transition-colors">
+                           ＋ 新增漢字
+                         </button>
+                       </div>
+                     )}
+                   </div>
+
                    <div className="flex items-center gap-4 mb-6">
                       <div className="flex-1 relative">
                          <Search className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -5234,6 +5636,7 @@ return parsed;
                                    <div className="mt-2">{renderTags(kanji.tags, (tag) => setSearchTerm(tag))}</div>
                                  </div>
                                  <div className="text-right flex flex-col items-end gap-1">
+                                   {kanji.isManual && <span className="text-[9px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-md border border-slate-200">手動</span>}
                                    <input type="text" value={kanji.reading || ''} onChange={e => setKanjiDB(prev => prev.map(k => k.id === kanji.id ? {...k, reading: e.target.value} : k))} placeholder="讀音（如：しょく）" className="text-right text-sm font-bold text-indigo-600 bg-transparent border-b border-transparent hover:border-indigo-300 focus:border-indigo-500 focus:outline-none w-32 placeholder:text-slate-300"/>
                                    <input type="text" value={kanji.meaning} onChange={e => setKanjiDB(prev => prev.map(k => k.id === kanji.id ? {...k, meaning: e.target.value} : k))} placeholder="備註..." className="text-right text-sm font-bold text-slate-600 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-indigo-500 focus:outline-none w-24 placeholder:text-slate-400"/>
                                    <select value={kanji.jlptLevel} onChange={e => setKanjiDB(prev => prev.map(k => k.id === kanji.id ? {...k, jlptLevel: e.target.value} : k))} className="text-xs font-bold text-slate-400 bg-transparent outline-none cursor-pointer hover:text-slate-600">
@@ -6133,6 +6536,386 @@ return parsed;
         </div>
       )}
 
+      {appState === 'tag_manage' && (() => {
+        const allTags = Object.keys(globalTagStats).sort((a,b) => globalTagStats[b] - globalTagStats[a]);
+        const vocabTagCounts = {};
+        vocabDB.forEach(v => { if (v.tag && v.tag !== '自訂' && v.tag !== '未知') vocabTagCounts[v.tag] = (vocabTagCounts[v.tag] || 0) + 1; });
+        const handleKw = (tag, raw) => {
+          const kws = raw.split(/[,，、\s]+/).map(k => k.trim()).filter(k => k.length >= 2);
+          setTagKeywordsMap(prev => ({ ...prev, [tag]: kws }));
+        };
+        const unclassified = vocabDB.filter(v => v.tag === '自訂' || v.tag === '未知');
+        const allTagOptions = [...new Set([...Object.keys(THEME_KEYWORDS), ...vocabDB.map(v => v.tag)])].filter(t => t && t !== '自訂' && t !== '未知').sort();
+        return (
+          <div className="w-[95vw] max-w-[1200px] mx-auto mt-4 animate-in fade-in">
+            <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-100 mb-6">
+              <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2 mb-1">🏷️ 標籤管理</h2>
+              <p className="text-xs text-slate-400 mb-6">設定關鍵字後，新增單字時系統可自動配對該標籤（需 2 字以上，逗號分隔）。「自動學習中」表示系統已累積足夠學習資料。</p>
+              <div className="space-y-2">
+                {allTags.length === 0 && <p className="text-center text-slate-400 py-8 text-sm">尚未建立任何標籤</p>}
+                {allTags.map(tag => {
+                  const total = globalTagStats[tag] || 0;
+                  const vocabCount = vocabTagCounts[tag] || 0;
+                  const hasLearnedEnough = vocabCount >= 5;
+                  const hasKeywords = (tagKeywordsMap[tag] || []).length > 0;
+                  return (
+                    <div key={tag} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100 hover:border-violet-200 transition-colors">
+                      <div className="w-28 shrink-0">
+                        <div className="text-sm font-bold text-slate-700 truncate" title={tag}>{tag}</div>
+                        <div className="text-[10px] text-slate-400 mt-0.5">{total} 筆資料</div>
+                      </div>
+                      <input
+                        type="text"
+                        key={`${tag}-${(tagKeywordsMap[tag]||[]).join(',')}`}
+                        defaultValue={(tagKeywordsMap[tag] || []).join(', ')}
+                        onBlur={e => handleKw(tag, e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleKw(tag, e.target.value)}
+                        placeholder="辨識關鍵字（選填，逗號分隔）"
+                        className="flex-1 min-w-0 px-3 py-1.5 text-sm bg-white border border-slate-200 rounded-lg focus:border-violet-400 focus:ring-1 focus:ring-violet-100 outline-none"
+                      />
+                      <div className="shrink-0 flex items-center gap-2">
+                        {hasKeywords && <span className="text-[10px] text-violet-600 bg-violet-50 px-2 py-0.5 rounded-md border border-violet-200">關鍵字 ✓</span>}
+                        {hasLearnedEnough && <span className="text-[10px] text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">自動學習中</span>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-100">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                  🏷️ 未分類單字
+                  <span className="text-sm font-normal text-slate-400">（{unclassified.length} 筆）</span>
+                </h3>
+                {unclassified.length > 0 && (
+                  <button
+                    onClick={() => {
+                      setVocabDB(prev => prev.map(v => {
+                        if (v.tag !== '自訂' && v.tag !== '未知') return v;
+                        const suggested = guessTag(v.meaning, prev.filter(x => x.id !== v.id));
+                        return (suggested && suggested !== '自訂') ? { ...v, tag: suggested } : v;
+                      }));
+                      setPendingTagOverrides({});
+                    }}
+                    className="px-4 py-2 bg-violet-600 text-white rounded-xl font-bold text-sm hover:bg-violet-700 transition-colors flex items-center gap-2"
+                  ><Sparkles className="w-4 h-4"/> 全部套用建議</button>
+                )}
+              </div>
+              {unclassified.length === 0 ? (
+                <div className="py-8 text-center text-sm text-emerald-600 bg-emerald-50 rounded-2xl font-bold">✅ 所有單字都已分類完成</div>
+              ) : (
+                <div className="space-y-2">
+                  {unclassified.map(v => {
+                    const suggested = guessTag(v.meaning, vocabDB.filter(x => x.id !== v.id));
+                    const currentOverride = pendingTagOverrides[v.id];
+                    const selectValue = currentOverride !== undefined ? currentOverride : (suggested && suggested !== '自訂' ? suggested : v.tag);
+                    return (
+                      <div key={v.id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100 hover:border-violet-200 transition-colors">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-bold text-slate-800 text-sm">{v.word || v.reading}</span>
+                            {v.word && v.reading && v.word !== v.reading && <span className="text-slate-400 text-xs">{v.reading}</span>}
+                            <span className="text-slate-500 text-sm">— {v.meaning}</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {suggested && suggested !== '自訂' && (
+                            <span className="text-[10px] text-violet-600 bg-violet-50 px-2 py-0.5 rounded-md border border-violet-200 hidden sm:inline">建議：{suggested}</span>
+                          )}
+                          <select
+                            value={selectValue}
+                            onChange={e => setPendingTagOverrides(prev => ({ ...prev, [v.id]: e.target.value }))}
+                            className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white outline-none focus:border-violet-400 max-w-[130px]"
+                          >
+                            {allTagOptions.map(t => <option key={t} value={t}>{t}</option>)}
+                            <option value="自訂">自訂</option>
+                            <option value="未知">未知</option>
+                          </select>
+                          <button
+                            onClick={() => {
+                              const newTag = selectValue;
+                              setVocabDB(prev => prev.map(x => x.id === v.id ? { ...x, tag: newTag } : x));
+                              setPendingTagOverrides(prev => { const n={...prev}; delete n[v.id]; return n; });
+                            }}
+                            className="px-3 py-1.5 bg-violet-600 text-white rounded-lg text-xs font-bold hover:bg-violet-700 transition-colors"
+                          >✓ 確認</button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ==== 功能 A：形容詞分類速測 ==== */}
+      {appState === 'adj_classify_playing' && (() => {
+        const current = adjClassifyQuiz[adjClassifyIndex];
+        const isDone = adjClassifyIndex >= adjClassifyQuiz.length;
+        const accuracy = adjClassifyQuiz.length > 0 ? Math.round((adjClassifyScore / adjClassifyQuiz.length) * 100) : 0;
+
+        const handleAdjAnswer = (chosen) => {
+          if (adjClassifyFeedback !== null) return;
+          const correct = current.type === chosen;
+          if (correct) {
+            setAdjClassifyScore(s => s + 1);
+            setAdjClassifyFeedback('correct');
+            setTimeout(() => {
+              setAdjClassifyFeedback(null);
+              setAdjClassifyIndex(i => i + 1);
+            }, 800);
+          } else {
+            setAdjClassifyFeedback('wrong');
+            setTimeout(() => {
+              setAdjClassifyFeedback(null);
+              setAdjClassifyIndex(i => i + 1);
+            }, 1200);
+          }
+        };
+
+        if (isDone) {
+          return (
+            <div className="max-w-md mx-auto mt-8 bg-white p-8 rounded-3xl shadow-sm border border-slate-100 text-center animate-in fade-in">
+              <div className="text-6xl mb-4">{accuracy >= 80 ? '🏆' : accuracy >= 60 ? '👍' : '💪'}</div>
+              <h2 className="text-2xl font-black text-slate-800 mb-2">測驗完成！</h2>
+              <div className="text-5xl font-black text-blue-600 my-6">{adjClassifyScore} <span className="text-2xl text-slate-400 font-medium">/ {adjClassifyQuiz.length}</span></div>
+              <div className="text-lg font-bold text-slate-500 mb-8">正確率 {accuracy}%</div>
+              <div className="flex gap-3 justify-center flex-wrap">
+                <button onClick={goHome} className="px-8 py-4 bg-slate-100 text-slate-700 rounded-xl font-bold flex gap-2 items-center hover:bg-slate-200 transition-colors">
+                  <Home className="w-5 h-5"/> 回首頁
+                </button>
+                <button onClick={() => {
+                  const adjs = verbDB.filter(v => v.type === 'adj_i' || v.type === 'adj_na');
+                  const shuffled = [...adjs].sort(() => Math.random() - 0.5).slice(0, 15);
+                  setAdjClassifyQuiz(shuffled);
+                  setAdjClassifyIndex(0);
+                  setAdjClassifyScore(0);
+                  setAdjClassifyFeedback(null);
+                }} className="px-8 py-4 bg-lime-500 text-white rounded-xl font-bold flex gap-2 items-center hover:bg-lime-600 transition-colors">
+                  <RotateCcw className="w-5 h-5"/> 再來一局
+                </button>
+              </div>
+            </div>
+          );
+        }
+
+        return (
+          <div className="max-w-md mx-auto mt-4 animate-in fade-in">
+            {/* 進度列 */}
+            <div className="flex items-center justify-between mb-4 bg-white p-3 rounded-2xl border border-slate-100">
+              <div className="text-sm font-bold text-slate-500">第 {adjClassifyIndex + 1} / {adjClassifyQuiz.length} 題</div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-black text-emerald-600 bg-emerald-50 px-3 py-1 rounded-lg border border-emerald-200">✅ {adjClassifyScore}</span>
+              </div>
+            </div>
+
+            {/* 進度條 */}
+            <div className="h-2 bg-slate-100 rounded-full mb-6 overflow-hidden">
+              <div className="h-full bg-lime-400 rounded-full transition-all duration-500" style={{ width: `${(adjClassifyIndex / adjClassifyQuiz.length) * 100}%` }}/>
+            </div>
+
+            {/* 題目卡 */}
+            <div className={`bg-white rounded-3xl p-8 text-center border-2 mb-6 shadow-sm transition-colors duration-300 ${
+              adjClassifyFeedback === 'correct' ? 'border-emerald-400 bg-emerald-50' :
+              adjClassifyFeedback === 'wrong' ? 'border-red-400 bg-red-50' :
+              'border-slate-100'
+            }`}>
+              <div className="text-5xl font-black text-slate-800 mb-3 tracking-wide">{stripRuby(current.jisho)}</div>
+              <div className="text-lg text-slate-500 font-medium">{current.meaning}</div>
+              {adjClassifyFeedback === 'wrong' && (
+                <div className="mt-4 text-sm font-bold text-red-600 bg-red-100 px-4 py-2 rounded-xl inline-block">
+                  正確答案：{current.type === 'adj_i' ? 'い形容詞' : 'な形容詞'}
+                </div>
+              )}
+              {adjClassifyFeedback === 'correct' && (
+                <div className="mt-4 text-sm font-bold text-emerald-600 bg-emerald-100 px-4 py-2 rounded-xl inline-block">
+                  ✓ 正確！
+                </div>
+              )}
+            </div>
+
+            {/* 選擇按鈕 */}
+            <div className="grid grid-cols-2 gap-4">
+              <button
+                onClick={() => handleAdjAnswer('adj_i')}
+                disabled={adjClassifyFeedback !== null}
+                className={`py-6 rounded-2xl font-black text-lg transition-all active:scale-95 border-2 ${
+                  adjClassifyFeedback !== null ? 'opacity-60 cursor-not-allowed' : 'hover:scale-[1.02]'
+                } bg-lime-100 text-lime-700 border-lime-300 hover:bg-lime-200`}
+              >
+                <div>い形容詞</div>
+                <div className="text-xs font-bold text-lime-500 mt-1">い・くて・かった</div>
+              </button>
+              <button
+                onClick={() => handleAdjAnswer('adj_na')}
+                disabled={adjClassifyFeedback !== null}
+                className={`py-6 rounded-2xl font-black text-lg transition-all active:scale-95 border-2 ${
+                  adjClassifyFeedback !== null ? 'opacity-60 cursor-not-allowed' : 'hover:scale-[1.02]'
+                } bg-yellow-100 text-yellow-700 border-yellow-300 hover:bg-yellow-200`}
+              >
+                <div>な形容詞</div>
+                <div className="text-xs font-bold text-yellow-500 mt-1">で・だった・に</div>
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ==== 功能 B：専項動詞特訓 — 選擇畫面 ==== */}
+      {appState === 'verb_focus_select' && (() => {
+        const FORM_LABEL_MAP = {
+          ...Object.fromEntries(DEFAULT_FORM_OPTIONS.map(f => [f.id, f.label])),
+          imperative: '命令形',
+        };
+
+        const usableForms = ALL_VERB_FORMS.filter(form =>
+          verbDB.filter(v => v.type === 'verb' && v[form] && v[form].trim()).length >= 4
+        );
+
+        const generateVerbFocusQ = (formId) => {
+          const pool = verbDB.filter(v => v.type === 'verb' && v[formId] && v[formId].trim() && v.masu);
+          if (pool.length < 4) return null;
+          const shuffled = [...pool].sort(() => Math.random() - 0.5);
+          const correct = shuffled[0];
+          const distractors = shuffled.slice(1, 4);
+          const choices = [correct, ...distractors].sort(() => Math.random() - 0.5);
+          return { verb: correct, choices, correctIdx: choices.indexOf(correct), formId };
+        };
+
+        return (
+          <div className="max-w-md mx-auto mt-4 animate-in fade-in">
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 mb-4">
+              <h2 className="text-xl font-black text-slate-800 mb-1">選擇練習項目</h2>
+              <p className="text-xs text-slate-400 mb-6">選一個變化形，系統會無限出題讓你集中練習</p>
+              {usableForms.length === 0 ? (
+                <div className="py-8 text-center text-sm text-slate-400 bg-slate-50 rounded-2xl">
+                  動詞資料不足（每個變化形至少需要 4 個動詞）
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 gap-3">
+                  {usableForms.map(formId => {
+                    const label = FORM_LABEL_MAP[formId] || formId;
+                    const style = BASE_FORM_COLORS[formId] || 'bg-slate-100 text-slate-700 border-slate-200';
+                    const count = verbDB.filter(v => v.type === 'verb' && v[formId] && v[formId].trim()).length;
+                    return (
+                      <button key={formId}
+                        onClick={() => {
+                          const q = generateVerbFocusQ(formId);
+                          if (!q) return;
+                          setVerbFocusForm(formId);
+                          setVerbFocusQuestion(q);
+                          setVerbFocusFeedback(null);
+                          setVerbFocusScore(0);
+                          setVerbFocusTotal(0);
+                          setAppState('verb_focus_playing');
+                        }}
+                        className={`py-4 px-2 rounded-2xl font-bold text-sm border-2 transition-all hover:scale-[1.03] active:scale-95 flex flex-col items-center gap-1 ${style}`}>
+                        <span>{label}</span>
+                        <span className="text-[10px] font-normal opacity-60">{count} 個動詞</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ==== 功能 B：専項動詞特訓 — 練習畫面 ==== */}
+      {appState === 'verb_focus_playing' && verbFocusQuestion && (() => {
+        const FORM_LABEL_MAP = {
+          ...Object.fromEntries(DEFAULT_FORM_OPTIONS.map(f => [f.id, f.label])),
+          imperative: '命令形',
+        };
+        const formLabel = FORM_LABEL_MAP[verbFocusForm] || verbFocusForm;
+        const formStyle = BASE_FORM_COLORS[verbFocusForm] || 'bg-blue-100 text-blue-700 border-blue-300';
+
+        const generateNext = (currentFormId) => {
+          const pool = verbDB.filter(v => v.type === 'verb' && v[currentFormId] && v.masu);
+          if (pool.length < 4) return null;
+          const shuffled = [...pool].sort(() => Math.random() - 0.5);
+          const correct = shuffled[0];
+          const distractors = shuffled.slice(1, 4);
+          const choices = [correct, ...distractors].sort(() => Math.random() - 0.5);
+          return { verb: correct, choices, correctIdx: choices.indexOf(correct), formId: currentFormId };
+        };
+
+        const handleChoice = (idx) => {
+          if (verbFocusFeedback !== null) return;
+          const isCorrect = idx === verbFocusQuestion.correctIdx;
+          setVerbFocusTotal(t => t + 1);
+          if (isCorrect) setVerbFocusScore(s => s + 1);
+          setVerbFocusFeedback(isCorrect ? 'correct' : 'wrong');
+          setTimeout(() => {
+            const next = generateNext(verbFocusForm);
+            if (next) setVerbFocusQuestion(next);
+            setVerbFocusFeedback(null);
+          }, isCorrect ? 800 : 1200);
+        };
+
+        return (
+          <div className="max-w-md mx-auto mt-4 animate-in fade-in">
+            {/* 頂部資訊列 */}
+            <div className="flex items-center justify-between mb-4 bg-white p-3 rounded-2xl border border-slate-100">
+              <div className="flex items-center gap-2">
+                <span className={`text-xs font-bold px-3 py-1 rounded-lg border-2 ${formStyle}`}>
+                  目前練習：{formLabel}
+                </span>
+              </div>
+              <span className="text-sm font-black text-emerald-600 bg-emerald-50 px-3 py-1 rounded-lg border border-emerald-200">
+                ✅ {verbFocusScore} / {verbFocusTotal}
+              </span>
+            </div>
+
+            {/* 題目卡 */}
+            <div className={`bg-white rounded-3xl p-8 text-center border-2 mb-5 shadow-sm transition-colors duration-300 ${
+              verbFocusFeedback === 'correct' ? 'border-emerald-400 bg-emerald-50' :
+              verbFocusFeedback === 'wrong' ? 'border-red-400 bg-red-50' :
+              'border-slate-100'
+            }`}>
+              <div className="text-xs font-bold text-slate-400 mb-3 uppercase tracking-widest">以下動詞的 {formLabel} 是？</div>
+              <div className="text-4xl font-black text-slate-800 mb-2">{stripRuby(verbFocusQuestion.verb.masu)}</div>
+              <div className="text-base text-slate-400 font-medium">{verbFocusQuestion.verb.meaning}</div>
+            </div>
+
+            {/* 4 個選項 */}
+            <div className="grid grid-cols-2 gap-3">
+              {verbFocusQuestion.choices.map((v, idx) => {
+                const answerText = stripRuby(v[verbFocusForm] || '');
+                const isCorrectChoice = idx === verbFocusQuestion.correctIdx;
+                let btnClass = 'bg-white border-slate-200 text-slate-800 hover:border-blue-300 hover:bg-blue-50';
+                if (verbFocusFeedback !== null) {
+                  if (isCorrectChoice) btnClass = 'bg-emerald-100 border-emerald-400 text-emerald-800';
+                  else btnClass = 'bg-slate-50 border-slate-200 text-slate-400';
+                }
+                return (
+                  <button key={idx}
+                    onClick={() => handleChoice(idx)}
+                    disabled={verbFocusFeedback !== null}
+                    className={`py-4 px-3 rounded-2xl font-bold text-base border-2 transition-all active:scale-95 ${
+                      verbFocusFeedback !== null ? 'cursor-not-allowed' : 'hover:scale-[1.02]'
+                    } ${btnClass}`}>
+                    {answerText}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="mt-4 text-center">
+              <button onClick={() => setAppState('verb_focus_select')}
+                className="text-sm text-slate-400 hover:text-slate-600 transition-colors underline underline-offset-2">
+                ← 換練習項目
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* ==== 測驗完成 (結算畫面) ==== */}
       {isRoundComplete && (appState === 'verb_playing' || appState === 'vocab_playing') && (
          <div className="max-w-2xl mx-auto bg-white p-8 rounded-3xl shadow-sm border border-slate-100 text-center relative animate-in slide-in-from-bottom-4 z-10">
@@ -6522,7 +7305,7 @@ return parsed;
       {editingVocabId && (() => {
         const title = vocabEditForm.word || vocabEditForm.reading || '編輯';
         return (
-          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" onClick={() => setEditingVocabId(null)}>
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" onMouseDown={(e) => { if (e.target === e.currentTarget) setEditingVocabId(null); }}>
             <div className="absolute inset-0"/>
             <div className="relative z-10 bg-white rounded-2xl w-full max-w-xl flex flex-col max-h-[85vh]" style={{boxShadow:'0 32px 80px -8px rgba(0,0,0,0.28), 0 8px 24px -4px rgba(0,0,0,0.14), 0 0 0 1.5px rgba(245,158,11,0.25)'}} onClick={e => e.stopPropagation()}>
               {/* 標題列 */}
@@ -6579,7 +7362,7 @@ return parsed;
         const otherForms = verbForms.filter(f => f.id !== jishoForm?.id);
         const title = verbEditForm[jishoForm?.id] || verbEditForm.masu || verbEditForm.meaning || '編輯';
         return (
-          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" onClick={() => setEditingVerbId(null)}>
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" onMouseDown={(e) => { if (e.target === e.currentTarget) setEditingVerbId(null); }}>
             {/* 背景（無半透明效果） */}
             <div className="absolute inset-0"/>
             {/* 卡片 */}
@@ -6630,6 +7413,12 @@ return parsed;
           </div>
         );
       })()}
+
+      {auditCopied && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] bg-green-600 text-white px-5 py-3 rounded-2xl shadow-lg font-bold text-sm animate-in slide-in-from-bottom-4">
+          📋 稽核報告已複製！請開新的 Claude 對話貼上分析
+        </div>
+      )}
     </div>
   );
 }
