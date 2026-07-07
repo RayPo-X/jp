@@ -859,8 +859,11 @@ const generateDistractors = (word, target, grammarDef, allGrammars = []) => {
     const adjFormMap = { adj_i: 'jisho', adj_na: 'jisho', adj_all: 'jisho', noun: 'jisho' };
     const resolvedBase = adjFormMap[grammarDef.baseForm] || grammarDef.baseForm;
     const baseRubyStr = word[resolvedBase] || '';
-    const replaceRegex = new RegExp((grammarDef.removeStr || '') + '$');
-    correctRuby = baseRubyStr.replace(replaceRegex, '') + grammarDef.appendStr;
+    const isAdjNa = word.type === 'adj_na';
+    const removeStr = (isAdjNa && grammarDef.adjNaRemoveStr != null && grammarDef.adjNaRemoveStr !== '') ? grammarDef.adjNaRemoveStr : (grammarDef.removeStr || '');
+    const appendStr = (isAdjNa && grammarDef.adjNaAppendStr != null && grammarDef.adjNaAppendStr !== '') ? grammarDef.adjNaAppendStr : grammarDef.appendStr;
+    const replaceRegex = new RegExp(removeStr + '$');
+    correctRuby = baseRubyStr.replace(replaceRegex, '') + appendStr;
   } else {
     correctRuby = word[target];
   }
@@ -869,6 +872,7 @@ const generateDistractors = (word, target, grammarDef, allGrammars = []) => {
   if (grammarDef && allGrammars.length > 0) {
     // Type 2: use other grammar rules applied to the same verb as distractors
     const adjFormMap = { adj_i: 'jisho', adj_na: 'jisho', adj_all: 'jisho', noun: 'jisho' };
+    const isAdjNa = word.type === 'adj_na';
     const otherGrammars = allGrammars.filter(g => g.id !== grammarDef.id && g.appliesTo.includes(word.type));
     const sameBase = otherGrammars.filter(g => g.baseForm === grammarDef.baseForm);
     const otherBase = otherGrammars.filter(g => g.baseForm !== grammarDef.baseForm);
@@ -878,8 +882,10 @@ const generateDistractors = (word, target, grammarDef, allGrammars = []) => {
       const rb = adjFormMap[g.baseForm] || g.baseForm;
       const baseStr = word[rb] || '';
       if (!baseStr) continue;
-      const rx = new RegExp((g.removeStr || '') + '$');
-      const dRuby = baseStr.replace(rx, '') + g.appendStr;
+      const dRemove = (isAdjNa && g.adjNaRemoveStr != null && g.adjNaRemoveStr !== '') ? g.adjNaRemoveStr : (g.removeStr || '');
+      const dAppend = (isAdjNa && g.adjNaAppendStr != null && g.adjNaAppendStr !== '') ? g.adjNaAppendStr : g.appendStr;
+      const rx = new RegExp(dRemove + '$');
+      const dRuby = baseStr.replace(rx, '') + dAppend;
       const dPlain = stripRuby(dRuby);
       if (!optionsMap.has(dPlain)) optionsMap.set(dPlain, dRuby);
     }
@@ -987,6 +993,194 @@ const calcLatePenalty = (originalNextReview, newInterval) => {
   if (lateDays <= 2) return newInterval;
   const penaltyFactor = Math.max(0.5, 1 - lateDays * 0.05);
   return Math.max(1, Math.round(newInterval * penaltyFactor));
+};
+
+const detectVerbGroup = (verb) => {
+  const j = stripRuby(verb.jisho || '');
+  const m = stripRuby(verb.masu || '');
+  if (verb.group === 2) return 'ichidan';
+  if (verb.group === 3) return (j === 'くる' || j === '来る') ? 'kuru' : 'suru';
+  if (j === 'する' || j.endsWith('する')) return 'suru';
+  if (j === 'くる' || j === '来る') return 'kuru';
+  const ms = m.replace(/ます$/, '');
+  if (j.endsWith('る') && j.slice(0, -1) === ms) return 'ichidan';
+  return { く:'ku', ぐ:'gu', む:'mu', ぬ:'nu', ぶ:'bu', つ:'tsu', う:'u', る:'ru_godan', す:'su' }[j.slice(-1)] || 'unknown';
+};
+
+const generateWrongForms = (verb, targetFormId) => {
+  const j = stripRuby(verb.jisho || '');
+  const m = stripRuby(verb.masu || '');
+  const g = detectVerbGroup(verb);
+  const ms = m.replace(/ます$/, '');
+  const js = j.slice(0, -1);
+  const correct = stripRuby(verb[targetFormId] || '');
+  let wrongs = [];
+
+  if (targetFormId === 'ta') {
+    const wMap = {
+      ichidan:  [ms+'った', j+'た', ms+'いた'],
+      ku:       [ms+'た', j+'た', js+'った'],
+      gu:       [ms+'た', j+'た', js+'いた'],
+      mu:       [ms+'た', j+'た', js+'いた'],
+      nu:       [ms+'た', j+'た', js+'いた'],
+      bu:       [ms+'た', j+'た', js+'いた'],
+      tsu:      [ms+'た', j+'た', js+'いた'],
+      u:        [ms+'た', j+'た', js+'んだ'],
+      ru_godan: [ms+'た', j+'た', js+'いた'],
+      su:       [j+'た', js+'いた', js+'んだ'],
+      suru:     ['するた', 'しいた', 'しんだ'],
+      kuru:     ['くるた', 'くいた', 'くんだ'],
+    };
+    wrongs = wMap[g] || [];
+  } else if (targetFormId === 'te') {
+    const wMap = {
+      ichidan:  [ms+'って', j+'て', ms+'いて'],
+      ku:       [ms+'て', j+'て', js+'って'],
+      gu:       [ms+'て', j+'て', js+'いて'],
+      mu:       [ms+'て', j+'て', js+'いて'],
+      nu:       [ms+'て', j+'て', js+'いて'],
+      bu:       [ms+'て', j+'て', js+'いて'],
+      tsu:      [ms+'て', j+'て', js+'いて'],
+      u:        [ms+'て', j+'て', js+'んで'],
+      ru_godan: [ms+'て', j+'て', js+'いて'],
+      su:       [j+'て', js+'いて', js+'んで'],
+      suru:     ['するて', 'しいて', 'しんで'],
+      kuru:     ['くるて', 'くいて', 'くんで'],
+    };
+    wrongs = wMap[g] || [];
+  } else if (targetFormId === 'nai' || targetFormId === 'nakatta') {
+    const end = targetFormId === 'nai' ? 'ない' : 'なかった';
+    const aV = { ku:'か',gu:'が',mu:'ま',nu:'な',bu:'ば',tsu:'た',u:'わ',ru_godan:'ら',su:'さ' }[g];
+    const oV = { ku:'こ',gu:'ご',mu:'も',nu:'の',bu:'ぼ',tsu:'と',u:'お',ru_godan:'ろ',su:'そ' }[g];
+    if (g === 'ichidan') {
+      wrongs = [ms+'ら'+end, j+end, ms+'あ'+end];
+    } else if (aV) {
+      wrongs = [ms+end, j+end, js+oV+end];
+    } else if (g === 'suru') {
+      wrongs = ['する'+end, 'しい'+end, 'せ'+end];
+    } else if (g === 'kuru') {
+      wrongs = ['くる'+end, 'くい'+end, 'き'+end];
+    }
+  } else if (targetFormId === 'jisho') {
+    if (g === 'suru') {
+      const pfx = j.endsWith('する') ? j.slice(0, -2) : '';
+      wrongs = [pfx+'しる', pfx+'せる', pfx+'すら'];
+    } else if (g === 'kuru') {
+      wrongs = ['きる', 'こる', 'くら'];
+    } else if (g === 'ichidan') {
+      wrongs = [ms+'く', ms+'す', ms+'む'];
+    } else {
+      const altEndings = {
+        ku:       ['ぐ','む','る'],
+        gu:       ['く','ぬ','る'],
+        mu:       ['ぶ','ぬ','ぐ'],
+        nu:       ['む','ぶ','ぐ'],
+        bu:       ['む','ぬ','ぐ'],
+        tsu:      ['く','す','ぬ'],
+        u:        ['く','む','る'],
+        ru_godan: ['く','む','ぬ'],
+        su:       ['く','つ','ぬ'],
+      }[g];
+      wrongs = altEndings ? altEndings.map(e => js + e) : [];
+    }
+  } else if (targetFormId === 'masu') {
+    const a={ku:'か',gu:'が',mu:'ま',nu:'な',bu:'ば',tsu:'た',u:'わ',ru_godan:'ら',su:'さ'}[g];
+    const e={ku:'け',gu:'げ',mu:'め',nu:'ね',bu:'べ',tsu:'て',u:'え',ru_godan:'れ',su:'せ'}[g];
+    const o={ku:'こ',gu:'ご',mu:'も',nu:'の',bu:'ぼ',tsu:'と',u:'お',ru_godan:'ろ',su:'そ'}[g];
+    if (g==='suru') { const p=j.endsWith('する')?j.slice(0,-2):''; wrongs=[p+'するます',p+'しいます',p+'せます']; }
+    else if (g==='kuru') { wrongs=['くます','くるます','こます']; }
+    else if (g==='ichidan') { wrongs=[ms+'ります',ms+'らます',ms+'れます']; }
+    else if (a) { wrongs=[js+a+'ます',js+e+'ます',js+o+'ます']; }
+  } else if (targetFormId === 'potential') {
+    const a={ku:'か',gu:'が',mu:'ま',nu:'な',bu:'ば',tsu:'た',u:'わ',ru_godan:'ら',su:'さ'}[g];
+    const i={ku:'き',gu:'ぎ',mu:'み',nu:'に',bu:'び',tsu:'ち',u:'い',ru_godan:'り',su:'し'}[g];
+    const o={ku:'こ',gu:'ご',mu:'も',nu:'の',bu:'ぼ',tsu:'と',u:'お',ru_godan:'ろ',su:'そ'}[g];
+    if (g==='suru') { const p=j.endsWith('する')?j.slice(0,-2):''; wrongs=[p+'しれる',p+'するれる',p+'しられる']; }
+    else if (g==='kuru') { wrongs=['くられる','きられる','くれる']; }
+    else if (g==='ichidan') { wrongs=[ms+'りる',ms+'るれる',ms+'らる']; }
+    else if (a) { wrongs=[js+a+'れる',js+i+'る',js+o+'れる']; }
+  } else if (targetFormId === 'passive') {
+    const i={ku:'き',gu:'ぎ',mu:'み',nu:'に',bu:'び',tsu:'ち',u:'い',ru_godan:'り',su:'し'}[g];
+    const e={ku:'け',gu:'げ',mu:'め',nu:'ね',bu:'べ',tsu:'て',u:'え',ru_godan:'れ',su:'せ'}[g];
+    if (g==='suru') { const p=j.endsWith('する')?j.slice(0,-2):''; wrongs=[p+'しれる',p+'するれる',p+'しいれる']; }
+    else if (g==='kuru') { wrongs=['くられる','きられる','くれる']; }
+    else if (g==='ichidan') { wrongs=[ms+'りれる',ms+'るれる',ms+'らる']; }
+    else if (i) { wrongs=[js+i+'れる',js+e+'れる',j+'れる']; }
+  } else if (targetFormId === 'causative') {
+    const i={ku:'き',gu:'ぎ',mu:'み',nu:'に',bu:'び',tsu:'ち',u:'い',ru_godan:'り',su:'し'}[g];
+    const e={ku:'け',gu:'げ',mu:'め',nu:'ね',bu:'べ',tsu:'て',u:'え',ru_godan:'れ',su:'せ'}[g];
+    if (g==='suru') { const p=j.endsWith('する')?j.slice(0,-2):''; wrongs=[p+'するせる',p+'しいせる',p+'しせる']; }
+    else if (g==='kuru') { wrongs=['くるせる','くせる','くらせる']; }
+    else if (g==='ichidan') { wrongs=[ms+'せる',ms+'るせる',ms+'りせる']; }
+    else if (i) { wrongs=[js+i+'せる',js+e+'せる',j+'せる']; }
+  } else if (targetFormId === 'volitional') {
+    const a={ku:'か',gu:'が',mu:'ま',nu:'な',bu:'ば',tsu:'た',u:'わ',ru_godan:'ら',su:'さ'}[g];
+    const i={ku:'き',gu:'ぎ',mu:'み',nu:'に',bu:'び',tsu:'ち',u:'い',ru_godan:'り',su:'し'}[g];
+    const e={ku:'け',gu:'げ',mu:'め',nu:'ね',bu:'べ',tsu:'て',u:'え',ru_godan:'れ',su:'せ'}[g];
+    if (g==='suru') { const p=j.endsWith('する')?j.slice(0,-2):''; wrongs=[p+'するよう',p+'しいよう',p+'しよ']; }
+    else if (g==='kuru') { wrongs=['くるよう','くよう','きよう']; }
+    else if (g==='ichidan') { wrongs=[ms+'ろう',ms+'おう',j+'う']; }
+    else if (a) { wrongs=[js+a+'う',js+i+'う',js+e+'う']; }
+  } else if (targetFormId === 'imperative') {
+    const a={ku:'か',gu:'が',mu:'ま',nu:'な',bu:'ば',tsu:'た',u:'わ',ru_godan:'ら',su:'さ'}[g];
+    const o={ku:'こ',gu:'ご',mu:'も',nu:'の',bu:'ぼ',tsu:'と',u:'お',ru_godan:'ろ',su:'そ'}[g];
+    if (g==='suru') { const p=j.endsWith('する')?j.slice(0,-2):''; wrongs=[p+'するろ',p+'するよ',p+'しよ']; }
+    else if (g==='kuru') { wrongs=['くるろ','くろ','くれ']; }
+    else if (g==='ichidan') { wrongs=[ms+'る',ms+'れ',ms+'い']; }
+    else if (a) { wrongs=[js+a,ms,js+o]; }
+  } else if (targetFormId === 'causative_passive') {
+    const a={ku:'か',gu:'が',mu:'ま',nu:'な',bu:'ば',tsu:'た',u:'わ',ru_godan:'ら',su:'さ'}[g];
+    const i={ku:'き',gu:'ぎ',mu:'み',nu:'に',bu:'び',tsu:'ち',u:'い',ru_godan:'り',su:'し'}[g];
+    const e={ku:'け',gu:'げ',mu:'め',nu:'ね',bu:'べ',tsu:'て',u:'え',ru_godan:'れ',su:'せ'}[g];
+    if (g==='suru') { const p=j.endsWith('する')?j.slice(0,-2):''; wrongs=[p+'するせられる',p+'しいせられる',p+'しせられる']; }
+    else if (g==='kuru') { wrongs=['くるせられる','くせられる','きせられる']; }
+    else if (g==='ichidan') { wrongs=[ms+'せられる',ms+'させれる',ms+'させらる']; }
+    else if (a) { wrongs=[js+i+'せられる',js+e+'せられる',js+a+'れられる']; }
+  } else if (targetFormId === 'ba') {
+    const a={ku:'か',gu:'が',mu:'ま',nu:'な',bu:'ば',tsu:'た',u:'わ',ru_godan:'ら',su:'さ'}[g];
+    const i={ku:'き',gu:'ぎ',mu:'み',nu:'に',bu:'び',tsu:'ち',u:'い',ru_godan:'り',su:'し'}[g];
+    const o={ku:'こ',gu:'ご',mu:'も',nu:'の',bu:'ぼ',tsu:'と',u:'お',ru_godan:'ろ',su:'そ'}[g];
+    if (g==='suru') { const p=j.endsWith('する')?j.slice(0,-2):''; wrongs=[p+'するば',p+'しいれば',p+'しれ']; }
+    else if (g==='kuru') { wrongs=['くるば','きれば','くれ']; }
+    else if (g==='ichidan') { wrongs=[ms+'ば',j+'ば',ms+'らば']; }
+    else if (a) { wrongs=[js+a+'ば',js+i+'ば',js+o+'ば']; }
+  }
+
+  if (wrongs.length === 0) {
+    const e3=correct.slice(-3),e2=correct.slice(-2),e1=correct.slice(-1);
+    const t3={'られる':['りれる','るれる','らる'],'させる':['しれる','するれる','しいれる'],
+              'られた':['りれた','るれた','らた'],'させた':['しれた','するれた','しいれた']}[e3];
+    const t2={'いる':['ある','いう','いく'],'よう':['ろう','おう','いう'],
+              'ろう':['よう','おう','かう'],'れる':['けれ','てれ','せれ'],
+              'せる':['けれ','てれ','めれ'],'ない':['らい','にい','さい'],
+              'たら':['なら','から','さら'],'ます':['かす','むす','らす']}[e2];
+    const t1={'る':['く','む','ぬ'],'く':['ぐ','む','る'],'む':['ぶ','ぬ','ぐ'],
+              'ぐ':['く','ぬ','る'],'ぶ':['む','ぬ','ぐ'],'ぬ':['む','ぶ','ぐ'],
+              'つ':['く','す','ぬ'],'す':['く','つ','ぬ'],'う':['く','む','る'],
+              'い':['き','に','り'],'え':['け','て','せ'],'て':['で','せ','け'],
+              'で':['て','せ','べ'],'た':['な','ら','さ'],'だ':['た','な','ら'],
+              'け':['せ','て','れ'],'れ':['け','て','せ'],'せ':['れ','け','て'],
+              'こ':['か','き','そ'],'ば':['は','ぱ','ま'],'よ':['ろ','お','え'],
+              'ろ':['よ','お','え']}[e1];
+    const [stem,alts]=t3?[correct.slice(0,-3),t3]:t2?[correct.slice(0,-2),t2]:t1?[correct.slice(0,-1),t1]:[correct,['く','む','ず']];
+    wrongs=alts.map(a=>stem+a);
+  }
+
+  const unique=[...new Set(wrongs)].filter(w=>w&&w.trim()&&w!==correct);
+
+  if (unique.length<3) {
+    const e1=correct.slice(-1);
+    const alts4={'る':['く','む','ぬ','す'],'く':['ぐ','む','る','ぬ'],'む':['ぶ','ぬ','ぐ','る'],
+                 'ぐ':['く','ぬ','る','む'],'ぶ':['む','ぬ','ぐ','る'],'ぬ':['む','ぶ','ぐ','る'],
+                 'つ':['く','す','ぬ','む'],'す':['く','つ','ぬ','む'],'う':['く','む','る','ぬ'],
+                 'い':['き','に','り','え'],'え':['け','て','せ','れ'],'て':['で','せ','け','れ'],
+                 'で':['て','せ','べ','れ'],'た':['な','ら','さ','か'],'け':['せ','て','れ','め'],
+                 'れ':['け','て','せ','め'],'せ':['れ','け','て','め']}[e1]||['く','む','ず','す'];
+    const extras=alts4.map(a=>correct.slice(0,-1)+a).filter(w=>w!==correct&&!unique.includes(w));
+    unique.push(...extras.slice(0,3-unique.length));
+  }
+
+  return unique.slice(0, 3);
 };
 
 export default function App() {
@@ -1292,6 +1486,8 @@ return parsed;
   const [verbAutoFit, setVerbAutoFit] = useState(() => localStorage.getItem('verbApp_verbAutoFit') !== 'false');
   const [hiddenVerbCols, setHiddenVerbCols] = useState(() => { try { return new Set(JSON.parse(localStorage.getItem('verbApp_hiddenVerbCols') || '[]')); } catch { return new Set(); } });
   const [showVerbColPicker, setShowVerbColPicker] = useState(false);
+  const [hiddenVocabCols, setHiddenVocabCols] = useState(() => { try { return new Set(JSON.parse(localStorage.getItem('verbApp_hiddenVocabCols') || '[]')); } catch { return new Set(); } });
+  const [showVocabColPicker, setShowVocabColPicker] = useState(false);
 
   useEffect(() => {
     localStorage.setItem('verbApp_vocabColWidths', JSON.stringify(vocabColWidths));
@@ -1302,6 +1498,7 @@ return parsed;
   useEffect(() => { localStorage.setItem('verbApp_vocabAutoFit', vocabAutoFit); }, [vocabAutoFit]);
   useEffect(() => { localStorage.setItem('verbApp_verbAutoFit', verbAutoFit); }, [verbAutoFit]);
   useEffect(() => { localStorage.setItem('verbApp_hiddenVerbCols', JSON.stringify([...hiddenVerbCols])); }, [hiddenVerbCols]);
+  useEffect(() => { localStorage.setItem('verbApp_hiddenVocabCols', JSON.stringify([...hiddenVocabCols])); }, [hiddenVocabCols]);
   useEffect(() => { localStorage.setItem('verbApp_showVerbQuickPaste', String(showVerbQuickPaste)); }, [showVerbQuickPaste]);
 
   useEffect(() => {
@@ -1334,6 +1531,40 @@ return parsed;
       localStorage.setItem('verbApp_vocabTableColumnOrder', JSON.stringify(vocabTableColumnOrder));
     }
   }, [vocabTableColumnOrder]);
+
+  const isNavigatingByHistoryRef = useRef(false);
+  const handlePopStateRef = useRef(null);
+  handlePopStateRef.current = (e) => {
+    const targetState = e.state?.appState ?? 'home';
+    const isInActiveQuiz = (appState === 'vocab_playing' || appState === 'verb_playing') && !isRoundComplete;
+    if (isInActiveQuiz) {
+      if (!window.confirm('確定要回上一頁嗎？目前的測驗進度將會遺失。')) {
+        window.history.pushState({ appState }, '', window.location.pathname);
+        return;
+      }
+    }
+    isNavigatingByHistoryRef.current = true;
+    setSearchTerm('');
+    setKanjiReadingMode(false);
+    setAppState(targetState);
+  };
+  useEffect(() => {
+    if (isNavigatingByHistoryRef.current) {
+      isNavigatingByHistoryRef.current = false;
+      return;
+    }
+    if (appState === 'home') {
+      window.history.replaceState({ appState: 'home' }, '', window.location.pathname);
+    } else {
+      window.history.pushState({ appState }, '', window.location.pathname);
+    }
+  }, [appState]);
+  useEffect(() => {
+    window.history.replaceState({ appState: 'home' }, '', window.location.pathname);
+    const handler = (e) => handlePopStateRef.current(e);
+    window.addEventListener('popstate', handler);
+    return () => window.removeEventListener('popstate', handler);
+  }, []);
 
   const vocabColDefinitions = {
     'isImportant': { label: '重要(⭐)', sortable: true },
@@ -1640,6 +1871,7 @@ return parsed;
       if (!a) return 1; if (!b) return -1;
       let aVal, bVal;
       switch (vocabSortConfig.key) {
+        case 'isImportant': aVal = a.isImportant ? 1 : 0; bVal = b.isImportant ? 1 : 0; break;
         case 'tag': aVal = a.tag || ''; bVal = b.tag || ''; break;
         case 'type': aVal = a.isSentence ? 1 : 0; bVal = b.isSentence ? 1 : 0; break;
         case 'word': aVal = a.word || a.reading || ''; bVal = b.word || b.reading || ''; break;
@@ -1769,6 +2001,7 @@ return parsed;
     const _vocabDB = JSON.parse(localStorage.getItem('verbApp_vocabDB') || '[]');
     const _customGrammars = JSON.parse(localStorage.getItem('verbApp_customGrammars') || '[]');
     const _verbDB = JSON.parse(localStorage.getItem('verbApp_verbDB') || '[]');
+    const _kanjiDB = JSON.parse(localStorage.getItem('verbApp_kanjiDB') || '[]');
     const _settings = {
       dailyReviewLimit: localStorage.getItem('jp_daily_review_limit') || 80,
       dailyNewVocabLimit: localStorage.getItem('jp_daily_vocab_limit') || 30,
@@ -1787,6 +2020,17 @@ return parsed;
       learning: _customGrammars.filter(g => g.status === 'learning').length,
       newItems: _customGrammars.filter(g => g.status === 'new').length,
     };
+    const _verbs = _verbDB.filter(v => v.type === 'verb');
+    const _adjI = _verbDB.filter(v => v.type === 'adj_i');
+    const _adjNa = _verbDB.filter(v => v.type === 'adj_na');
+    const verbFormKeys = ['jisho','masu','te','ta','nai','potential','passive','causative','volitional','imperative','causative_passive'];
+    const verbFormLabels = { jisho:'辭書形', masu:'ます形', te:'て形', ta:'た形', nai:'ない形', potential:'可能形', passive:'被動形', causative:'使役形', volitional:'意志形', imperative:'命令形', causative_passive:'使役被動形' };
+    const formCoverage = verbFormKeys.map(form => {
+      const count = _verbs.filter(v => v[form] && v[form].trim()).length;
+      return `${verbFormLabels[form]}(${form}): ${count}/${_verbs.length} 個`;
+    });
+    const kanjiWithReading = _kanjiDB.filter(k => k.reading && k.reading.trim()).length;
+    const kanjiManual = _kanjiDB.filter(k => k.isManual).length;
     const hardVocab = _vocabDB.filter(v => v.ef && v.ef < 1.8).sort((a, b) => a.ef - b.ef).slice(0, 20);
     const hardGrammar = _customGrammars.filter(g => g.ef && g.ef < 1.8).sort((a, b) => a.ef - b.ef).slice(0, 10);
     return `
@@ -1796,24 +2040,53 @@ return parsed;
 【系統概述】
 ═══════════════════════════════
 這是一個 React+Vite 的 SRS（間隔重複）日語學習 App，使用 SM-2 演算法。
-功能：單字測驗、動詞變化練習、文法測驗，三個模組各自有 SRS 複習佇列。
-資料全存在 localStorage，無後端。
+資料全存在 localStorage，無後端。部署於 GitHub Pages，透過 GitHub Actions 自動建置。
+
+主要功能模組：
+1. 單字 SRS — 每日複習佇列 + 新字推送，支援例句/漢字模式，可標記重要單字
+2. 動詞變化 SRS — 動詞/形容詞庫，支援多形式（辭書形/ます形/て形…等），含弱點特訓與 RPG 極限生存戰
+3. 文法 SRS — 自訂文法條目，每日新增/複習
+4. 漢字索引 SRS — 獨立漢字資料庫（kanjiDB），每日一輪漢字讀音複習
+5. 形容詞分類速測 — 從 verbDB 中的 adj_i/adj_na 出題，分 10題挑戰（循環池不重複）與全庫挑戰兩模式
+6. 専項動詞特訓 — 選定單一變化形，連續出選擇題，useRef 循環池確保同輪不重複，顯示答對/答錯/正確率
+7. 自訂綜合特訓 — 勾選多種變化形，混合出題
+8. 設定功能 — 每日學習上限調整、資料匯出/匯入備份（JSON）
+
+每日新增目標（DAILY_ADD_GOALS）：
+- 單字 5 個 / 動詞 3 個 / 文法 1 條 / 漢字 3 個
+- 四項全達成則顯示每日完成徽章
 
 【SRS 設定】
 - 每日複習上限：${_settings.dailyReviewLimit} 題
-- 每日新單字：${_settings.dailyNewVocabLimit} 個
-- 每日新文法：${_settings.dailyNewGrammarLimit} 個
-- 每日新動詞：${_settings.dailyNewVerbLimit} 個
+- 每日新單字上限：${_settings.dailyNewVocabLimit} 個
+- 每日新文法上限：${_settings.dailyNewGrammarLimit} 個
+- 每日新動詞上限：${_settings.dailyNewVerbLimit} 個
 
 【學習進度統計】
 單字：共 ${vocabStats.total} 個 | 已掌握 ${vocabStats.mastered} | 學習中 ${vocabStats.learning} | 未開始 ${vocabStats.newItems}
 文法：共 ${grammarStats.total} 條 | 已掌握 ${grammarStats.mastered} | 學習中 ${grammarStats.learning} | 未開始 ${grammarStats.newItems}
-動詞：共 ${_verbDB.length} 個
+verbDB 總計：${_verbDB.length} 筆（動詞 ${_verbs.length} 個 | い形容詞 ${_adjI.length} 個 | な形容詞 ${_adjNa.length} 個）
+  - 動詞分組：五段動詞 ${_verbs.filter(v=>v.group===1).length} | 一段動詞 ${_verbs.filter(v=>v.group===2).length} | 不規則 ${_verbs.filter(v=>v.group===3).length}
+漢字索引：共 ${_kanjiDB.length} 個 | 有讀音 ${kanjiWithReading} | 手動新增 ${kanjiManual}
+
+═══════════════════════════════
+【専項動詞特訓 — 各變化形覆蓋率】
+═══════════════════════════════
+（出題條件：type=verb 且該欄位有填入，且需 ≥4 個才能開啟此形式）
+${formCoverage.join('\n')}
+
+═══════════════════════════════
+【形容詞分類速測資料來源】
+═══════════════════════════════
+可用形容詞：い形容詞 ${_adjI.length} 個 + な形容詞 ${_adjNa.length} 個 = 合計 ${_adjI.length + _adjNa.length} 個
+模式說明：
+- 10題挑戰：從循環池依序取 10 題，考完換下一批，全部考完再重新洗牌（adjClassifyPool state）
+- 全庫挑戰：一次把全部形容詞洗牌後依序作答，不設限制
 
 ═══════════════════════════════
 【單字資料庫（全部 ${_vocabDB.length} 筆）】
 ═══════════════════════════════
-${_vocabDB.map(v => `${v.word}（${v.reading || '-'}）- ${v.meaning} [${v.tag || '未分類'}] ef:${v.ef?.toFixed(2) || 'N/A'}`).join('\n')}
+${_vocabDB.map(v => `${v.word}（${v.reading || '-'}）- ${v.meaning} [${v.tag || '未分類'}] ef:${v.ef?.toFixed(2) || 'N/A'}${v.note ? ` 備註:${v.note}` : ''}`).join('\n')}
 
 ═══════════════════════════════
 【文法資料庫（全部 ${_customGrammars.length} 條）】
@@ -1821,7 +2094,7 @@ ${_vocabDB.map(v => `${v.word}（${v.reading || '-'}）- ${v.meaning} [${v.tag |
 ${_customGrammars.map(g => `${g.name} - ${g.translation || '無中文說明'}\n  例句：${g.example || '無'}\n  說明：${g.explanation || '無'}`).join('\n---\n')}
 
 ═══════════════════════════════
-【動詞資料庫（全部 ${_verbDB.length} 個）】
+【verbDB（動詞＋形容詞，共 ${_verbDB.length} 筆）】
 ═══════════════════════════════
 ${_verbDB.map(v => {
       const groupLabel =
@@ -1831,8 +2104,16 @@ ${_verbDB.map(v => {
         v.group === 2       ? '一段動詞' :
         v.group === 3       ? '不規則動詞（サ変・カ変）' :
         `${v.type || '?'}/${v.group || '?'}`;
-      return `${stripRuby(v.jisho || '')}【${groupLabel}】- ${v.meaning || '無中文'}`;
+      const forms = v.type === 'verb'
+        ? ` [て:${v.te||'-'} ない:${v.nai||'-'} 可能:${v.potential||'-'}]`
+        : '';
+      return `${stripRuby(v.jisho || '')}【${groupLabel}】- ${v.meaning || '無中文'}${forms}`;
     }).join('\n')}
+
+═══════════════════════════════
+【漢字索引（共 ${_kanjiDB.length} 個）】
+═══════════════════════════════
+${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '- ' + k.meaning : ''}${k.isManual ? ' [手動]' : ''}`).join('\n') || '（無資料）'}
 
 ═══════════════════════════════
 【高錯誤率項目（ef < 1.8，最需要注意）】
@@ -1848,6 +2129,7 @@ ${_verbDB.map(v => {
 - 單字的中文意思有沒有明顯錯誤？
 - 文法的例句是否自然、正確？
 - 動詞的類別（五段/一段/サ變/カ變）標記是否正確？
+- い形容詞和な形容詞的分類是否正確？
 - 有沒有重複的條目？
 
 **2. 主題標籤分析**
@@ -1859,11 +2141,15 @@ ${_verbDB.map(v => {
 - 高錯誤率的項目有沒有共同特徵？
 - 每日限制設定是否合理？
 
-**4. 系統設計改進建議**
+**4. 動詞變化形覆蓋率分析**
+- 哪些變化形的填入率偏低（專項動詞特訓就無法練習那個形式）？
+- 建議優先補充哪些形式？
+
+**5. 系統設計改進建議**
 根據這份資料，你認為這個學習系統還缺少什麼功能？或者哪些地方的設計可以改進？
 （例如：學習路徑、題目難度、資料補全、UI 體驗等）
 
-**5. 學習建議**
+**6. 學習建議**
 根據目前的進度和錯誤模式，給學習者（日語 N4-N3 程度）具體的學習建議。
 
 請用中文回覆，盡量具體指出問題所在。
@@ -2235,6 +2521,28 @@ ${_verbDB.map(v => {
     }
   };
 
+  const startAdjClassify = (mode) => {
+    const adjs = verbDB.filter(v => v.type === 'adj_i' || v.type === 'adj_na');
+    if (adjs.length === 0) { alert('沒有形容詞資料！請先新增形容詞。'); return; }
+    let quiz, newPool;
+    if (mode === 'infinite') {
+      quiz = [...adjs].sort(() => Math.random() - 0.5);
+      newPool = [];
+    } else {
+      // 10題循環模式：從池子取題，池子空了就重新洗牌
+      let pool = adjClassifyPool.length > 0 ? adjClassifyPool : [...adjs].sort(() => Math.random() - 0.5);
+      quiz = pool.slice(0, 10);
+      newPool = pool.slice(10);
+    }
+    setAdjClassifyMode(mode);
+    setAdjClassifyPool(newPool);
+    setAdjClassifyQuiz(quiz);
+    setAdjClassifyIndex(0);
+    setAdjClassifyScore(0);
+    setAdjClassifyFeedback(null);
+    setAppState('adj_classify_playing');
+  };
+
   const startVerbRound = (mode) => {
     setVerbTestMode(mode);
     setQuestionCount(1);
@@ -2339,9 +2647,12 @@ ${_verbDB.map(v => {
     let finalCorrectRuby = '';
     if (selectedItem.grammarDef) {
       const rule = selectedItem.grammarDef;
+      const isAdjNa = selectedItem.word.type === 'adj_na';
+      const removeStr = (isAdjNa && rule.adjNaRemoveStr != null && rule.adjNaRemoveStr !== '') ? rule.adjNaRemoveStr : (rule.removeStr || '');
+      const appendStr = (isAdjNa && rule.adjNaAppendStr != null && rule.adjNaAppendStr !== '') ? rule.adjNaAppendStr : rule.appendStr;
       const baseRubyStr = selectedItem.word[rule.baseForm] || '';
-      const replaceRegex = new RegExp((rule.removeStr || '') + '$');
-      finalCorrectRuby = baseRubyStr.replace(replaceRegex, '') + rule.appendStr;
+      const replaceRegex = new RegExp(removeStr + '$');
+      finalCorrectRuby = baseRubyStr.replace(replaceRegex, '') + appendStr;
     } else finalCorrectRuby = selectedItem.word[selectedItem.target];
 
     setCurrentCorrectRuby(finalCorrectRuby);
@@ -2365,13 +2676,16 @@ ${_verbDB.map(v => {
     let exp = '';
     if (currentGrammarDef) {
        const baseName = verbForms.find(f => f.id === currentGrammarDef.baseForm)?.label || GRAMMAR_ADJ_FORMS.find(f => f.id === currentGrammarDef.baseForm)?.label || currentGrammarDef.baseForm;
-       const _r = currentGrammarDef.removeStr; const _a = currentGrammarDef.appendStr;
+       const isAdjNaWord = currentVerb?.type === 'adj_na';
+       const _r = (isAdjNaWord && currentGrammarDef.adjNaRemoveStr != null && currentGrammarDef.adjNaRemoveStr !== '') ? currentGrammarDef.adjNaRemoveStr : currentGrammarDef.removeStr;
+       const _a = (isAdjNaWord && currentGrammarDef.adjNaAppendStr != null && currentGrammarDef.adjNaAppendStr !== '') ? currentGrammarDef.adjNaAppendStr : currentGrammarDef.appendStr;
        let _changeDesc = '';
        if (_r && _a) _changeDesc = `去掉「${_r}」，加上「${_a}」`;
        else if (_r && !_a) _changeDesc = `去掉「${_r}」後即為答案，無需加上字尾`;
        else if (!_r && _a) _changeDesc = `加上「${_a}」`;
        else _changeDesc = `直接使用【${baseName}】的形態，無需加上字尾`;
-       exp = `自訂文法【${currentGrammarDef.name}】變化規則：接在【${baseName}】後，${_changeDesc}。`;
+       const adjNaNote = isAdjNaWord && (currentGrammarDef.adjNaRemoveStr != null && currentGrammarDef.adjNaRemoveStr !== '' || currentGrammarDef.adjNaAppendStr != null && currentGrammarDef.adjNaAppendStr !== '') ? '（な形容詞專用規則）' : '';
+       exp = `自訂文法【${currentGrammarDef.name}】變化規則${adjNaNote}：接在【${baseName}】後，${_changeDesc}。`;
     } else exp = getExplanation(currentVerb, currentTarget);
 
     setFeedback(isCorrect ? 'correct' : 'incorrect');
@@ -2556,7 +2870,7 @@ ${_verbDB.map(v => {
   const [isScanningObsidian, setIsScanningObsidian] = useState(false);
   const [importText, setImportText] = useState('');
   const [editingVocabId, setEditingVocabId] = useState(null);
-  const [vocabEditForm, setVocabEditForm] = useState({ word: '', reading: '', meaning: '', example: '', exampleMeaning: '', tags: [] });
+  const [vocabEditForm, setVocabEditForm] = useState({ word: '', reading: '', meaning: '', example: '', exampleMeaning: '', note: '', tags: [] });
   useEffect(() => {
     document.body.style.overflow = editingVocabId ? 'hidden' : '';
     return () => { document.body.style.overflow = ''; };
@@ -2592,6 +2906,8 @@ ${_verbDB.map(v => {
   const [adjClassifyIndex, setAdjClassifyIndex] = useState(0);
   const [adjClassifyScore, setAdjClassifyScore] = useState(0);
   const [adjClassifyFeedback, setAdjClassifyFeedback] = useState(null); // null | 'correct' | 'wrong'
+  const [adjClassifyMode, setAdjClassifyMode] = useState('10'); // '10' | 'infinite'
+  const [adjClassifyPool, setAdjClassifyPool] = useState([]); // 循環池（10題模式用）
 
   // 功能 B：専項動詞變化練習
   const [verbFocusForm, setVerbFocusForm] = useState('te');
@@ -2599,6 +2915,7 @@ ${_verbDB.map(v => {
   const [verbFocusFeedback, setVerbFocusFeedback] = useState(null); // null | 'correct' | 'wrong'
   const [verbFocusScore, setVerbFocusScore] = useState(0);
   const [verbFocusTotal, setVerbFocusTotal] = useState(0);
+  const verbFocusPoolRef = useRef([]); // 循環池（useRef 避免 setTimeout 內 stale closure）
 
   const [showObsidianHelp, setShowObsidianHelp] = useState(false);
   const [showObsidianSection, setShowObsidianSection] = useState(() => localStorage.getItem('verbApp_showObsidian') === 'true');
@@ -3136,7 +3453,7 @@ ${_verbDB.map(v => {
   const [editingGrammarId, setEditingGrammarId] = useState(null);
   const [grammarSortConfig, setGrammarSortConfig] = useState({ key: null, direction: null });
   const [grammarFilterTag, setGrammarFilterTag] = useState('');
-  const [newGrammar, setNewGrammar] = useState({ name: '', translation: '', baseForm: 'te', removeStr: '', appendStr: '', appliesTo: ['verb'], example: '', exampleTranslation: '', extraExamples: [], processExample: '', note: '', tag: '', tags: [], structureNote: '', answerBlankIndex: undefined });
+  const [newGrammar, setNewGrammar] = useState({ name: '', translation: '', baseForm: 'te', removeStr: '', appendStr: '', adjNaRemoveStr: '', adjNaAppendStr: '', appliesTo: ['verb'], example: '', exampleTranslation: '', extraExamples: [], processExample: '', note: '', tag: '', tags: [], structureNote: '', answerBlankIndex: undefined });
   const [isGrammarExtraOpen, setIsGrammarExtraOpen] = useState(false);
   const [isGrammarFormReordering, setIsGrammarFormReordering] = useState(false);
   const [grammarTagsOpen, setGrammarTagsOpen] = useState(false);
@@ -3168,6 +3485,7 @@ ${_verbDB.map(v => {
       removeStr: g.removeStr || '',
       appendStr: g.appendStr || '',
       appliesTo: g.appliesTo || ['verb'],
+      adjNaRemoveStr: g.adjNaRemoveStr || '', adjNaAppendStr: g.adjNaAppendStr || '',
       translation: g.translation || '', example: g.example || '', exampleTranslation: g.exampleTranslation || '', extraExamples: g.extraExamples || [], processExample: g.processExample || '', note: g.note || '', tag: g.tag || '', tags: g.tags || [], structureNote: g.structureNote || '', answerBlankIndex: g.answerBlankIndex
     });
   };
@@ -3836,7 +4154,7 @@ ${_verbDB.map(v => {
             <div className="flex items-center gap-3">
               <button onClick={goHome} className="p-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200 transition-colors"><Home className="w-5 h-5" /></button>
               <h1 className="font-bold text-slate-800 hidden sm:block">
-                {appState === 'vocab_playing' ? '單字記憶特訓' : appState === 'verb_playing' ? '動詞變化特訓' : appState === 'theme_select' ? '主題闖關大廳' : appState === 'vocab_manage' ? '管理單字記憶庫' : appState === 'tag_manage' ? '標籤管理' : appState === 'adj_classify_playing' ? '形容詞分類速測' : appState === 'verb_focus_select' ? '専項動詞特訓' : appState === 'verb_focus_playing' ? '専項動詞特訓' : '管理自訂文法'}
+                {appState === 'vocab_playing' ? '單字記憶特訓' : appState === 'verb_playing' ? '動詞變化特訓' : appState === 'theme_select' ? '主題闖關大廳' : appState === 'vocab_manage' ? '管理單字記憶庫' : appState === 'tag_manage' ? '標籤管理' : appState === 'adj_classify_select' ? '形容詞分類速測' : appState === 'adj_classify_playing' ? '形容詞分類速測' : appState === 'verb_focus_select' ? '専項動詞特訓' : appState === 'verb_focus_playing' ? '専項動詞特訓' : '管理自訂文法'}
               </h1>
             </div>
             {(appState === 'verb_playing' || appState === 'vocab_playing') && (
@@ -4361,7 +4679,9 @@ ${_verbDB.map(v => {
                   <div className={`mt-4 rounded-2xl border px-4 py-3 transition-colors ${allMet ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-200'}`}>
                     <div className="flex items-center justify-between mb-3">
                       <span className="text-xs font-bold text-slate-700">📝 今日新增任務</span>
-                      {addStreak > 0 && <span className="text-[10px] font-bold text-amber-500">🔥 {addStreak} 天連續</span>}
+                      <span className={`text-xs font-black px-2 py-0.5 rounded-lg ${addStreak >= 3 ? 'bg-amber-100 text-amber-600 border border-amber-200' : 'bg-slate-100 text-slate-400'}`}>
+                        🔥 {addStreak} 天連續
+                      </span>
                     </div>
                     <div className="grid grid-cols-4 gap-2 mb-2">
                       {cats.map(c => {
@@ -4384,7 +4704,9 @@ ${_verbDB.map(v => {
                       })}
                     </div>
                     <div className={`text-[10px] font-medium text-center ${allMet ? 'text-emerald-600' : 'text-slate-400'}`}>
-                      {allMet ? '✅ 今日全部達標！' : `今日進度：${metCount} / 4 類達標`}
+                      {allMet
+                        ? (addStreak > 1 ? `✅ 今日全部達標！🔥 已連續 ${addStreak} 天` : '✅ 今日全部達標！')
+                        : `今日進度：${metCount} / 4 類達標`}
                     </div>
                   </div>
                 );
@@ -4663,16 +4985,7 @@ ${_verbDB.map(v => {
                   className="py-4 bg-white border border-[#ece7df] text-[#4a4640] rounded-2xl font-bold hover:bg-[#e8eef6] hover:border-[#cfdcea] transition-all text-sm flex flex-col items-center gap-1.5 active:scale-[0.97]">
                   <span className="text-xl">⚔️</span>RPG 極限生存戰
                 </button>
-                <button onClick={() => {
-                    const adjs = verbDB.filter(v => v.type === 'adj_i' || v.type === 'adj_na');
-                    if (adjs.length === 0) return;
-                    const shuffled = [...adjs].sort(() => Math.random() - 0.5).slice(0, 15);
-                    setAdjClassifyQuiz(shuffled);
-                    setAdjClassifyIndex(0);
-                    setAdjClassifyScore(0);
-                    setAdjClassifyFeedback(null);
-                    setAppState('adj_classify_playing');
-                  }}
+                <button onClick={() => setAppState('adj_classify_select')}
                   className="py-4 bg-white border border-[#ece7df] text-[#4a4640] rounded-2xl font-bold hover:bg-[#e8eef6] hover:border-[#cfdcea] transition-all text-sm flex flex-col items-center gap-1.5 active:scale-[0.97]">
                   <span className="text-xl">⚡</span>形容詞分類速測
                 </button>
@@ -5327,7 +5640,36 @@ ${_verbDB.map(v => {
 
              <datalist id="db-theme-suggestions">{Array.from(new Set([...Object.keys(THEME_KEYWORDS), ...vocabDB.map(v => v.tag)])).filter(Boolean).map(tag => <option key={tag} value={tag} />)}</datalist>
              <div className="overflow-x-auto">
-               <div className="flex justify-end mb-2 gap-2">
+               <div className="flex justify-end mb-2 gap-2 flex-wrap items-start">
+                 {/* 欄位顯示/隱藏 */}
+                 <div className="relative">
+                   <button
+                     onClick={() => setShowVocabColPicker(v => !v)}
+                     className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border transition-colors ${showVocabColPicker ? 'bg-amber-500 text-white border-amber-500' : 'text-slate-500 hover:text-amber-600 bg-slate-100 hover:bg-amber-50 border-slate-200 hover:border-amber-300'}`}
+                     title="顯示/隱藏欄位"
+                   >☰ 欄位 {hiddenVocabCols.size > 0 && <span className="bg-rose-500 text-white rounded-full text-[10px] px-1.5 py-0.5 ml-0.5">{hiddenVocabCols.size}</span>}</button>
+                   {showVocabColPicker && (
+                     <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-50 p-3 min-w-[180px]">
+                       <div className="text-[11px] font-bold text-slate-400 mb-2 uppercase tracking-wider">欄位顯示設定</div>
+                       <div className="space-y-1 max-h-72 overflow-y-auto">
+                         {vocabTableColumnOrder.map(colId => {
+                           const def = vocabColDefinitions[colId];
+                           if (!def) return null;
+                           const isVisible = !hiddenVocabCols.has(colId);
+                           return (
+                             <label key={colId} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer">
+                               <input type="checkbox" checked={isVisible} onChange={() => setHiddenVocabCols(prev => { const next = new Set(prev); if (next.has(colId)) next.delete(colId); else next.add(colId); return next; })} className="w-3.5 h-3.5 accent-amber-500 cursor-pointer"/>
+                               <span className="text-xs text-slate-700">{def.label}</span>
+                             </label>
+                           );
+                         })}
+                       </div>
+                       {hiddenVocabCols.size > 0 && (
+                         <button onClick={() => setHiddenVocabCols(new Set())} className="mt-2 w-full text-xs text-amber-600 hover:text-amber-800 font-bold py-1 border-t border-slate-100">全部顯示</button>
+                       )}
+                     </div>
+                   )}
+                 </div>
                  <button
                    onClick={() => { setVocabAutoFit(v => !v); }}
                    className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border transition-colors ${vocabAutoFit ? 'bg-amber-500 text-white border-amber-500 hover:bg-amber-600' : 'text-slate-500 hover:text-amber-600 bg-slate-100 hover:bg-amber-50 border-slate-200 hover:border-amber-300'}`}
@@ -5335,10 +5677,11 @@ ${_verbDB.map(v => {
                  >⚡ 自動適應</button>
                  <button
                    onClick={(e) => {
+                     const visibleIds = vocabTableColumnOrder.filter(id => !hiddenVocabCols.has(id));
                      const cWidth = e.currentTarget.closest('.overflow-x-auto').clientWidth;
-                     const avg = Math.max(50, cWidth / vocabTableColumnOrder.length);
+                     const avg = Math.max(50, cWidth / visibleIds.length);
                      const nw = {};
-                     vocabTableColumnOrder.forEach(id => nw[id] = avg);
+                     visibleIds.forEach(id => nw[id] = avg);
                      setVocabColWidths(nw);
                    }}
                    className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-amber-600 bg-slate-100 hover:bg-amber-50 border border-slate-200 hover:border-amber-300 px-3 py-1.5 rounded-lg transition-colors"
@@ -5354,15 +5697,16 @@ ${_verbDB.map(v => {
                    ↩ 重設欄寬
                  </button>
                </div>
-               <table className="text-left text-sm table-fixed" style={vocabAutoFit ? { width: '100%' } : { width: vocabTableColumnOrder.reduce((acc, colId) => acc + (vocabColWidths[colId] ?? VOCAB_DEFAULT_WIDTHS[colId] ?? 100), 0) }}>
+               {(() => { const visibleVocabCols = vocabTableColumnOrder.filter(id => !hiddenVocabCols.has(id)); return (<>
+               <table className="text-left text-sm table-fixed" style={vocabAutoFit ? { width: '100%' } : { width: visibleVocabCols.reduce((acc, colId) => acc + (vocabColWidths[colId] ?? VOCAB_DEFAULT_WIDTHS[colId] ?? 100), 0) }}>
                  <thead className="bg-slate-50 text-slate-600"><tr>
-                    {vocabTableColumnOrder.map((colId, idx) => {
+                    {visibleVocabCols.map((colId, idx) => {
                         const def = vocabColDefinitions[colId];
                         if (!def) return null;
                         return (
-                                                                                    <th key={colId} 
+                                                                                    <th key={colId}
                                 className={`p-0 relative bg-slate-50 text-slate-600 select-none ${dragVocabColIdx === idx ? 'opacity-30' : ''} ${dragOverVocabColIdx === idx && dragVocabColIdx !== idx ? (dragVocabColIdx < dragOverVocabColIdx ? 'border-r-4 border-r-amber-500' : 'border-l-4 border-l-amber-500') : ''}`}
-                                style={vocabAutoFit ? { width: `${((vocabColWidths[colId] ?? VOCAB_DEFAULT_WIDTHS[colId] ?? 100) / vocabTableColumnOrder.reduce((s,c) => s+(vocabColWidths[c] ?? VOCAB_DEFAULT_WIDTHS[c] ?? 100),0)*100).toFixed(1)}%` } : { width: vocabColWidths[colId] ?? VOCAB_DEFAULT_WIDTHS[colId] }}
+                                style={vocabAutoFit ? { width: `${((vocabColWidths[colId] ?? VOCAB_DEFAULT_WIDTHS[colId] ?? 100) / visibleVocabCols.reduce((s,c) => s+(vocabColWidths[c] ?? VOCAB_DEFAULT_WIDTHS[c] ?? 100),0)*100).toFixed(1)}%` } : { width: vocabColWidths[colId] ?? VOCAB_DEFAULT_WIDTHS[colId] }}
                             >
                                 <div 
                                   draggable
@@ -5430,7 +5774,7 @@ ${_verbDB.map(v => {
                     {sortedVocabDB.map(v => editingVocabId === v.id ? (
                        /* 編輯中的列：高亮標記，實際編輯在 Modal */
                        <tr key={'edit-'+v.id} className="border-b-2 border-amber-400 bg-amber-50/60 ring-2 ring-inset ring-amber-300">
-                         {vocabTableColumnOrder.map(colId => {
+                         {visibleVocabCols.map(colId => {
                            if (colId === 'actions') return (
                              <td key={colId} className="p-4 text-center">
                                <span className="text-xs font-bold text-amber-500 animate-pulse">編輯中…</span>
@@ -5450,7 +5794,7 @@ ${_verbDB.map(v => {
                        </tr>
                      ) : (
                        <tr key={v.id} id={"item-" + v.id} className={"border-b border-slate-50 hover:bg-slate-50/50 transition-colors " + (selectedVocabIds.has(v.id) ? "bg-amber-50 " : "") + (targetId === v.id ? "bg-amber-100 ring-2 ring-amber-400" : "")}>
-                          {vocabTableColumnOrder.map(colId => {
+                          {visibleVocabCols.map(colId => {
                              if (colId === 'isImportant') {
                                 return <td key={colId} className="p-4 text-center">
                                     <button onClick={() => {createVocabBackup(); setVocabDB(prev => prev.map(x => x.id === v.id ? { ...x, isImportant: !x.isImportant } : x))}} className={`p-2 rounded-lg transition-colors ${v.isImportant ? 'text-amber-500 bg-amber-50 hover:bg-amber-100' : 'text-slate-400 hover:text-amber-500 hover:bg-amber-50'}`} title="標記為重要"><Star className={`w-4 h-4 ${v.isImportant ? 'fill-current' : ''}`}/></button>
@@ -5508,7 +5852,7 @@ ${_verbDB.map(v => {
                                 </td>;
                              }
                              if (colId === 'meaning') {
-                                return <td key={colId} className="p-4"><div className="font-bold text-slate-700">{v.meaning}</div>{v.example && <div className="text-slate-500 text-xs mt-1 bg-slate-100 p-1.5 rounded inline-block">{renderRuby(v.example)}</div>}</td>;
+                                return <td key={colId} className="p-4"><div className="font-bold text-slate-700">{v.meaning}</div>{v.example && <div className="text-slate-500 text-xs mt-1 bg-slate-100 p-1.5 rounded inline-block">{renderRuby(v.example)}</div>}{v.note && <div className="text-amber-700 text-xs mt-1 flex items-center gap-1"><span>📝</span><span>{v.note}</span></div>}</td>;
                              }
                              if (colId === 'status') {
                                 const isNew = v.status === 'new';
@@ -5530,7 +5874,7 @@ ${_verbDB.map(v => {
                              }
                              if (colId === 'actions') {
                                 return <td key={colId} className="p-4 flex gap-1">
-                                   <button onClick={()=>{setEditingVocabId(v.id); setVocabEditForm({word: v.word||'', reading: v.reading||'', meaning: v.meaning||'', example: v.example||'', exampleMeaning: v.exampleMeaning||'', tags: v.tags||[]});}} className="p-2 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-colors" title="編輯"><Edit3 className="w-4 h-4"/></button>
+                                   <button onClick={()=>{setEditingVocabId(v.id); setVocabEditForm({word: v.word||'', reading: v.reading||'', meaning: v.meaning||'', example: v.example||'', exampleMeaning: v.exampleMeaning||'', note: v.note||'', tags: v.tags||[]});}} className="p-2 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-colors" title="編輯"><Edit3 className="w-4 h-4"/></button>
                                    <button onClick={()=>{if(window.confirm('確定刪除？')){createVocabBackup(); setVocabDB(vocabDB.filter(x=>x.id!==v.id));}}} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="刪除"><Trash2 className="w-4 h-4"/></button>
                                 </td>;
                              }
@@ -5540,6 +5884,7 @@ ${_verbDB.map(v => {
                     ))}
                  </tbody>
                </table>
+               </>) })()}
              </div></>)}
 
              {vocabManageTab === 'kanji' && (
@@ -5955,7 +6300,7 @@ ${_verbDB.map(v => {
                             ))}
                             {newGrammar.example && <button type="button" onClick={() => setNewGrammar(p => ({...p, extraExamples:[...(p.extraExamples||[]),{sentence:'',translation:''}]}))} className={`text-sm font-bold px-3 py-1.5 rounded-lg border ${gc.advBtn} transition-colors`}>＋ 新增例句</button>}
                           </div>,
-                          advanced: <div><button type="button" onClick={() => setIsGrammarExtraOpen(v => !v)} className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-bold ${gc.advBtn} transition-colors border`}><span>進階設定（刪除字尾、加上字尾、變化筆記、備註）</span><span>{isGrammarExtraOpen ? '▲' : '▼'}</span></button>{isGrammarExtraOpen && <div className="mt-3 space-y-5"><div className="grid grid-cols-2 gap-4"><div><label className={`block text-sm font-bold ${gc.label} mb-1.5`}>刪除字尾</label><input type="text" value={newGrammar.removeStr || ''} onChange={e => setNewGrammar(p => ({...p, removeStr: e.target.value.replaceAll('~', '_').replaceAll('～', '_').replaceAll('〜', '_')}))} placeholder="例：ます" className={`w-full p-4 rounded-xl border ${gc.input} outline-none`}/></div><div><label className={`block text-sm font-bold ${gc.label} mb-1.5`}>加上字尾</label><input type="text" value={newGrammar.appendStr || ''} onChange={e => setNewGrammar(p => ({...p, appendStr: e.target.value.replaceAll('~', '_').replaceAll('～', '_').replaceAll('〜', '_')}))} placeholder="例：でください" className={`w-full p-4 rounded-xl border ${gc.input} outline-none`}/></div></div><div><label className={`block text-sm font-bold ${gc.label} mb-1.5`}>變化筆記</label><input type="text" value={newGrammar.processExample || ''} onChange={e => setNewGrammar(p => ({...p, processExample: e.target.value}))} placeholder="自由輸入，例如：飲む ➔ 飲んで ➔ 飲んでください" className={`w-full p-4 rounded-xl border ${gc.input} outline-none`}/></div><div><label className={`block text-sm font-bold ${gc.label} mb-1.5`}>個人備註</label><textarea rows={1} value={newGrammar.note || ''} onChange={e => setNewGrammar(p => ({...p, note: e.target.value}))} onInput={e => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }} placeholder="記錄自己的心得或注意事項..." className={`w-full p-4 rounded-xl border ${gc.input} outline-none resize-none overflow-hidden leading-relaxed`}/></div></div>}</div>,
+                          advanced: <div><button type="button" onClick={() => setIsGrammarExtraOpen(v => !v)} className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-bold ${gc.advBtn} transition-colors border`}><span>進階設定（刪除字尾、加上字尾、變化筆記、備註）</span><span>{isGrammarExtraOpen ? '▲' : '▼'}</span></button>{isGrammarExtraOpen && <div className="mt-3 space-y-5"><div className="grid grid-cols-2 gap-4"><div><label className={`block text-sm font-bold ${gc.label} mb-1.5`}>刪除字尾</label><input type="text" value={newGrammar.removeStr || ''} onChange={e => setNewGrammar(p => ({...p, removeStr: e.target.value.replaceAll('~', '_').replaceAll('～', '_').replaceAll('〜', '_')}))} placeholder="例：ます" className={`w-full p-4 rounded-xl border ${gc.input} outline-none`}/></div><div><label className={`block text-sm font-bold ${gc.label} mb-1.5`}>加上字尾</label><input type="text" value={newGrammar.appendStr || ''} onChange={e => setNewGrammar(p => ({...p, appendStr: e.target.value.replaceAll('~', '_').replaceAll('～', '_').replaceAll('〜', '_')}))} placeholder="例：でください" className={`w-full p-4 rounded-xl border ${gc.input} outline-none`}/></div></div>{newGrammar.appliesTo?.includes('adj_na') && <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3"><div className={`text-xs font-bold ${gc.label} mb-2`}>な形容詞 專用覆蓋（選填）</div><div className="text-xs text-slate-400 mb-2">な形容詞的辭書形結尾是「だ」，接続可能不同。若有填寫，な形容詞出題時會用這組規則，其他詞性仍用上方的設定。<br/>例：んです → 刪除「だ」，加上「なんです」</div><div className="grid grid-cols-2 gap-3"><div><label className={`block text-xs font-bold text-yellow-700 mb-1`}>な形容詞：刪除字尾</label><input type="text" value={newGrammar.adjNaRemoveStr || ''} onChange={e => setNewGrammar(p => ({...p, adjNaRemoveStr: e.target.value}))} placeholder="例：だ" className={`w-full p-3 rounded-xl border border-yellow-300 bg-yellow-50 outline-none text-sm`}/></div><div><label className={`block text-xs font-bold text-yellow-700 mb-1`}>な形容詞：加上字尾</label><input type="text" value={newGrammar.adjNaAppendStr || ''} onChange={e => setNewGrammar(p => ({...p, adjNaAppendStr: e.target.value}))} placeholder="例：なんです" className={`w-full p-3 rounded-xl border border-yellow-300 bg-yellow-50 outline-none text-sm`}/></div></div></div>}<div><label className={`block text-sm font-bold ${gc.label} mb-1.5`}>變化筆記</label><input type="text" value={newGrammar.processExample || ''} onChange={e => setNewGrammar(p => ({...p, processExample: e.target.value}))} placeholder="自由輸入，例如：飲む ➔ 飲んで ➔ 飲んでください" className={`w-full p-4 rounded-xl border ${gc.input} outline-none`}/></div><div><label className={`block text-sm font-bold ${gc.label} mb-1.5`}>個人備註</label><textarea rows={1} value={newGrammar.note || ''} onChange={e => setNewGrammar(p => ({...p, note: e.target.value}))} onInput={e => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }} placeholder="記錄自己的心得或注意事項..." className={`w-full p-4 rounded-xl border ${gc.input} outline-none resize-none overflow-hidden leading-relaxed`}/></div></div>}</div>,
                         };
                         const fieldGroupStyle = {
                           name:          'bg-emerald-100 border border-emerald-200 rounded-xl p-3',
@@ -6653,6 +6998,44 @@ ${_verbDB.map(v => {
       })()}
 
       {/* ==== 功能 A：形容詞分類速測 ==== */}
+      {appState === 'adj_classify_select' && (() => {
+        const adjCount = verbDB.filter(v => v.type === 'adj_i' || v.type === 'adj_na').length;
+        return (
+          <div className="max-w-md mx-auto mt-8 animate-in fade-in">
+            <div className="text-center mb-8">
+              <div className="text-5xl mb-3">⚡</div>
+              <h2 className="text-2xl font-black text-slate-800">形容詞分類速測</h2>
+              <p className="text-sm text-slate-400 mt-2">資料庫共 {adjCount} 個形容詞（不重複出題）</p>
+            </div>
+            <div className="grid grid-cols-1 gap-4">
+              <button onClick={() => startAdjClassify('10')}
+                className="w-full p-6 bg-white border-2 border-lime-200 rounded-2xl text-left hover:bg-lime-50 hover:border-lime-400 transition-all active:scale-[0.98] shadow-sm">
+                <div className="flex items-center gap-4">
+                  <div className="text-4xl">🎯</div>
+                  <div>
+                    <div className="text-lg font-black text-slate-800">10 題挑戰</div>
+                    <div className="text-sm text-slate-400 mt-0.5">隨機抽 10 題，快速測驗</div>
+                  </div>
+                </div>
+              </button>
+              <button onClick={() => startAdjClassify('infinite')}
+                className="w-full p-6 bg-white border-2 border-amber-200 rounded-2xl text-left hover:bg-amber-50 hover:border-amber-400 transition-all active:scale-[0.98] shadow-sm">
+                <div className="flex items-center gap-4">
+                  <div className="text-4xl">🌊</div>
+                  <div>
+                    <div className="text-lg font-black text-slate-800">全庫挑戰</div>
+                    <div className="text-sm text-slate-400 mt-0.5">把所有 {adjCount} 個形容詞全部考完，不重複</div>
+                  </div>
+                </div>
+              </button>
+            </div>
+            <button onClick={goHome} className="w-full mt-4 py-3 text-sm text-slate-400 hover:text-slate-600 transition-colors">
+              ← 回首頁
+            </button>
+          </div>
+        );
+      })()}
+
       {appState === 'adj_classify_playing' && (() => {
         const current = adjClassifyQuiz[adjClassifyIndex];
         const isDone = adjClassifyIndex >= adjClassifyQuiz.length;
@@ -6688,15 +7071,13 @@ ${_verbDB.map(v => {
                 <button onClick={goHome} className="px-8 py-4 bg-slate-100 text-slate-700 rounded-xl font-bold flex gap-2 items-center hover:bg-slate-200 transition-colors">
                   <Home className="w-5 h-5"/> 回首頁
                 </button>
-                <button onClick={() => {
-                  const adjs = verbDB.filter(v => v.type === 'adj_i' || v.type === 'adj_na');
-                  const shuffled = [...adjs].sort(() => Math.random() - 0.5).slice(0, 15);
-                  setAdjClassifyQuiz(shuffled);
-                  setAdjClassifyIndex(0);
-                  setAdjClassifyScore(0);
-                  setAdjClassifyFeedback(null);
-                }} className="px-8 py-4 bg-lime-500 text-white rounded-xl font-bold flex gap-2 items-center hover:bg-lime-600 transition-colors">
+                <button onClick={() => startAdjClassify(adjClassifyMode)}
+                  className="px-8 py-4 bg-lime-500 text-white rounded-xl font-bold flex gap-2 items-center hover:bg-lime-600 transition-colors">
                   <RotateCcw className="w-5 h-5"/> 再來一局
+                </button>
+                <button onClick={() => setAppState('adj_classify_select')}
+                  className="px-8 py-4 bg-slate-200 text-slate-700 rounded-xl font-bold flex gap-2 items-center hover:bg-slate-300 transition-colors">
+                  換模式
                 </button>
               </div>
             </div>
@@ -6707,7 +7088,12 @@ ${_verbDB.map(v => {
           <div className="max-w-md mx-auto mt-4 animate-in fade-in">
             {/* 進度列 */}
             <div className="flex items-center justify-between mb-4 bg-white p-3 rounded-2xl border border-slate-100">
-              <div className="text-sm font-bold text-slate-500">第 {adjClassifyIndex + 1} / {adjClassifyQuiz.length} 題</div>
+              <div className="text-sm font-bold text-slate-500 flex items-center gap-2">
+                第 {adjClassifyIndex + 1} / {adjClassifyQuiz.length} 題
+                <span className={`text-xs font-bold px-2 py-0.5 rounded-md ${adjClassifyMode === 'infinite' ? 'bg-amber-100 text-amber-600' : 'bg-lime-100 text-lime-600'}`}>
+                  {adjClassifyMode === 'infinite' ? '全庫' : '10題'}
+                </span>
+              </div>
               <div className="flex items-center gap-2">
                 <span className="text-sm font-black text-emerald-600 bg-emerald-50 px-3 py-1 rounded-lg border border-emerald-200">✅ {adjClassifyScore}</span>
               </div>
@@ -6777,13 +7163,21 @@ ${_verbDB.map(v => {
         );
 
         const generateVerbFocusQ = (formId) => {
-          const pool = verbDB.filter(v => v.type === 'verb' && v[formId] && v[formId].trim() && v.masu);
-          if (pool.length < 4) return null;
-          const shuffled = [...pool].sort(() => Math.random() - 0.5);
-          const correct = shuffled[0];
-          const distractors = shuffled.slice(1, 4);
-          const choices = [correct, ...distractors].sort(() => Math.random() - 0.5);
-          return { verb: correct, choices, correctIdx: choices.indexOf(correct), formId };
+          const realFormId = formId === 'plain_all'
+            ? ['jisho','nai','ta','nakatta'][Math.floor(Math.random() * 4)]
+            : formId;
+          const allEligible = verbDB.filter(v => v.type === 'verb' && v[realFormId] && v[realFormId].trim() && v.masu && v.jisho);
+          if (allEligible.length < 1) return null;
+          const correct = allEligible[Math.floor(Math.random() * allEligible.length)];
+          verbFocusPoolRef.current = allEligible.filter(v => v.id !== correct.id);
+          const correctText = stripRuby(correct[realFormId]);
+          const wrongTexts = generateWrongForms(correct, realFormId);
+          if (wrongTexts.length < 3) return null;
+          const allChoices = [
+            { text: correctText, isCorrect: true },
+            ...wrongTexts.slice(0, 3).map(t => ({ text: t, isCorrect: false })),
+          ].sort(() => Math.random() - 0.5);
+          return { verb: correct, choices: allChoices, formId: realFormId };
         };
 
         return (
@@ -6821,6 +7215,25 @@ ${_verbDB.map(v => {
                   })}
                 </div>
               )}
+              {['jisho','nai','ta','nakatta'].every(form =>
+                verbDB.filter(v => v.type === 'verb' && v[form] && v[form].trim()).length >= 4
+              ) && (
+                <button
+                  className="mt-4 w-full py-4 px-3 rounded-2xl font-bold text-sm border-2 bg-purple-100 text-purple-700 border-purple-300 transition-all hover:scale-[1.01] active:scale-95 flex flex-col items-center gap-1"
+                  onClick={() => {
+                    const q = generateVerbFocusQ('plain_all');
+                    if (!q) return;
+                    setVerbFocusForm('plain_all');
+                    setVerbFocusQuestion(q);
+                    setVerbFocusFeedback(null);
+                    setVerbFocusScore(0);
+                    setVerbFocusTotal(0);
+                    setAppState('verb_focus_playing');
+                  }}>
+                  <span>普通形（綜合）</span>
+                  <span className="text-[10px] font-normal opacity-60">辭書・ない・た・なかった 隨機混合</span>
+                </button>
+              )}
             </div>
           </div>
         );
@@ -6832,22 +7245,36 @@ ${_verbDB.map(v => {
           ...Object.fromEntries(DEFAULT_FORM_OPTIONS.map(f => [f.id, f.label])),
           imperative: '命令形',
         };
-        const formLabel = FORM_LABEL_MAP[verbFocusForm] || verbFocusForm;
-        const formStyle = BASE_FORM_COLORS[verbFocusForm] || 'bg-blue-100 text-blue-700 border-blue-300';
+        const formLabel = verbFocusForm === 'plain_all'
+          ? (FORM_LABEL_MAP[verbFocusQuestion.formId] || verbFocusQuestion.formId)
+          : (FORM_LABEL_MAP[verbFocusForm] || verbFocusForm);
+        const formStyle = verbFocusForm === 'plain_all'
+          ? 'bg-purple-100 text-purple-700 border-purple-300'
+          : (BASE_FORM_COLORS[verbFocusForm] || 'bg-blue-100 text-blue-700 border-blue-300');
 
         const generateNext = (currentFormId) => {
-          const pool = verbDB.filter(v => v.type === 'verb' && v[currentFormId] && v.masu);
-          if (pool.length < 4) return null;
-          const shuffled = [...pool].sort(() => Math.random() - 0.5);
-          const correct = shuffled[0];
-          const distractors = shuffled.slice(1, 4);
-          const choices = [correct, ...distractors].sort(() => Math.random() - 0.5);
-          return { verb: correct, choices, correctIdx: choices.indexOf(correct), formId: currentFormId };
+          const realFormId = currentFormId === 'plain_all'
+            ? ['jisho','nai','ta','nakatta'][Math.floor(Math.random() * 4)]
+            : currentFormId;
+          const allEligible = verbDB.filter(v => v.type === 'verb' && v[realFormId] && v[realFormId].trim() && v.masu && v.jisho);
+          if (allEligible.length < 1) return null;
+          let pool = verbFocusPoolRef.current.filter(v => v[realFormId] && v[realFormId].trim());
+          if (pool.length === 0) pool = [...allEligible];
+          const correct = pool[Math.floor(Math.random() * pool.length)];
+          verbFocusPoolRef.current = pool.filter(v => v.id !== correct.id);
+          const correctText = stripRuby(correct[realFormId]);
+          const wrongTexts = generateWrongForms(correct, realFormId);
+          if (wrongTexts.length < 3) return null;
+          const allChoices = [
+            { text: correctText, isCorrect: true },
+            ...wrongTexts.slice(0, 3).map(t => ({ text: t, isCorrect: false })),
+          ].sort(() => Math.random() - 0.5);
+          return { verb: correct, choices: allChoices, formId: realFormId };
         };
 
         const handleChoice = (idx) => {
           if (verbFocusFeedback !== null) return;
-          const isCorrect = idx === verbFocusQuestion.correctIdx;
+          const isCorrect = verbFocusQuestion.choices[idx]?.isCorrect ?? false;
           setVerbFocusTotal(t => t + 1);
           if (isCorrect) setVerbFocusScore(s => s + 1);
           setVerbFocusFeedback(isCorrect ? 'correct' : 'wrong');
@@ -6864,12 +7291,14 @@ ${_verbDB.map(v => {
             <div className="flex items-center justify-between mb-4 bg-white p-3 rounded-2xl border border-slate-100">
               <div className="flex items-center gap-2">
                 <span className={`text-xs font-bold px-3 py-1 rounded-lg border-2 ${formStyle}`}>
-                  目前練習：{formLabel}
+                  {verbFocusForm === 'plain_all' ? '普通形（綜合）' : `目前練習：${formLabel}`}
                 </span>
               </div>
-              <span className="text-sm font-black text-emerald-600 bg-emerald-50 px-3 py-1 rounded-lg border border-emerald-200">
-                ✅ {verbFocusScore} / {verbFocusTotal}
-              </span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-black text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-200">✅ {verbFocusScore}</span>
+                <span className="text-xs font-black text-red-500 bg-red-50 px-2 py-1 rounded-lg border border-red-200">❌ {verbFocusTotal - verbFocusScore}</span>
+                <span className="text-xs font-black text-blue-600 bg-blue-50 px-2 py-1 rounded-lg border border-blue-200">{verbFocusTotal > 0 ? Math.round((verbFocusScore / verbFocusTotal) * 100) : 0}%</span>
+              </div>
             </div>
 
             {/* 題目卡 */}
@@ -6885,9 +7314,9 @@ ${_verbDB.map(v => {
 
             {/* 4 個選項 */}
             <div className="grid grid-cols-2 gap-3">
-              {verbFocusQuestion.choices.map((v, idx) => {
-                const answerText = stripRuby(v[verbFocusForm] || '');
-                const isCorrectChoice = idx === verbFocusQuestion.correctIdx;
+              {verbFocusQuestion.choices.map((choice, idx) => {
+                const answerText = choice.text;
+                const isCorrectChoice = choice.isCorrect;
                 let btnClass = 'bg-white border-slate-200 text-slate-800 hover:border-blue-300 hover:bg-blue-50';
                 if (verbFocusFeedback !== null) {
                   if (isCorrectChoice) btnClass = 'bg-emerald-100 border-emerald-400 text-emerald-800';
@@ -7339,6 +7768,10 @@ ${_verbDB.map(v => {
                     <input type="text" value={vocabEditForm.exampleMeaning||''} onChange={e=>setVocabEditForm({...vocabEditForm, exampleMeaning: e.target.value})} placeholder="例句中文翻譯" className="w-full p-2.5 border border-slate-300 rounded-xl outline-none focus:border-amber-500 text-sm"/>
                   </div>
                 )}
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">📝 個人備註（選填）</label>
+                  <input type="text" value={vocabEditForm.note||''} onChange={e=>setVocabEditForm({...vocabEditForm, note: e.target.value})} placeholder="個人記憶線索、額外說明…" className="w-full p-2.5 border border-slate-300 rounded-xl outline-none focus:border-amber-500 text-sm text-amber-700"/>
+                </div>
                 <TagEditor tags={vocabEditForm.tags} onChange={tags => setVocabEditForm({...vocabEditForm, tags})} tagStats={globalTagStats} tagKeywordsMap={tagKeywordsMap} onTagKeywordsChange={setTagKeywordsMap} />
               </div>
               {/* 固定底部按鈕 */}
