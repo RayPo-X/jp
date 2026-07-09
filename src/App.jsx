@@ -935,8 +935,8 @@ const generateVocabDistractors = (correctVocab, allVocabs) => {
     optionsMap.set(correctVocab.reading, correctVocab.reading);
 
     const correctInterval = correctVocab.interval || 0;
-    let pool = allVocabs.filter(v => v.tag === correctVocab.tag && v.id !== correctVocab.id);
-    if (pool.length < 3) pool = allVocabs.filter(v => v.id !== correctVocab.id);
+    let pool = allVocabs.filter(v => v.tag === correctVocab.tag && v.id !== correctVocab.id && v.reading && v.reading.trim() && !v.isSentence);
+    if (pool.length < 3) pool = allVocabs.filter(v => v.id !== correctVocab.id && v.reading && v.reading.trim() && !v.isSentence);
 
     // prioritize words with similar SRS interval (harder to distinguish)
     const close = pool.filter(v => Math.abs((v.interval || 0) - correctInterval) <= 10).sort(() => Math.random() - 0.5);
@@ -2289,7 +2289,7 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
     setAppState('home');
   };
 
-  const startVocabSession = (mode, themeId = null) => {
+  const startVocabSession = (mode, themeId = null, slotLimit = null) => {
     let queue = [];
     if (mode === 'srs') {
       // 按到期時間排序，最舊的先複習
@@ -2321,6 +2321,13 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
       }
       // 複習在前、新字在後（不 shuffle SRS 隊列）
       queue = [...reviewPart, ...newPool];
+      // 首次啟動今日 SRS 時，鎖定今日基準題數（供分時段指示器使用）
+      const _slotKey = `jp_daily_slot_total_${todayDateStr()}`;
+      if (!localStorage.getItem(_slotKey) && queue.length > 0) {
+        localStorage.setItem(_slotKey, String(queue.length));
+      }
+      // 分時段練習：只取指定數量
+      if (slotLimit !== null) queue = queue.slice(0, slotLimit);
     }
     else if (mode === 'today_extra') queue = [...reviewedTodayQueue];
     else if (mode === 'mistakes') queue = Object.values(vocabMistakes);
@@ -2567,7 +2574,7 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
     }
 
     if (!isCorrect && (vocabTestMode === 'srs' || vocabTestMode === 'today_extra') && !kanjiReadingMode) {
-      setActiveVocabQueue(prev => [...prev.slice(1), prev[0]]);
+      setActiveVocabQueue(prev => [...prev, prev[0]]);
     }
 
     if (autoAdvance && isCorrect) setTimeout(() => advanceVocabQueue(), 800);
@@ -2870,8 +2877,14 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
   };
 
   // ==== 文法 SRS 複習模式 ====
-  const startGrammarSRS = () => {
-    const queue = [...todayGrammarQueue].sort(() => Math.random() - 0.5).slice(0, 20);
+  const startGrammarSRS = (slotLimit = null) => {
+    // 首次呼叫時鎖定今日基準題數
+    const _verbSlotKey = `jp_daily_verb_slot_total_${todayDateStr()}`;
+    if (!localStorage.getItem(_verbSlotKey) && todayGrammarQueue.length > 0) {
+      localStorage.setItem(_verbSlotKey, String(todayGrammarQueue.length));
+    }
+    const limit = slotLimit !== null ? slotLimit : 20;
+    const queue = [...todayGrammarQueue].sort(() => Math.random() - 0.5).slice(0, limit);
     if (queue.length === 0) { alert('今日文法複習已全部完成！'); return; }
     setVerbTestMode('grammar_srs');
     setQuestionCount(1);
@@ -4872,6 +4885,44 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                 <div className="flex-1 border-t border-slate-100"/>
               </div>
 
+              {/* 分時段練習指示器 */}
+              {(() => {
+                const _slotKey = `jp_daily_slot_total_${todayDateStr()}`;
+                const _storedN = parseInt(localStorage.getItem(_slotKey) || '0');
+                const _N = _storedN > 0 ? _storedN : effectiveTodayStats.total;
+                if (_N <= 0) return null;
+                const _s1 = Math.ceil(_N / 3);
+                const _s2 = Math.ceil(_N / 3);
+                const _s3 = Math.max(0, _N - _s1 - _s2);
+                const _rev = reviewedTodayQueue.length;
+                const _slots = [
+                  { emoji: '🌅', name: '早上', size: _s1, lit: _rev >= _s1 },
+                  { emoji: '☀️', name: '下午', size: _s2, lit: _rev >= _s1 + _s2 },
+                  { emoji: '🌙', name: '晚上', size: _s3, lit: _rev >= _N },
+                ];
+                return (
+                  <div className="grid grid-cols-3 gap-2">
+                    {_slots.map(({ emoji, name, size, lit }) => (
+                      <button
+                        key={name}
+                        onClick={() => size > 0 && startVocabSession('srs', null, size)}
+                        disabled={size === 0}
+                        className={`p-3 rounded-2xl text-center transition-all font-bold active:scale-[0.97] ${
+                          lit
+                            ? 'bg-green-50 border-2 border-green-200 text-green-700'
+                            : 'bg-white border-2 border-[#ece7df] text-[#4a4640] hover:bg-[#e8eef6] hover:border-[#cfdcea]'
+                        } disabled:opacity-30 disabled:cursor-not-allowed`}
+                      >
+                        <div className="text-lg leading-none">{emoji}</div>
+                        <div className="text-xs font-black mt-1">{name}</div>
+                        <div className="text-xs font-normal mt-0.5 opacity-60">{size} 題</div>
+                        {lit && <div className="text-green-500 text-xs mt-0.5">✅</div>}
+                      </button>
+                    ))}
+                  </div>
+                );
+              })()}
+
               {/* Primary Action */}
               {effectiveTodayStats.total > 0 ? (
                 <button
@@ -5051,6 +5102,44 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                 <div className="text-xs font-bold text-slate-400 tracking-widest whitespace-nowrap">動詞練習</div>
                 <div className="flex-1 border-t border-slate-100"/>
               </div>
+
+              {/* 分時段練習指示器（動詞） */}
+              {(() => {
+                const _vbSlotKey = `jp_daily_verb_slot_total_${todayDateStr()}`;
+                const _storedVbN = parseInt(localStorage.getItem(_vbSlotKey) || '0');
+                const _vbN = _storedVbN > 0 ? _storedVbN : todayGrammarQueue.length;
+                if (_vbN <= 0) return null;
+                const _vs1 = Math.ceil(_vbN / 3);
+                const _vs2 = Math.ceil(_vbN / 3);
+                const _vs3 = Math.max(0, _vbN - _vs1 - _vs2);
+                const _vbRev = _vbN - todayGrammarQueue.length;
+                const _vbSlots = [
+                  { emoji: '🌅', name: '早上', size: _vs1, lit: _vbRev >= _vs1 },
+                  { emoji: '☀️', name: '下午', size: _vs2, lit: _vbRev >= _vs1 + _vs2 },
+                  { emoji: '🌙', name: '晚上', size: _vs3, lit: _vbRev >= _vbN },
+                ];
+                return (
+                  <div className="grid grid-cols-3 gap-2">
+                    {_vbSlots.map(({ emoji, name, size, lit }) => (
+                      <button
+                        key={name}
+                        onClick={() => size > 0 && startGrammarSRS(size)}
+                        disabled={size === 0}
+                        className={`p-3 rounded-2xl text-center transition-all font-bold active:scale-[0.97] ${
+                          lit
+                            ? 'bg-green-50 border-2 border-green-200 text-green-700'
+                            : 'bg-white border-2 border-[#ece7df] text-[#4a4640] hover:bg-[#e8eef6] hover:border-[#cfdcea]'
+                        } disabled:opacity-30 disabled:cursor-not-allowed`}
+                      >
+                        <div className="text-lg leading-none">{emoji}</div>
+                        <div className="text-xs font-black mt-1">{name}</div>
+                        <div className="text-xs font-normal mt-0.5 opacity-60">{size} 題</div>
+                        {lit && <div className="text-green-500 text-xs mt-0.5">✅</div>}
+                      </button>
+                    ))}
+                  </div>
+                );
+              })()}
 
               <button
                 onClick={startGrammarSRS}
