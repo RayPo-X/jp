@@ -1356,7 +1356,12 @@ return parsed;
   }, []);
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
-  const todayQueue = vocabDB.filter(v => !((v.example && v.example.trim().length > 0) || v.isSentence) && v.status !== 'new' && v.nextReview <= Date.now());
+  const todayQueue = vocabDB.filter(v =>
+    !((v.example && v.example.trim().length > 0) || v.isSentence) &&
+    v.status !== 'new' &&
+    v.nextReview <= Date.now() &&
+    !(v.lastReviewed && v.lastReviewed >= todayStart.getTime())
+  );
   const todaySentenceQueue = vocabDB.filter(v => ((v.example && v.example.trim().length > 0) || v.isSentence) && v.status !== 'new' && v.nextReview <= Date.now());
   const reviewedTodayQueue = vocabDB.filter(v => v.lastReviewed && v.lastReviewed >= todayStart.getTime());
 
@@ -1396,7 +1401,7 @@ return parsed;
   const [kanjiDB, setKanjiDB] = useState(() => {
     try {
       const saved = localStorage.getItem('verbApp_kanjiDB');
-      if (saved) return JSON.parse(saved).map(k => ({ ...k, tags: k.tags || [] }));
+      if (saved) return JSON.parse(saved).map(k => ({ ...k, tags: k.tags || [], starred: k.starred || false }));
     } catch {}
     return [];
   });
@@ -1923,9 +1928,12 @@ return parsed;
   const [vocabSortConfig, setVocabSortConfig] = useState({ key: 'dateAdded', direction: 'desc' });
   const sortedVocabDB = useMemo(() => {
     let list = [...vocabDB];
-    if (vocabManageTab === 'vocab' && searchTerm.trim()) {
+    if (vocabManageTab === 'example') {
+      list = list.filter(v => v.example && v.example.trim().length > 0);
+    }
+    if ((vocabManageTab === 'vocab' || vocabManageTab === 'example') && searchTerm.trim()) {
         const q = searchTerm.toLowerCase();
-        list = list.filter(v => (v.word && v.word.toLowerCase().includes(q)) || (v.reading && v.reading.toLowerCase().includes(q)) || (v.meaning && v.meaning.toLowerCase().includes(q)) || (v.tags && v.tags.some(t => t.toLowerCase().includes(q))));
+        list = list.filter(v => (v.word && v.word.toLowerCase().includes(q)) || (v.reading && v.reading.toLowerCase().includes(q)) || (v.meaning && v.meaning.toLowerCase().includes(q)) || (v.example && v.example.toLowerCase().includes(q)) || (v.tags && v.tags.some(t => t.toLowerCase().includes(q))));
     }
     let sorted = list;
     sorted.sort((a, b) => {
@@ -2279,6 +2287,8 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
   const [choiceOptions, setChoiceOptions] = useState([]);
   const [usedHint, setUsedHint] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
+  const [showQuizNote, setShowQuizNote] = useState(false);
+  const [quizNoteText, setQuizNoteText] = useState('');
   const [kanjiReadingMode, setKanjiReadingMode] = useState(false);
 
   const actualTimeLimit = inputMode === 'keyboard' ? (timeLimit === 0 ? 0 : timeLimit + 15) : timeLimit;
@@ -2296,7 +2306,7 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
   const startVocabSession = (mode, themeId = null, slotLimit = null) => {
     let queue = [];
     if (mode === 'srs') {
-      // 按到期時間排序，最舊的先複習
+      // 按到期時間排序，最舊的先複習（todayQueue 已排除今日已答過的單字）
       const sortedReviews = [...todayQueue].sort((a, b) => (a.nextReview || 0) - (b.nextReview || 0));
       // 超過每日上限的複習單字推到明天
       const overflow = sortedReviews.slice(dailyReviewLimit);
@@ -2575,10 +2585,6 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
           ? { ...k, lastReviewed: Date.now(), nextReview: Date.now() + 86400000 }
           : k
       ));
-    }
-
-    if (!isCorrect && (vocabTestMode === 'srs' || vocabTestMode === 'today_extra') && !kanjiReadingMode) {
-      setActiveVocabQueue(prev => [...prev, prev[0]]);
     }
 
     if (autoAdvance && isCorrect) setTimeout(() => advanceVocabQueue(), 800);
@@ -2905,13 +2911,13 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
   };
 
   useEffect(() => {
-    if (feedback !== null || isRoundComplete || actualTimeLimit === 0 || isPaused || appState === 'home' || appState.endsWith('manage') || appState === 'theme_select') return;
+    if (feedback !== null || isRoundComplete || actualTimeLimit === 0 || isPaused || showQuizNote || appState === 'home' || appState.endsWith('manage') || appState === 'theme_select') return;
     const timer = setInterval(() => { setTimeLeft(prev => { if (prev <= 1) { clearInterval(timer); return 0; } return prev - 1; }); }, 1000);
     return () => clearInterval(timer);
-  }, [feedback, isRoundComplete, actualTimeLimit, isPaused, appState]); 
+  }, [feedback, isRoundComplete, actualTimeLimit, isPaused, showQuizNote, appState]);
 
   useEffect(() => {
-    if (timeLeft === 0 && feedback === null && !isPaused && (appState === 'verb_playing' || appState === 'vocab_playing')) {
+    if (timeLeft === 0 && feedback === null && !isPaused && !showQuizNote && (appState === 'verb_playing' || appState === 'vocab_playing')) {
        if (appState === 'vocab_playing' && currentVocab) processVocabAnswer('[超時未答]');
        if (appState === 'verb_playing' && currentVerb) processVerbAnswer('[超時未答]');
     }
@@ -2938,6 +2944,7 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
   const [editingKanjiId, setEditingKanjiId] = useState(null);
   const [showKanjiAddForm, setShowKanjiAddForm] = useState(false);
   const [newKanjiEntry, setNewKanjiEntry] = useState({ kanji:'', onyomi:'', kunyomi:'', meaning:'', jlptLevel:'Unknown' });
+  const [kanjiSort, setKanjiSort] = useState('default');
   const [autoUnlock, setAutoUnlock] = useState(false);
   const obsidianFileRef = React.useRef(null);
   const [obsidianScannedWords, setObsidianScannedWords] = useState([]);
@@ -5625,18 +5632,10 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                     <div className="flex bg-slate-100 p-1 rounded-xl">
                         <button onClick={() => setVocabManageTab('vocab')} className={`px-4 py-1.5 rounded-lg font-bold text-sm transition-colors ${vocabManageTab === 'vocab' ? 'bg-white text-amber-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>📝 單字列表</button>
                         <button onClick={() => setVocabManageTab('kanji')} className={`px-4 py-1.5 rounded-lg font-bold text-sm transition-colors ${vocabManageTab === 'kanji' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>🈶 漢字索引</button>
+                        <button onClick={() => setVocabManageTab('example')} className={`px-4 py-1.5 rounded-lg font-bold text-sm transition-colors ${vocabManageTab === 'example' ? 'bg-white text-fuchsia-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>📋 例句列表</button>
                     </div>
                 </div>
                 
-                <div className="flex w-full sm:flex-1 sm:max-w-xs relative sm:ml-4">
-                        {vocabManageTab === 'vocab' && (
-                           <>
-                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"/>
-                             <input type="text" value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} placeholder="單字,主題標籤 搜尋..." className="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-200 rounded-xl text-sm focus:border-amber-500 focus:ring-2 focus:ring-amber-100 transition-all outline-none"/>
-                             {searchTerm && <button onClick={()=>setSearchTerm('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"><XCircle className="w-4 h-4"/></button>}
-                           </>
-                        )}
-                    </div>
                 <div className="flex items-center gap-4">
                     <div className="text-sm font-bold text-slate-400 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100 hidden lg:block">
                         單字: <span className="text-slate-700">{vocabDB.length}</span> | 漢字: <span className="text-slate-700">{kanjiDB.length}</span>
@@ -5854,6 +5853,13 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
 
              <datalist id="db-theme-suggestions">{Array.from(new Set([...Object.keys(THEME_KEYWORDS), ...vocabDB.map(v => v.tag)])).filter(Boolean).map(tag => <option key={tag} value={tag} />)}</datalist>
 
+             {/* 手機搜尋列 */}
+             <div className="sm:hidden relative mb-3">
+               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"/>
+               <input type="text" value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} placeholder="單字, 標籤 搜尋..." className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:border-amber-500 focus:ring-2 focus:ring-amber-100 transition-all outline-none"/>
+               {searchTerm && <button onClick={()=>setSearchTerm('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"><XCircle className="w-4 h-4"/></button>}
+             </div>
+
              {/* 手機卡片列表：sm 以下顯示，取代表格 */}
              <div className="sm:hidden space-y-2.5">
                {sortedVocabDB.length === 0 && (
@@ -5912,62 +5918,73 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
              </div>
 
              <div className="hidden sm:block overflow-x-auto">
-               <div className="flex justify-end mb-2 gap-2 flex-wrap items-start">
-                 {/* 欄位顯示/隱藏 */}
-                 <div className="relative">
-                   <button
-                     onClick={() => setShowVocabColPicker(v => !v)}
-                     className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border transition-colors ${showVocabColPicker ? 'bg-amber-500 text-white border-amber-500' : 'text-slate-500 hover:text-amber-600 bg-slate-100 hover:bg-amber-50 border-slate-200 hover:border-amber-300'}`}
-                     title="顯示/隱藏欄位"
-                   >☰ 欄位 {hiddenVocabCols.size > 0 && <span className="bg-rose-500 text-white rounded-full text-[10px] px-1.5 py-0.5 ml-0.5">{hiddenVocabCols.size}</span>}</button>
-                   {showVocabColPicker && (
-                     <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-50 p-3 min-w-[180px]">
-                       <div className="text-[11px] font-bold text-slate-400 mb-2 uppercase tracking-wider">欄位顯示設定</div>
-                       <div className="space-y-1 max-h-72 overflow-y-auto">
-                         {vocabTableColumnOrder.map(colId => {
-                           const def = vocabColDefinitions[colId];
-                           if (!def) return null;
-                           const isVisible = !hiddenVocabCols.has(colId);
-                           return (
-                             <label key={colId} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer">
-                               <input type="checkbox" checked={isVisible} onChange={() => setHiddenVocabCols(prev => { const next = new Set(prev); if (next.has(colId)) next.delete(colId); else next.add(colId); return next; })} className="w-3.5 h-3.5 accent-amber-500 cursor-pointer"/>
-                               <span className="text-xs text-slate-700">{def.label}</span>
-                             </label>
-                           );
-                         })}
-                       </div>
-                       {hiddenVocabCols.size > 0 && (
-                         <button onClick={() => setHiddenVocabCols(new Set())} className="mt-2 w-full text-xs text-amber-600 hover:text-amber-800 font-bold py-1 border-t border-slate-100">全部顯示</button>
-                       )}
-                     </div>
-                   )}
+               <div className="grid grid-cols-[1fr_auto_1fr] items-center mb-2 gap-2">
+                 {/* 左側空白（與右側按鈕群等寬，使搜尋框精確置中） */}
+                 <div></div>
+                 {/* 置中搜尋列 */}
+                 <div className="relative w-64 sm:w-80">
+                   <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"/>
+                   <input type="text" value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} placeholder="單字, 標籤 搜尋..." className="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-200 rounded-xl text-sm focus:border-amber-500 focus:ring-2 focus:ring-amber-100 transition-all outline-none"/>
+                   {searchTerm && <button onClick={()=>setSearchTerm('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"><XCircle className="w-4 h-4"/></button>}
                  </div>
-                 <button
-                   onClick={() => { setVocabAutoFit(v => !v); }}
-                   className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border transition-colors ${vocabAutoFit ? 'bg-amber-500 text-white border-amber-500 hover:bg-amber-600' : 'text-slate-500 hover:text-amber-600 bg-slate-100 hover:bg-amber-50 border-slate-200 hover:border-amber-300'}`}
-                   title={vocabAutoFit ? '自動適應視窗（點擊關閉）' : '自動適應視窗（點擊開啟）'}
-                 >⚡ 自動適應</button>
-                 <button
-                   onClick={(e) => {
-                     const visibleIds = vocabTableColumnOrder.filter(id => !hiddenVocabCols.has(id));
-                     const cWidth = e.currentTarget.closest('.overflow-x-auto').clientWidth;
-                     const avg = Math.max(50, cWidth / visibleIds.length);
-                     const nw = {};
-                     visibleIds.forEach(id => nw[id] = avg);
-                     setVocabColWidths(nw);
-                   }}
-                   className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-amber-600 bg-slate-100 hover:bg-amber-50 border border-slate-200 hover:border-amber-300 px-3 py-1.5 rounded-lg transition-colors"
-                   title="平均分配所有欄位寬度"
-                 >
-                   ⚖️ 平均分配
-                 </button>
-                 <button
-                   onClick={() => { if(window.confirm('確定要重設所有欄位寬度為預設值嗎？')) { setVocabColWidths({}); } }}
-                   className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-amber-600 bg-slate-100 hover:bg-amber-50 border border-slate-200 hover:border-amber-300 px-3 py-1.5 rounded-lg transition-colors"
-                   title="重設所有欄位寬度"
-                 >
-                   ↩ 重設欄寬
-                 </button>
+                 {/* 右側按鈕群組 */}
+                 <div className="flex items-center justify-end gap-2 flex-wrap">
+                   {/* 欄位顯示/隱藏 */}
+                   <div className="relative">
+                     <button
+                       onClick={() => setShowVocabColPicker(v => !v)}
+                       className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border transition-colors ${showVocabColPicker ? 'bg-amber-500 text-white border-amber-500' : 'text-slate-500 hover:text-amber-600 bg-slate-100 hover:bg-amber-50 border-slate-200 hover:border-amber-300'}`}
+                       title="顯示/隱藏欄位"
+                     >☰ 欄位 {hiddenVocabCols.size > 0 && <span className="bg-rose-500 text-white rounded-full text-[10px] px-1.5 py-0.5 ml-0.5">{hiddenVocabCols.size}</span>}</button>
+                     {showVocabColPicker && (
+                       <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-50 p-3 min-w-[180px]">
+                         <div className="text-[11px] font-bold text-slate-400 mb-2 uppercase tracking-wider">欄位顯示設定</div>
+                         <div className="space-y-1 max-h-72 overflow-y-auto">
+                           {vocabTableColumnOrder.map(colId => {
+                             const def = vocabColDefinitions[colId];
+                             if (!def) return null;
+                             const isVisible = !hiddenVocabCols.has(colId);
+                             return (
+                               <label key={colId} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer">
+                                 <input type="checkbox" checked={isVisible} onChange={() => setHiddenVocabCols(prev => { const next = new Set(prev); if (next.has(colId)) next.delete(colId); else next.add(colId); return next; })} className="w-3.5 h-3.5 accent-amber-500 cursor-pointer"/>
+                                 <span className="text-xs text-slate-700">{def.label}</span>
+                               </label>
+                             );
+                           })}
+                         </div>
+                         {hiddenVocabCols.size > 0 && (
+                           <button onClick={() => setHiddenVocabCols(new Set())} className="mt-2 w-full text-xs text-amber-600 hover:text-amber-800 font-bold py-1 border-t border-slate-100">全部顯示</button>
+                         )}
+                       </div>
+                     )}
+                   </div>
+                   <button
+                     onClick={() => { setVocabAutoFit(v => !v); }}
+                     className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border transition-colors ${vocabAutoFit ? 'bg-amber-500 text-white border-amber-500 hover:bg-amber-600' : 'text-slate-500 hover:text-amber-600 bg-slate-100 hover:bg-amber-50 border-slate-200 hover:border-amber-300'}`}
+                     title={vocabAutoFit ? '自動適應視窗（點擊關閉）' : '自動適應視窗（點擊開啟）'}
+                   >⚡ 自動適應</button>
+                   <button
+                     onClick={(e) => {
+                       const visibleIds = vocabTableColumnOrder.filter(id => !hiddenVocabCols.has(id));
+                       const cWidth = e.currentTarget.closest('.overflow-x-auto').clientWidth;
+                       const avg = Math.max(50, cWidth / visibleIds.length);
+                       const nw = {};
+                       visibleIds.forEach(id => nw[id] = avg);
+                       setVocabColWidths(nw);
+                     }}
+                     className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-amber-600 bg-slate-100 hover:bg-amber-50 border border-slate-200 hover:border-amber-300 px-3 py-1.5 rounded-lg transition-colors"
+                     title="平均分配所有欄位寬度"
+                   >
+                     ⚖️ 平均分配
+                   </button>
+                   <button
+                     onClick={() => { if(window.confirm('確定要重設所有欄位寬度為預設值嗎？')) { setVocabColWidths({}); } }}
+                     className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-amber-600 bg-slate-100 hover:bg-amber-50 border border-slate-200 hover:border-amber-300 px-3 py-1.5 rounded-lg transition-colors"
+                     title="重設所有欄位寬度"
+                   >
+                     ↩ 重設欄寬
+                   </button>
+                 </div>
                </div>
                {(() => { const visibleVocabCols = vocabTableColumnOrder.filter(id => !hiddenVocabCols.has(id)); return (<>
                <table className="text-left text-sm table-fixed" style={vocabAutoFit ? { width: '100%' } : { width: visibleVocabCols.reduce((acc, colId) => acc + (vocabColWidths[colId] ?? VOCAB_DEFAULT_WIDTHS[colId] ?? 100), 0) }}>
@@ -6159,6 +6176,39 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                </>) })()}
              </div></>)}
 
+             {vocabManageTab === 'example' && (
+                <div className="mt-2 animate-in fade-in">
+                  {sortedVocabDB.length === 0 ? (
+                    <div className="text-center py-16 text-slate-400">
+                      <div className="text-4xl mb-3">📋</div>
+                      <div className="font-bold text-base">
+                        {searchTerm ? '沒有符合的例句' : '沒有含例句的單字'}
+                      </div>
+                      <div className="text-sm mt-1">
+                        {searchTerm ? '試試其他關鍵字' : '在單字的「例句」欄位填入後，會自動出現在這裡'}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {sortedVocabDB.map(v => (
+                        <div key={v.id} className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm hover:border-fuchsia-200 hover:shadow-md transition-all">
+                          <div className="flex items-baseline gap-2 mb-2.5 flex-wrap">
+                            <span className="font-black text-lg text-slate-800">{v.word || v.reading}</span>
+                            {v.reading && v.word && <span className="text-slate-400 text-sm">{v.reading}</span>}
+                            <div className="flex flex-wrap gap-1">{renderTags(v.tags, (tag) => setSearchTerm(tag))}</div>
+                            <span className="ml-auto text-slate-500 text-sm font-medium shrink-0">{v.meaning}</span>
+                          </div>
+                          <div className="bg-fuchsia-50 border border-fuchsia-100 rounded-xl p-3">
+                            <div className="text-slate-700 text-sm leading-relaxed font-medium">{renderRuby(v.example)}</div>
+                            {v.exampleMeaning && <div className="text-slate-400 text-xs mt-1.5">{v.exampleMeaning}</div>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+             )}
+
              {vocabManageTab === 'kanji' && (
                 <div className="mt-2 animate-in fade-in">
                    {/* 手動新增漢字表單 */}
@@ -6234,23 +6284,56 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                      )}
                    </div>
 
-                   <div className="flex items-center gap-4 mb-6">
-                      <div className="flex-1 relative">
+                   <div className="flex flex-col gap-3 mb-6">
+                      <div className="relative">
                          <Search className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                          <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="搜尋漢字或意思..." className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:border-indigo-500 transition-colors" />
                       </div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                         <span className="text-xs font-bold text-slate-400">排序：</span>
+                         {[
+                           { id: 'default', label: '預設' },
+                           { id: 'starred', label: '⭐ 星號' },
+                           { id: 'newest', label: '最新' },
+                           { id: 'oldest', label: '最舊' },
+                           { id: 'az', label: 'A → Z' },
+                           { id: 'za', label: 'Z → A' },
+                         ].map(({ id, label }) => (
+                           <button key={id} onClick={() => setKanjiSort(id)}
+                             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors ${kanjiSort === id ? 'bg-indigo-500 text-white shadow-sm' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
+                             {label}
+                           </button>
+                         ))}
+                      </div>
                    </div>
-                   
+
                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
-                      {kanjiDB.filter(k => k.kanji.includes(searchTerm) || (k.meaning && k.meaning.includes(searchTerm)) || (k.tags && k.tags.some(t => t.toLowerCase().includes(searchTerm.toLowerCase())))).map(kanji => {
+                      {(() => {
+                         const _filtered = kanjiDB.filter(k => k.kanji.includes(searchTerm) || (k.meaning && k.meaning.includes(searchTerm)) || (k.tags && k.tags.some(t => t.toLowerCase().includes(searchTerm.toLowerCase()))));
+                         const _sorted = [..._filtered].sort((a, b) => {
+                           if (kanjiSort === 'starred') return (b.starred ? 1 : 0) - (a.starred ? 1 : 0);
+                           if (kanjiSort === 'newest') return (b.dateAdded || 0) - (a.dateAdded || 0);
+                           if (kanjiSort === 'oldest') return (a.dateAdded || 0) - (b.dateAdded || 0);
+                           if (kanjiSort === 'az') return a.kanji.localeCompare(b.kanji, 'ja');
+                           if (kanjiSort === 'za') return b.kanji.localeCompare(a.kanji, 'ja');
+                           return 0;
+                         });
+                         return _sorted;
+                       })().map(kanji => {
                          const associated = vocabDB.filter(v => v.word.includes(kanji.kanji));
                          const masteredCount = associated.filter(v => v.repetitions >= 5 || v.interval >= 30).length;
                          return (
                            <div key={kanji.id} id={"item-" + kanji.id} className={"bg-slate-50 border border-slate-200 rounded-3xl p-5 hover:border-indigo-300 hover:shadow-md transition-all flex flex-col " + (editingKanjiId === kanji.id ? "" : "h-72 ") + (targetId === kanji.id ? "bg-indigo-100 ring-2 ring-indigo-500" : "")}>
                               <div className="flex items-start justify-between mb-3">
-                                 <div>
-                                   <div className="text-5xl font-black text-slate-800 leading-none">{kanji.kanji}</div>
-                                   <div className="mt-2">{renderTags(kanji.tags, (tag) => setSearchTerm(tag))}</div>
+                                 <div className="flex items-start gap-2">
+                                   <button
+                                     onClick={() => setKanjiDB(prev => prev.map(k => k.id === kanji.id ? {...k, starred: !k.starred} : k))}
+                                     className={`mt-1 text-2xl leading-none transition-colors flex-shrink-0 ${kanji.starred ? 'text-amber-400' : 'text-slate-200 hover:text-amber-300'}`}
+                                     title="標記重要">★</button>
+                                   <div>
+                                     <div className="text-5xl font-black text-slate-800 leading-none">{kanji.kanji}</div>
+                                     <div className="mt-2">{renderTags(kanji.tags, (tag) => setSearchTerm(tag))}</div>
+                                   </div>
                                  </div>
                                  <div className="text-right flex flex-col items-end gap-1">
                                    {kanji.isManual && <span className="text-[9px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-md border border-slate-200">手動</span>}
@@ -7832,7 +7915,7 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
       {!isRoundComplete && (appState === 'vocab_playing' || appState === 'verb_playing') && (
          <div className="max-w-2xl mx-auto bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-100 text-center relative overflow-hidden">
             
-            {isPaused && (
+            {isPaused && !showQuizNote && (
                 <div className="absolute inset-0 z-50 flex items-center justify-center bg-white/80 backdrop-blur-sm">
                     <div className="bg-white p-8 rounded-3xl shadow-2xl text-center border border-slate-200 animate-in zoom-in-95">
                         <Pause className="w-16 h-16 text-slate-400 mx-auto mb-4" />
@@ -7840,6 +7923,54 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                         <button onClick={() => setIsPaused(false)} className="px-8 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 mx-auto">
                             <Play className="w-5 h-5 fill-current" /> 繼續測驗
                         </button>
+                    </div>
+                </div>
+            )}
+
+            {showQuizNote && (
+                <div className="absolute inset-0 z-50 flex items-center justify-center bg-white/90 backdrop-blur-sm p-4">
+                    <div className="bg-white w-full max-w-sm rounded-3xl shadow-2xl border border-slate-200 animate-in zoom-in-95 flex flex-col">
+                        <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-slate-100">
+                            <h3 className="font-bold text-slate-800 flex items-center gap-2">📝 考試筆記</h3>
+                            <button onClick={() => setShowQuizNote(false)} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"><XCircle className="w-4 h-4"/></button>
+                        </div>
+                        {(() => {
+                            const _word = appState === 'vocab_playing' ? (currentVocab?.word || currentVocab?.reading || '') : (currentVerb?.jisho || '');
+                            const _meaning = appState === 'vocab_playing' ? (currentVocab?.meaning || '') : (currentVerb?.meaning || '');
+                            return _word ? (
+                                <div className="px-5 py-3 bg-slate-50 border-b border-slate-100 text-left">
+                                    <span className="font-bold text-slate-800 text-base">{_word}</span>
+                                    {_meaning && <span className="text-slate-400 text-sm ml-2">{_meaning}</span>}
+                                </div>
+                            ) : null;
+                        })()}
+                        <div className="p-5">
+                            <textarea
+                                autoFocus
+                                value={quizNoteText}
+                                onChange={e => setQuizNoteText(e.target.value)}
+                                placeholder="在這裡寫下你的筆記、記憶方法、注意事項..."
+                                className="w-full h-32 p-3 text-sm rounded-xl border border-slate-200 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 outline-none resize-none text-slate-700 placeholder:text-slate-300"
+                            />
+                        </div>
+                        <div className="flex gap-2 px-5 pb-5">
+                            <button
+                                onClick={() => {
+                                    if (appState === 'vocab_playing' && currentVocab) {
+                                        setVocabDB(prev => prev.map(x => x.id === currentVocab.id ? { ...x, note: quizNoteText } : x));
+                                    }
+                                    if (appState === 'verb_playing' && currentVerb) {
+                                        setVerbDB(prev => prev.map(x => x.id === currentVerb.id ? { ...x, note: quizNoteText } : x));
+                                    }
+                                    setShowQuizNote(false);
+                                }}
+                                className="flex-1 py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors text-sm"
+                            >儲存並繼續</button>
+                            <button
+                                onClick={() => setShowQuizNote(false)}
+                                className="flex-1 py-2.5 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-slate-200 transition-colors text-sm"
+                            >取消</button>
+                        </div>
                     </div>
                 </div>
             )}
@@ -7861,6 +7992,17 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                      if (appState === 'verb_playing' && currentVerb) setVerbDB(prev => prev.map(x => x.id === currentVerb.id ? { ...x, isImportant: !x.isImportant } : x));
                  }} className={`p-1.5 rounded-lg transition-colors border ${(appState === 'vocab_playing' ? currentVocab?.isImportant : currentVerb?.isImportant) ? 'bg-amber-50 text-amber-500 border-amber-200' : 'bg-slate-50 text-slate-300 hover:text-amber-500 border-slate-200'}`} title="標記為重要">
                     <Star className={`w-5 h-5 ${(appState === 'vocab_playing' ? currentVocab?.isImportant : currentVerb?.isImportant) ? 'fill-current' : ''}`}/>
+                 </button>
+                 <button
+                   onClick={() => {
+                     const existingNote = appState === 'vocab_playing' ? (currentVocab?.note || '') : (currentVerb?.note || '');
+                     setQuizNoteText(existingNote);
+                     setShowQuizNote(true);
+                   }}
+                   className="p-1.5 rounded-lg transition-colors border bg-slate-50 text-slate-400 hover:text-blue-500 hover:bg-blue-50 hover:border-blue-200 border-slate-200"
+                   title="寫考試筆記（自動暫停）"
+                 >
+                   <span className="text-sm leading-none">📝</span>
                  </button>
                  {actualTimeLimit > 0 && (
                     <div className="flex items-center gap-2"><button onClick={() => setIsPaused(true)} className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg bg-slate-50 border border-slate-200"><Pause className="w-4 h-4" /></button><div className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-bold ${timeLeft <= 3 && !feedback ? 'bg-red-100 text-red-600 animate-pulse' : 'bg-slate-100 text-slate-600'}`}><Timer className="w-4 h-4" /> {timeLeft}s</div></div>
