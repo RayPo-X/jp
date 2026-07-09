@@ -2253,6 +2253,10 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
 
   const [showTagMgr, setShowTagMgr] = useState(false);
   const [showDrawer, setShowDrawer] = useState(false);
+  useEffect(() => {
+    document.body.style.overflow = showDrawer ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [showDrawer]);
   const [pasteText, setPasteText] = useState('');
   const [parsedPasteItems, setParsedPasteItems] = useState([]);
   const [pasteAnalyzed, setPasteAnalyzed] = useState(false);
@@ -3569,6 +3573,7 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
   const [isGrammarExtraOpen, setIsGrammarExtraOpen] = useState(false);
   const [isGrammarFormReordering, setIsGrammarFormReordering] = useState(false);
   const [grammarTagsOpen, setGrammarTagsOpen] = useState(false);
+  const [showGrammarFormMobile, setShowGrammarFormMobile] = useState(false);
   const [grammarFormOrder, setGrammarFormOrder] = useState(() => {
     try {
       const saved = localStorage.getItem('grammarFormOrder');
@@ -3591,6 +3596,7 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
 
   const handleEditGrammar = (g) => {
     setEditingGrammarId(g.id);
+    setShowGrammarFormMobile(true);
     setNewGrammar({
       name: g.name || '',
       baseForm: g.baseForm || 'te',
@@ -5622,7 +5628,7 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                     </div>
                 </div>
                 
-                <div className="flex flex-1 max-w-xs relative ml-4">
+                <div className="flex w-full sm:flex-1 sm:max-w-xs relative sm:ml-4">
                         {vocabManageTab === 'vocab' && (
                            <>
                              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"/>
@@ -5729,7 +5735,7 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                   </div>}
                 </div>
 
-                <div className="flex justify-between items-center mb-4 mt-8 border-t border-amber-200 pt-6">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 mt-8 border-t border-amber-200 pt-6 gap-3">
                   <div className="flex items-center gap-3">
                     <h4 className="font-bold text-amber-800">確認與編輯區</h4>
                     <div className="flex gap-1 bg-slate-100 p-1 rounded-xl">
@@ -5739,10 +5745,10 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                     </div>
                   </div>
                   <div className="flex flex-col gap-2">
-                    <div className="flex gap-2">
-                      <button onClick={handleRematchAllBatchThemes} className="text-sm text-amber-700 bg-amber-50 border border-amber-200 px-4 py-2 rounded-xl font-bold hover:bg-amber-100 flex items-center gap-1"><Sparkles className="w-4 h-4"/> 全部重配主題</button>
-                      <button onClick={() => { if(window.confirm('確定要清空確認與編輯區的所有內容嗎？')) { setBatchInputs([{word:'', reading:'', meaning:'', tag: '未知', tags: [], example: '', note: '', isSentence: false}]); setSelectedBatchIds(new Set()); }}} className="text-sm text-red-600 bg-red-50 px-4 py-2 rounded-xl font-bold hover:bg-red-100 flex items-center gap-1"><Trash2 className="w-4 h-4"/> 全部清空</button>
-                      <button onClick={() => setBatchInputs([...batchInputs, {word:'', reading:'', meaning:'', tag: '未知', tags: [], example: '', note: '', isSentence: false}])} className="text-sm text-amber-700 bg-amber-100 px-4 py-2 rounded-xl font-bold hover:bg-amber-200 flex items-center gap-1"><Plus className="w-4 h-4"/> 新增一列</button>
+                    <div className="flex flex-wrap gap-2">
+                      <button onClick={handleRematchAllBatchThemes} className="text-sm text-amber-700 bg-amber-50 border border-amber-200 px-3 py-2 rounded-xl font-bold hover:bg-amber-100 flex items-center gap-1"><Sparkles className="w-4 h-4"/> 全部重配主題</button>
+                      <button onClick={() => { if(window.confirm('確定要清空確認與編輯區的所有內容嗎？')) { setBatchInputs([{word:'', reading:'', meaning:'', tag: '未知', tags: [], example: '', note: '', isSentence: false}]); setSelectedBatchIds(new Set()); }}} className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-xl font-bold hover:bg-red-100 flex items-center gap-1"><Trash2 className="w-4 h-4"/> 全部清空</button>
+                      <button onClick={() => setBatchInputs([...batchInputs, {word:'', reading:'', meaning:'', tag: '未知', tags: [], example: '', note: '', isSentence: false}])} className="text-sm text-amber-700 bg-amber-100 px-3 py-2 rounded-xl font-bold hover:bg-amber-200 flex items-center gap-1"><Plus className="w-4 h-4"/> 新增一列</button>
                     </div>
                     {selectedBatchIds.size > 0 && (
                       <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-xl">
@@ -5756,7 +5762,7 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                 </div>
                 <datalist id="theme-suggestions">{Array.from(new Set([...Object.keys(THEME_KEYWORDS), ...vocabDB.map(v => v.tag)])).filter(Boolean).map(tag => <option key={tag} value={tag} />)}</datalist>
 
-                <div className={batchLayoutMode === 'grid2' ? 'grid grid-cols-2 gap-3 mb-6 max-h-[640px] overflow-y-auto pr-2' : batchLayoutMode === 'full' ? 'grid grid-cols-3 gap-3 mb-6 max-h-[560px] overflow-y-auto pr-2' : 'grid grid-cols-3 gap-3 mb-6 max-h-[280px] overflow-y-auto pr-2'}>
+                <div className={batchLayoutMode === 'grid2' ? 'grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6 max-h-[640px] overflow-y-auto pr-2' : batchLayoutMode === 'full' ? 'grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6 max-h-[560px] overflow-y-auto pr-2' : 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6 max-h-[280px] overflow-y-auto pr-2'}>
                    {batchInputs.map((item, idx) => (
                       <div key={idx} className={`flex flex-col gap-2 p-4 bg-white rounded-2xl border shadow-sm transition-all focus-within:shadow-md ${selectedBatchIds.has(idx) ? 'border-amber-400 bg-amber-50' : 'border-amber-100 focus-within:border-amber-400'}`}>
                         <div className="flex items-center gap-2">
@@ -5847,7 +5853,65 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
              </div>
 
              <datalist id="db-theme-suggestions">{Array.from(new Set([...Object.keys(THEME_KEYWORDS), ...vocabDB.map(v => v.tag)])).filter(Boolean).map(tag => <option key={tag} value={tag} />)}</datalist>
-             <div className="overflow-x-auto">
+
+             {/* 手機卡片列表：sm 以下顯示，取代表格 */}
+             <div className="sm:hidden space-y-2.5">
+               {sortedVocabDB.length === 0 && (
+                 <div className="text-center py-12 text-slate-400">
+                   <div className="text-3xl mb-2">📭</div>
+                   <div className="font-bold">沒有符合條件的單字</div>
+                 </div>
+               )}
+               {sortedVocabDB.map(v => {
+                 const _isNew = v.status === 'new';
+                 const _isMastered = v.status === 'mastered';
+                 const _isEditing = editingVocabId === v.id;
+                 return (
+                   <div key={v.id} id={"item-" + v.id}
+                     className={`bg-white rounded-2xl border p-4 shadow-sm transition-all ${_isEditing ? 'border-amber-400 ring-2 ring-amber-300 bg-amber-50/60' : selectedVocabIds.has(v.id) ? 'border-amber-300 bg-amber-50' : targetId === v.id ? 'border-amber-400 ring-2 ring-amber-400 bg-amber-100' : 'border-slate-100'}`}>
+                     {/* 頂部：星號 + 單字 + 標籤 + 操作 */}
+                     <div className="flex items-start gap-2.5">
+                       <button
+                         onClick={() => { createVocabBackup(); setVocabDB(prev => prev.map(x => x.id === v.id ? { ...x, isImportant: !x.isImportant } : x)); }}
+                         className={`p-1.5 rounded-lg transition-colors shrink-0 mt-0.5 ${v.isImportant ? 'text-amber-500 bg-amber-50' : 'text-slate-300 hover:text-amber-500 hover:bg-amber-50'}`}
+                       ><Star className={`w-4 h-4 ${v.isImportant ? 'fill-current' : ''}`}/></button>
+                       <div className="flex-1 min-w-0">
+                         <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
+                           <span className="font-bold text-slate-800 text-base leading-tight">{v.word || v.reading}</span>
+                           {v.isSentence && <span className="px-1.5 py-0.5 bg-fuchsia-100 text-fuchsia-700 rounded text-xs font-bold">📝 例句</span>}
+                         </div>
+                         {v.word && <div className="text-slate-400 text-xs mb-1">{v.reading}</div>}
+                         <div className="flex flex-wrap gap-1">{renderTags(v.tags, (tag) => setSearchTerm(tag))}</div>
+                       </div>
+                       <div className="flex gap-1 shrink-0">
+                         {_isEditing ? (
+                           <span className="text-xs font-bold text-amber-500 animate-pulse px-2 py-1.5">編輯中…</span>
+                         ) : (<>
+                           <button onClick={() => { setEditingVocabId(v.id); setVocabEditForm({ word: v.word||'', reading: v.reading||'', meaning: v.meaning||'', example: v.example||'', exampleMeaning: v.exampleMeaning||'', note: v.note||'', tags: v.tags||[] }); }} className="p-2 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-colors" title="編輯"><Edit3 className="w-4 h-4"/></button>
+                           <button onClick={() => { if(window.confirm('確定刪除？')) { createVocabBackup(); setVocabDB(vocabDB.filter(x => x.id !== v.id)); } }} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="刪除"><Trash2 className="w-4 h-4"/></button>
+                         </>)}
+                       </div>
+                     </div>
+                     {/* 意思 + 例句 */}
+                     <div className="mt-2.5 pl-8">
+                       <div className="font-medium text-slate-700 text-sm leading-snug">{v.meaning}</div>
+                       {v.example && <div className="text-slate-500 text-xs mt-1.5 bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-100">{renderRuby(v.example)}</div>}
+                       {v.note && <div className="text-amber-700 text-xs mt-1.5 flex items-center gap-1"><span>📝</span><span>{v.note}</span></div>}
+                     </div>
+                     {/* 底部：狀態 + 日期 */}
+                     <div className="flex items-center gap-2 mt-3 pt-2.5 border-t border-slate-50 flex-wrap">
+                       <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${_isNew ? 'bg-slate-50 text-slate-400 border-slate-200' : _isMastered ? 'bg-amber-50 text-amber-600 border-amber-300' : 'bg-blue-50 text-blue-600 border-blue-300'}`}>
+                         {_isNew ? '📚 待學習' : _isMastered ? '🏆 精通' : '🎯 已學習'}
+                       </span>
+                       <span className="text-[11px] text-slate-400 font-mono">{_isNew ? `${(v.correctDates || []).length}/3 天` : `間隔 ${v.interval || 0} 天`}</span>
+                       <span className="text-[11px] text-slate-400 ml-auto">{getAddedDate(v.id)}</span>
+                     </div>
+                   </div>
+                 );
+               })}
+             </div>
+
+             <div className="hidden sm:block overflow-x-auto">
                <div className="flex justify-end mb-2 gap-2 flex-wrap items-start">
                  {/* 欄位顯示/隱藏 */}
                  <div className="relative">
@@ -6243,9 +6307,9 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
       {appState === 'grammar_manage' && (
         <div className="w-[95vw] max-w-[1600px] mx-auto mt-4 animate-in fade-in">
            <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-100">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2"><Puzzle className="w-6 h-6 text-emerald-600"/> 文法公式庫</h2>
-                <div className="relative w-64">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-3">
+                <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2 shrink-0"><Puzzle className="w-6 h-6 text-emerald-600"/> 文法公式庫</h2>
+                <div className="relative w-full sm:w-64">
                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"/>
                    <input type="text" value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} placeholder="搜尋文法公式..." className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 transition-all outline-none"/>
                    {searchTerm && <button onClick={()=>setSearchTerm('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"><XCircle className="w-4 h-4"/></button>}
@@ -6255,70 +6319,76 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
               {/* Grammar SRS Dashboard */}
               <div className="mb-8 p-6 bg-slate-50 rounded-3xl border border-slate-100">
                 <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2"><BarChart2 className="w-5 h-5 text-indigo-500"/>文法學習進度總覽 (Grammar SRS)</h3>
-                <div className="grid grid-cols-3 gap-3 mb-3">
-                  <div className="bg-white border border-slate-200 rounded-2xl p-3 text-center shadow-sm">
-                    <div className="text-sm font-bold text-slate-500 mb-1">📚 待學習</div>
-                    <div className="text-2xl font-black text-slate-700">{grammarStats.newCount} <span className="text-sm font-normal text-slate-400">公式</span></div>
+                <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-2 sm:mb-3">
+                  <div className="bg-white border border-slate-200 rounded-2xl p-2 sm:p-3 text-center shadow-sm">
+                    <div className="text-xs sm:text-sm font-bold text-slate-500 mb-1">📚 待學習</div>
+                    <div className="text-lg sm:text-2xl font-black text-slate-700">{grammarStats.newCount} <span className="hidden sm:inline text-sm font-normal text-slate-400">公式</span></div>
                   </div>
-                  <div className="bg-blue-50 border border-blue-100 rounded-2xl p-3 text-center shadow-sm">
-                    <div className="text-sm font-bold text-blue-600 mb-1">🎯 已學習</div>
-                    <div className="text-2xl font-black text-blue-700">{grammarStats.learningCount} <span className="text-sm font-normal text-blue-500/60">公式</span></div>
+                  <div className="bg-blue-50 border border-blue-100 rounded-2xl p-2 sm:p-3 text-center shadow-sm">
+                    <div className="text-xs sm:text-sm font-bold text-blue-600 mb-1">🎯 已學習</div>
+                    <div className="text-lg sm:text-2xl font-black text-blue-700">{grammarStats.learningCount} <span className="hidden sm:inline text-sm font-normal text-blue-500/60">公式</span></div>
                   </div>
-                  <div className="bg-amber-50 border border-amber-100 rounded-2xl p-3 text-center shadow-sm">
-                    <div className="text-sm font-bold text-amber-600 mb-1">🏆 精通</div>
-                    <div className="text-2xl font-black text-amber-700">{grammarStats.masteredCount} <span className="text-sm font-normal text-amber-500/60">公式</span></div>
+                  <div className="bg-amber-50 border border-amber-100 rounded-2xl p-2 sm:p-3 text-center shadow-sm">
+                    <div className="text-xs sm:text-sm font-bold text-amber-600 mb-1">🏆 精通</div>
+                    <div className="text-lg sm:text-2xl font-black text-amber-700">{grammarStats.masteredCount} <span className="hidden sm:inline text-sm font-normal text-amber-500/60">公式</span></div>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-3 text-center shadow-sm">
-                    <div className="text-sm font-bold text-emerald-600 mb-1">🗓️ 待複習</div>
-                    <div className="text-xl font-black text-emerald-700">{grammarStats.dueTotal} <span className="text-sm font-normal text-emerald-500/60">公式</span></div>
+                <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                  <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-2 sm:p-3 text-center shadow-sm">
+                    <div className="text-xs sm:text-sm font-bold text-emerald-600 mb-1">🗓️ 待複習</div>
+                    <div className="text-lg sm:text-xl font-black text-emerald-700">{grammarStats.dueTotal} <span className="hidden sm:inline text-sm font-normal text-emerald-500/60">公式</span></div>
                   </div>
-                  <div className="bg-rose-50 border border-rose-100 rounded-2xl p-3 text-center shadow-sm">
-                    <div className="text-sm font-bold text-rose-600 mb-1">📒 錯題本</div>
-                    <div className="text-xl font-black text-rose-700">{grammarStats.mistakeGrammarsCount} <span className="text-sm font-normal text-rose-500/60">公式</span></div>
+                  <div className="bg-rose-50 border border-rose-100 rounded-2xl p-2 sm:p-3 text-center shadow-sm">
+                    <div className="text-xs sm:text-sm font-bold text-rose-600 mb-1">📒 錯題本</div>
+                    <div className="text-lg sm:text-xl font-black text-rose-700">{grammarStats.mistakeGrammarsCount} <span className="hidden sm:inline text-sm font-normal text-rose-500/60">公式</span></div>
                   </div>
                 </div>
               </div>
 
               <div className="grid lg:grid-cols-[1.2fr_1fr] gap-8">
-                 <div className="space-y-4 order-2 lg:order-1">
-                   <div className="flex justify-between items-center mb-4">
-                     <h3 className="font-bold text-slate-700 text-lg">已儲存的公式</h3>
-                         <div className="flex items-center gap-2">
-                           <select value={grammarFilterTag} onChange={e => setGrammarFilterTag(e.target.value)} className="p-2 border border-slate-200 rounded-lg text-sm bg-white outline-none focus:border-emerald-400 text-slate-600">
-                             <option value="">所有分類</option>
-                             {Array.from(new Set(customGrammars.map(g => g.tag))).filter(Boolean).map(tag => <option key={tag} value={tag}>{tag}</option>)}
-                           </select>
-                           <button
-                             onClick={() => { if (!isGrammarReordering) setGrammarSortConfig(prev => { if (prev.key !== 'isImportant') return { key: 'isImportant', direction: 'desc' }; if (prev.direction === 'desc') return { key: 'isImportant', direction: 'asc' }; return { key: null, direction: null }; }); }}
-                             className={`p-2 border rounded-lg text-sm font-bold flex items-center gap-1 transition-colors ${isGrammarReordering ? 'opacity-30 cursor-not-allowed bg-white border-slate-200 text-slate-400' : grammarSortConfig.key === 'isImportant' ? 'bg-amber-50 border-amber-300 text-amber-700' : 'bg-white border-slate-200 text-slate-600 hover:border-amber-300 hover:text-amber-600'}`}
-                             title="依照重要標記排序"
-                           >
-                             <Star className={`w-4 h-4 ${grammarSortConfig.key === 'isImportant' ? 'fill-current' : ''}`}/>
-                             {grammarSortConfig.key === 'isImportant' ? (grammarSortConfig.direction === 'desc' ? '星號置頂' : '星號置底') : '排序'}
-                           </button>
-                           <button
-                             onClick={() => { if (!isGrammarReordering) setGrammarSortConfig(prev => { if (prev.key !== 'dateAdded') return { key: 'dateAdded', direction: 'desc' }; if (prev.direction === 'desc') return { key: 'dateAdded', direction: 'asc' }; return { key: null, direction: null }; }); }}
-                             className={`p-2 border rounded-lg text-sm font-bold flex items-center gap-1 transition-colors ${isGrammarReordering ? 'opacity-30 cursor-not-allowed bg-white border-slate-200 text-slate-400' : grammarSortConfig.key === 'dateAdded' ? 'bg-emerald-50 border-emerald-300 text-emerald-700' : 'bg-white border-slate-200 text-slate-600 hover:border-emerald-300 hover:text-emerald-600'}`}
-                             title="依照加入日期排序"
-                           >
-                             {grammarSortConfig.key === 'dateAdded' ? (grammarSortConfig.direction === 'desc' ? '↓ 最新' : '↑ 最舊') : '↕ 日期'}
-                           </button>
-                           <button
-                             onClick={() => { setIsGrammarReordering(v => !v); setGrammarDragIdx(null); setGrammarDragOverIdx(null); }}
-                             className={`p-2 border rounded-lg text-sm font-bold flex items-center gap-1 transition-colors ${isGrammarReordering ? 'bg-indigo-100 border-indigo-400 text-indigo-700' : 'bg-white border-slate-200 text-slate-600 hover:border-indigo-300 hover:text-indigo-600'}`}
-                             title="拖曳調整順序"
-                           >
-                             ≡ {isGrammarReordering ? '完成' : '排序'}
-                           </button>
-                         </div>
-                     <div className="flex items-center gap-2">
+                 <div className="space-y-4 order-1 lg:order-1">
+                   <div className="flex flex-col gap-2 mb-4">
+                     {/* 第1列：標題 + 手機新增按鈕 */}
+                     <div className="flex items-center justify-between">
+                       <h3 className="font-bold text-slate-700 text-lg">已儲存的公式</h3>
+                       <button onClick={() => setShowGrammarFormMobile(true)} className="lg:hidden px-3 py-2 bg-emerald-600 text-white text-sm font-bold rounded-xl hover:bg-emerald-700 transition-colors flex items-center gap-1"><Plus className="w-4 h-4"/>新增公式</button>
+                     </div>
+                     {/* 第2列：篩選 + 排序按鈕群 */}
+                     <div className="flex items-center gap-2 flex-wrap">
+                       <select value={grammarFilterTag} onChange={e => setGrammarFilterTag(e.target.value)} className="p-2 border border-slate-200 rounded-lg text-sm bg-white outline-none focus:border-emerald-400 text-slate-600">
+                         <option value="">所有分類</option>
+                         {Array.from(new Set(customGrammars.map(g => g.tag))).filter(Boolean).map(tag => <option key={tag} value={tag}>{tag}</option>)}
+                       </select>
+                       <button
+                         onClick={() => { if (!isGrammarReordering) setGrammarSortConfig(prev => { if (prev.key !== 'isImportant') return { key: 'isImportant', direction: 'desc' }; if (prev.direction === 'desc') return { key: 'isImportant', direction: 'asc' }; return { key: null, direction: null }; }); }}
+                         className={`p-2 border rounded-lg text-sm font-bold flex items-center gap-1 transition-colors ${isGrammarReordering ? 'opacity-30 cursor-not-allowed bg-white border-slate-200 text-slate-400' : grammarSortConfig.key === 'isImportant' ? 'bg-amber-50 border-amber-300 text-amber-700' : 'bg-white border-slate-200 text-slate-600 hover:border-amber-300 hover:text-amber-600'}`}
+                         title="依照重要標記排序"
+                       >
+                         <Star className={`w-4 h-4 ${grammarSortConfig.key === 'isImportant' ? 'fill-current' : ''}`}/>
+                         {grammarSortConfig.key === 'isImportant' ? (grammarSortConfig.direction === 'desc' ? '星號置頂' : '星號置底') : '排序'}
+                       </button>
+                       <button
+                         onClick={() => { if (!isGrammarReordering) setGrammarSortConfig(prev => { if (prev.key !== 'dateAdded') return { key: 'dateAdded', direction: 'desc' }; if (prev.direction === 'desc') return { key: 'dateAdded', direction: 'asc' }; return { key: null, direction: null }; }); }}
+                         className={`p-2 border rounded-lg text-sm font-bold flex items-center gap-1 transition-colors ${isGrammarReordering ? 'opacity-30 cursor-not-allowed bg-white border-slate-200 text-slate-400' : grammarSortConfig.key === 'dateAdded' ? 'bg-emerald-50 border-emerald-300 text-emerald-700' : 'bg-white border-slate-200 text-slate-600 hover:border-emerald-300 hover:text-emerald-600'}`}
+                         title="依照加入日期排序"
+                       >
+                         {grammarSortConfig.key === 'dateAdded' ? (grammarSortConfig.direction === 'desc' ? '↓ 最新' : '↑ 最舊') : '↕ 日期'}
+                       </button>
+                       <button
+                         onClick={() => { setIsGrammarReordering(v => !v); setGrammarDragIdx(null); setGrammarDragOverIdx(null); }}
+                         className={`p-2 border rounded-lg text-sm font-bold flex items-center gap-1 transition-colors ${isGrammarReordering ? 'bg-indigo-100 border-indigo-400 text-indigo-700' : 'bg-white border-slate-200 text-slate-600 hover:border-indigo-300 hover:text-indigo-600'}`}
+                         title="拖曳調整順序"
+                       >
+                         ≡ {isGrammarReordering ? '完成' : '排序'}
+                       </button>
+                     </div>
+                     {/* 第3列：示範單字 selector */}
+                     <div className="flex items-center gap-2 flex-wrap">
                        <span className="text-sm font-bold text-slate-500">💡 選擇示範單字：</span>
-                       <select 
+                       <select
                          value={exampleVerbId}
                          onChange={e => setExampleVerbId(e.target.value)}
-                         className="p-1.5 rounded-lg border border-slate-200 outline-none focus:border-emerald-500 bg-slate-50 text-sm font-medium text-slate-700 max-w-[150px]"
+                         className="p-1.5 rounded-lg border border-slate-200 outline-none focus:border-emerald-500 bg-slate-50 text-sm font-medium text-slate-700 max-w-[180px]"
                        >
                          {verbDB.map(v => (
                            <option key={v.jisho} value={v.jisho}>{v.type && v.type.includes("adj") ? "✨ " : "🏃 "}{stripRuby(v.jisho)}</option>
@@ -6454,13 +6524,16 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                      btn: 'bg-emerald-600 hover:bg-emerald-700',
                    };
                    return (
-                 <div className={`${gc.panelBg} p-8 rounded-3xl border ${gc.panelBorder} flex flex-col sticky top-6 order-1 lg:order-2`} style={{maxHeight:'calc(100vh - 3rem)'}}>
+                 <div className={`${gc.panelBg} p-5 sm:p-8 rounded-3xl border ${gc.panelBorder} flex-col lg:sticky lg:top-6 order-2 lg:order-2 ${showGrammarFormMobile ? 'flex' : 'hidden lg:flex'}`} style={{maxHeight:'calc(100vh - 3rem)'}}>
                     <div className="flex items-center justify-between mb-6">
                       <h3 className={`font-bold ${gc.title} flex items-center gap-2 text-lg`}>
                           {editingGrammarId ? <Pencil className="w-6 h-6"/> : <Plus className="w-6 h-6"/>}
                           {editingGrammarId ? '編輯文法公式' : '新增文法公式'}
                       </h3>
-                      <button onClick={() => setIsGrammarFormReordering(v => !v)} className={`text-xs px-2.5 py-1.5 rounded-lg border font-bold transition-colors ${isGrammarFormReordering ? 'bg-indigo-500 text-white border-indigo-500' : `bg-white border-slate-300 text-slate-500 hover:border-indigo-300 hover:text-indigo-600`}`} title="調整欄位順序">↕ 欄位順序</button>
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => setIsGrammarFormReordering(v => !v)} className={`text-xs px-2.5 py-1.5 rounded-lg border font-bold transition-colors ${isGrammarFormReordering ? 'bg-indigo-500 text-white border-indigo-500' : `bg-white border-slate-300 text-slate-500 hover:border-indigo-300 hover:text-indigo-600`}`} title="調整欄位順序">↕ 欄位順序</button>
+                        <button onClick={() => { setShowGrammarFormMobile(false); setEditingGrammarId(null); }} className="lg:hidden p-1.5 rounded-lg bg-white border border-slate-200 text-slate-400 hover:text-slate-600 transition-colors" title="關閉"><XCircle className="w-4 h-4"/></button>
+                      </div>
                     </div>
                     <div className="overflow-y-auto flex-1 pr-1">
                       {(() => {
@@ -6551,25 +6624,25 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
       {appState === 'verb_manage' && (
         <div className="w-[95vw] max-w-[1600px] mx-auto mt-4 animate-in fade-in">
            <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-100">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2"><Library className="w-6 h-6 text-indigo-600"/> 動詞與形容詞庫</h2>
-           <div className="relative flex-1 max-w-md mx-4">
-             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-             <input type="text" value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} placeholder="搜尋動詞/形容詞..." className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all outline-none"/>
-             {searchTerm && <button onClick={()=>setSearchTerm('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"><XCircle className="w-4 h-4"/></button>}
-           </div>
-                 <div className="flex items-center gap-4 ml-4">
-                     <span className="text-sm font-bold text-slate-500">動詞: {verbDB.filter(v=>v.type==='verb').length} | 形容詞: {verbDB.filter(v=>v.type==='adj_i'||v.type==='adj_na').length}</span>
-                     <label className="flex items-center gap-2 cursor-pointer select-none bg-amber-50 text-amber-700 px-3 py-1.5 rounded-xl font-bold border border-amber-200 hover:bg-amber-100 transition-colors">
-                         <input type="checkbox" checked={showOnlyImportantVerb} onChange={(e)=>setShowOnlyImportantVerb(e.target.checked)} className="hidden"/>
-                         <Star className={`w-4 h-4 ${showOnlyImportantVerb ? 'fill-amber-500 text-amber-500' : 'text-amber-500/50'}`}/>
-                         只顯示重要
-                     </label>
-                 </div>
+              <div className="flex flex-col sm:flex-row sm:items-center mb-4 gap-3">
+                <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2 shrink-0"><Library className="w-6 h-6 text-indigo-600"/> 動詞與形容詞庫</h2>
+                <div className="relative w-full sm:flex-1 sm:max-w-md sm:mx-4">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input type="text" value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} placeholder="搜尋動詞/形容詞..." className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all outline-none"/>
+                  {searchTerm && <button onClick={()=>setSearchTerm('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"><XCircle className="w-4 h-4"/></button>}
+                </div>
+                <div className="flex items-center gap-3 flex-wrap">
+                  <span className="text-sm font-bold text-slate-500">動詞: {verbDB.filter(v=>v.type==='verb').length} | 形容詞: {verbDB.filter(v=>v.type==='adj_i'||v.type==='adj_na').length}</span>
+                  <label className="flex items-center gap-2 cursor-pointer select-none bg-amber-50 text-amber-700 px-3 py-1.5 rounded-xl font-bold border border-amber-200 hover:bg-amber-100 transition-colors">
+                    <input type="checkbox" checked={showOnlyImportantVerb} onChange={(e)=>setShowOnlyImportantVerb(e.target.checked)} className="hidden"/>
+                    <Star className={`w-4 h-4 ${showOnlyImportantVerb ? 'fill-amber-500 text-amber-500' : 'text-amber-500/50'}`}/>
+                    只顯示重要
+                  </label>
+                </div>
               </div>
-              <div className="flex gap-1 bg-slate-100 p-1 rounded-xl mb-6 w-fit">
+              <div className="flex gap-1 bg-slate-100 p-1 rounded-xl mb-6 overflow-x-auto">
                 {[{id:'all',label:'全部'},{id:'verb',label:'🏃 動詞'},{id:'adj_i',label:'い形'},{id:'adj_na',label:'な形'},{id:'adj',label:'形容詞'}].map(({id,label})=>(
-                  <button key={id} onClick={()=>setVerbManageTypeTab(id)} className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-colors ${verbManageTypeTab===id?'bg-white text-indigo-700 shadow-sm':'text-slate-500 bg-slate-200/50 hover:text-slate-700'}`}>{label}</button>
+                  <button key={id} onClick={()=>setVerbManageTypeTab(id)} className={`shrink-0 px-4 py-1.5 rounded-lg text-sm font-bold transition-colors ${verbManageTypeTab===id?'bg-white text-indigo-700 shadow-sm':'text-slate-500 bg-slate-200/50 hover:text-slate-700'}`}>{label}</button>
                 ))}
               </div>
               <div className="bg-indigo-50 rounded-3xl border border-indigo-100 mb-8">
@@ -6599,7 +6672,7 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                        <button onClick={e => { e.stopPropagation(); if(window.confirm('確定清空確認區？')) setVerbBatchItems([]); }} className="text-xs text-red-500 hover:text-red-700 font-bold">全部清空</button>
                      </div>
                      {isVerbBatchOpen && (<>
-                       <div className="p-4 space-y-2 max-h-72 overflow-y-auto">
+                       <div className="p-4 space-y-2 max-h-72 overflow-y-auto overflow-x-auto">
                          {verbBatchItems.map((item, idx) => {
                            const setType = (t) => { const n=[...verbBatchItems]; n[idx]={...n[idx], type:t, group:t==='adj_i'?'i':t==='adj_na'?'na':'1'}; setVerbBatchItems(n); };
                            const isUnknown = item.type === 'unknown';
@@ -6829,7 +6902,75 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                  </div>}
               </div>
 
-              <div className="overflow-x-auto">
+              {/* 手機卡片列表：sm 以下顯示，取代表格 */}
+              <div className="sm:hidden space-y-2.5">
+                {sortedVerbDB.length === 0 && (
+                  <div className="text-center py-12 text-slate-400">
+                    <div className="text-3xl mb-2">📭</div>
+                    <div className="font-bold">沒有符合條件的動詞</div>
+                  </div>
+                )}
+                {sortedVerbDB.map(v => {
+                  const _st = v.status || 'not_started';
+                  const _stIcon = { not_started: '📚 待學習', learning: '🔥 練習中', mastered: '🏆 已掌握' }[_st];
+                  const _stColor = { not_started: 'bg-slate-50 text-slate-400 border-slate-200', learning: 'bg-orange-50 text-orange-600 border-orange-200', mastered: 'bg-amber-100 text-amber-700 border-amber-300' }[_st];
+                  let _totalCorrect = 0, _totalWrong = 0;
+                  if (v.stats) { ACTIVE_VERB_FORMS.forEach(f => { if (v.stats[f]) { _totalCorrect += v.stats[f].correct; _totalWrong += v.stats[f].wrong; } }); }
+                  const _total = _totalCorrect + _totalWrong;
+                  const _acc = _total === 0 ? 0 : Math.round((_totalCorrect / _total) * 100);
+                  const _isEditing = editingVerbId === v.id;
+                  const _keyForms = [['ます形', v.masu], ['て形', v.te], ['た形', v.ta], ['ない形', v.nai]].filter(([, val]) => val);
+                  return (
+                    <div key={v.id} id={"item-" + v.id}
+                      className={`bg-white rounded-2xl border p-4 shadow-sm transition-all ${_isEditing ? 'border-indigo-400 ring-2 ring-indigo-300 bg-indigo-50/60' : selectedVerbIds.has(v.id) ? 'border-indigo-300 bg-indigo-50' : targetId === v.id ? 'border-amber-400 ring-2 ring-amber-400 bg-amber-100' : 'border-slate-100'}`}>
+                      {/* 頂部：星號 + 辭書形 + 類型 + 標籤 + 操作 */}
+                      <div className="flex items-start gap-2.5">
+                        <button
+                          onClick={() => setVerbDB(prev => prev.map(x => x.id === v.id ? { ...x, isImportant: !x.isImportant } : x))}
+                          className={`p-1.5 rounded-lg transition-colors shrink-0 mt-0.5 ${v.isImportant ? 'text-amber-500 bg-amber-50' : 'text-slate-300 hover:text-amber-500 hover:bg-amber-50'}`}
+                        ><Star className={`w-4 h-4 ${v.isImportant ? 'fill-current' : ''}`}/></button>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
+                            <span className="font-bold text-slate-800 text-base leading-tight">{v.jisho || v.masu || ''}</span>
+                            <span className={`px-1.5 py-0.5 text-xs font-black uppercase tracking-wider rounded border-2 whitespace-nowrap ${getVerbTypeStyle(v.type, v.group)}`}>{formatVerbType(v.type, v.group)}</span>
+                            {v.irregular && <span className="px-1.5 py-0.5 text-[10px] font-bold bg-rose-100 text-rose-600 border border-rose-300 rounded-full whitespace-nowrap">⚠ 不規則</span>}
+                          </div>
+                          <div className="flex flex-wrap gap-1">{renderTags(v.tags, (tag) => setSearchTerm(tag))}</div>
+                        </div>
+                        <div className="flex gap-1 shrink-0">
+                          {_isEditing ? (
+                            <span className="text-xs font-bold text-indigo-500 animate-pulse px-2 py-1.5">編輯中…</span>
+                          ) : (<>
+                            <button onClick={() => { setEditingVerbId(v.id); setVerbEditForm({ ...v }); }} className="p-2 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 rounded-lg transition-colors" title="編輯"><Edit3 className="w-4 h-4"/></button>
+                            <button onClick={() => { if(window.confirm('確定刪除？')) setVerbDB(verbDB.filter(x => x.id !== v.id)); }} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="刪除"><Trash2 className="w-4 h-4"/></button>
+                          </>)}
+                        </div>
+                      </div>
+                      {/* 中文意思 */}
+                      <div className="mt-2 pl-8 font-medium text-slate-700 text-sm leading-snug">{v.meaning}</div>
+                      {/* 關鍵變化型 */}
+                      {_keyForms.length > 0 && (
+                        <div className="mt-2.5 pl-8 grid grid-cols-2 gap-1.5">
+                          {_keyForms.map(([label, val]) => (
+                            <div key={label} className="flex items-center gap-1.5 bg-slate-50 rounded-lg px-2 py-1 border border-slate-100">
+                              <span className="text-[10px] font-bold text-slate-400 shrink-0">{label}</span>
+                              <span className="text-xs font-bold text-slate-700 truncate">{renderRuby(val)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {/* 底部：狀態 + 正確率 + 日期 */}
+                      <div className="flex items-center gap-2 mt-3 pt-2.5 border-t border-slate-50 flex-wrap">
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${_stColor}`}>{_stIcon}</span>
+                        {_total > 0 && <span className="text-[11px] text-slate-400 font-mono">{_acc}% 正確</span>}
+                        <span className="text-[11px] text-slate-400 ml-auto">{getAddedDate(v.id)}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="hidden sm:block overflow-x-auto">
                  <div className="flex justify-end mb-2 gap-2 flex-wrap items-start">
                    {/* 欄位顯示/隱藏 */}
                    <div className="relative">

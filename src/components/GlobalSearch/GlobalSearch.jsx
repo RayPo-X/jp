@@ -14,7 +14,7 @@ const GlobalSearch = ({
   renderTags
 }) => {
   return (
-      <div className="relative z-50">
+      <div className="relative">
          <div className="relative bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden group hover:border-blue-400 transition-colors focus-within:border-blue-500 focus-within:shadow-md focus-within:ring-4 focus-within:ring-blue-500/10">
             <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-6 h-6 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
             <input 
