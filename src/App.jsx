@@ -1258,7 +1258,12 @@ return parsed;
     } catch { return INITIAL_VOCAB_DB.map(v => ({ ...v, status: 'new', correctDates: [], tags: v.tag ? [v.tag] : [] })); }
   });
   const [vocabMistakes, setVocabMistakes] = useState({});
-  const [vocabTestMode, setVocabTestMode] = useState('srs'); 
+  const [requeuedIds, setRequeuedIds] = useState(new Set());
+  const [todayWrongLog, setTodayWrongLog] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(`jp_today_wrong_${todayDateStr()}`) || '{}'); } catch { return {}; }
+  });
+  const [showTodayWrongModal, setShowTodayWrongModal] = useState(false);
+  const [vocabTestMode, setVocabTestMode] = useState('srs');
   const [currentQuestionDirection, setCurrentQuestionDirection] = useState('j2c');
   const [currentThemeLabel, setCurrentThemeLabel] = useState('');
   const [activeVocabQueue, setActiveVocabQueue] = useState([]);
@@ -2048,6 +2053,27 @@ return parsed;
   const [addStreak, setAddStreak] = useState(() => parseInt(localStorage.getItem('jp_add_streak') || '0'));
   const [lastStreakDate, setLastStreakDate] = useState(() => localStorage.getItem('jp_last_streak_date') || '');
 
+  // 啟動時檢查連續天數是否已中斷（lastStreakDate 不是今天也不是昨天）
+  useEffect(() => {
+    const stored = localStorage.getItem('jp_last_streak_date') || '';
+    if (!stored) return;
+    const today = todayDateStr();
+    const yesterday = (() => { const d = new Date(Date.now() + 9*3600000 - 86400000); return d.toISOString().slice(0,10); })();
+    if (stored !== today && stored !== yesterday) {
+      setAddStreak(0);
+      localStorage.setItem('jp_add_streak', '0');
+    }
+  }, []);
+
+  useEffect(() => {
+    if (showTodayWrongModal) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [showTodayWrongModal]);
+
   const handleExportBackup = () => {
     const backupData = {
       vocabDB,
@@ -2534,9 +2560,16 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
       setScore(prev => prev + 1);
       setCombo(prev => prev + 1);
       if (vocabTestMode === 'mistakes') setVocabMistakes(prev => { const newM = {...prev}; delete newM[currentVocab.id]; return newM; });
+      setRequeuedIds(prev => { const s = new Set(prev); s.delete(currentVocab.id); return s; });
     } else {
       setCombo(0);
       setVocabMistakes(prev => ({...prev, [currentVocab.id]: currentVocab}));
+      setTodayWrongLog(prev => {
+        const entry = prev[currentVocab.id] || { count: 0, word: currentVocab.word || currentVocab.reading, reading: currentVocab.reading, meaning: currentVocab.meaning };
+        const updated = { ...prev, [currentVocab.id]: { ...entry, count: entry.count + 1 } };
+        try { localStorage.setItem(`jp_today_wrong_${todayDateStr()}`, JSON.stringify(updated)); } catch {}
+        return updated;
+      });
     }
 
     setRoundHistory(prev => [...prev, { id: currentVocab.id, isVocab: true,
@@ -2591,7 +2624,11 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
   };
 
   const advanceVocabQueue = () => {
-    const nextQueue = activeVocabQueue.slice(1);
+    const requeue = feedback === 'incorrect' && (vocabTestMode === 'srs' || vocabTestMode === 'sentence_srs') && !kanjiReadingMode;
+    if (requeue && activeVocabQueue[0]) setRequeuedIds(prev => new Set([...prev, activeVocabQueue[0].id]));
+    const nextQueue = requeue
+      ? [...activeVocabQueue.slice(1), activeVocabQueue[0]]
+      : activeVocabQueue.slice(1);
     setActiveVocabQueue(nextQueue);
     if (vocabTestMode !== 'srs' && questionCount >= TOTAL_QUESTIONS) setIsRoundComplete(true);
     else {
@@ -4861,14 +4898,17 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                   <div className="bg-white border border-[#ece7df] rounded-2xl p-4 text-center">
                     <div className="text-3xl font-black text-[#4a4640] leading-none mb-1.5">{vocabDB.filter(v => v.status === 'new').length}</div>
                     <div className="text-xs font-bold text-[#aaa295]">📚 待學習</div>
+                    <div className="mt-0.5 text-[10px] opacity-0 select-none">·</div>
                   </div>
                   <div className="bg-white border border-[#ece7df] rounded-2xl p-4 text-center">
                     <div className="text-3xl font-black text-[#5b7ba3] leading-none mb-1.5">{vocabDB.filter(v => v.status === 'learning').length}</div>
                     <div className="text-xs font-bold text-[#aaa295]">🎯 已學習</div>
+                    <div className="mt-0.5 text-[10px] opacity-0 select-none">·</div>
                   </div>
                   <div className="bg-white border border-[#ece7df] rounded-2xl p-4 text-center">
                     <div className="text-3xl font-black text-[#54916c] leading-none mb-1.5">{vocabDB.filter(v => v.status === 'mastered').length}</div>
                     <div className="text-xs font-bold text-[#aaa295]">🏆 精通</div>
+                    <div className="mt-0.5 text-[10px] opacity-0 select-none">·</div>
                   </div>
                 </div>
                 <div className="grid grid-cols-3 gap-3">
@@ -4879,18 +4919,90 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                       ? <div className="text-[10px] text-orange-400 mt-0.5">⚠️ 積壓 {todayQueue.length - dailyReviewLimit} 題，新字已暫停</div>
                       : todayQueue.length > dailyReviewLimit * 0.8
                       ? <div className="text-[10px] text-yellow-500 mt-0.5">複習壓力偏高</div>
-                      : null}
+                      : <div className="mt-0.5 text-[10px] opacity-0 select-none">·</div>}
                   </div>
                   <div className="bg-white border border-[#ece7df] rounded-2xl p-4 text-center">
                     <div className="text-3xl font-black text-[#4a4640] leading-none mb-1.5">{effectiveTodayStats.newVocabCount}</div>
                     <div className="text-xs font-bold text-[#aaa295]">✨ 今日新字</div>
+                    <div className="mt-0.5 text-[10px] opacity-0 select-none">·</div>
                   </div>
                   <div className="bg-white border border-[#ece7df] rounded-2xl p-4 text-center">
                     <div className="text-3xl font-black text-[#bd7256] leading-none mb-1.5">{Object.keys(vocabMistakes).length}</div>
                     <div className="text-xs font-bold text-[#aaa295]">📒 錯題本</div>
+                    <div className="mt-0.5 text-[10px] opacity-0 select-none">·</div>
                   </div>
                 </div>
               </div>
+
+              {/* ── 單字庫分佈 ── */}
+              {(() => {
+                const _now = Date.now();
+                const _todayStartMs = todayStart.getTime();
+                const _nonSentence = v => !((v.example && v.example.trim().length > 0) || v.isSentence);
+                const _dueToday     = todayQueue.length;
+                const _doneToday    = vocabDB.filter(v => v.status !== 'new' && v.lastReviewed && v.lastReviewed >= _todayStartMs).length;
+                const _future       = vocabDB.filter(v => _nonSentence(v) && v.status !== 'new' && v.status !== 'mastered' && v.nextReview > _now && !(v.lastReviewed && v.lastReviewed >= _todayStartMs)).length;
+                const _newLocked    = vocabDB.filter(v => _nonSentence(v) && v.status === 'new').length;
+                const _tomorrow     = vocabDB.filter(v => v.status !== 'new' && v.nextReview > _now && v.nextReview <= _now + 86400000).length;
+                const _after2       = vocabDB.filter(v => v.status !== 'new' && v.nextReview > _now + 86400000 && v.nextReview <= _now + 2 * 86400000).length;
+                const _todayUsed    = getTodayNewVocabCount();
+                const _todayRemain  = Math.max(0, dailyNewVocabLimit - _todayUsed);
+                const _total = _doneToday + _dueToday;
+                const _pct   = _total > 0 ? Math.round((_doneToday / _total) * 100) : 0;
+                const cells = [
+                  { label: '今日已完成', val: _doneToday,  bg: 'bg-green-50',  border: 'border-green-100',  text: 'text-green-700',  sub: 'text-green-400' },
+                  { label: '未來排程中', val: _future,     bg: 'bg-slate-50',  border: 'border-slate-200',  text: 'text-slate-600',  sub: 'text-slate-400' },
+                  { label: '新字待解鎖', val: _newLocked,  bg: 'bg-amber-50',  border: 'border-amber-100',  text: 'text-amber-700',  sub: 'text-amber-400' },
+                ];
+                return (
+                  <div className="bg-[#f9f7f4] border border-[#ece7df] rounded-2xl p-3 space-y-2.5">
+                    <div className="text-[10px] font-bold text-[#aaa295] uppercase tracking-wider">📊 單字庫分佈</div>
+                    {/* 今日進度條 */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[10px] font-bold text-[#aaa295]">今日進度</span>
+                        <span className="text-[10px] font-black text-green-600">{_doneToday} / {_total} <span className="text-[#aaa295] font-bold">({_pct}%)</span></span>
+                      </div>
+                      <div className="w-full h-2 bg-[#ece7df] rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all duration-500"
+                          style={{ width: `${_pct}%`, background: _pct === 100 ? '#54916c' : _pct >= 50 ? '#4ade80' : '#86efac' }}
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      {cells.map(({ label, val, bg, border, text, sub }) => (
+                        <div key={label} className={`${bg} border ${border} rounded-xl px-2 py-2 flex flex-col items-center gap-0.5`}>
+                          <span className={`text-[10px] font-bold ${sub} text-center leading-tight`}>{label}</span>
+                          <span className={`text-lg font-black leading-none ${text}`}>{val}</span>
+                        </div>
+                      ))}
+                    </div>
+                    {(_tomorrow > 0 || _after2 > 0) && (
+                      <div className="text-[10px] text-[#aaa295] text-center leading-relaxed">
+                        最近排程：明天 <span className="font-bold text-slate-500">{_tomorrow}</span> 個
+                        {_after2 > 0 && <>　後天 <span className="font-bold text-slate-500">{_after2}</span> 個</>}
+                      </div>
+                    )}
+                    {/* 每日新字上限快速調整 */}
+                    <div className="flex items-center justify-between border-t border-[#ece7df] pt-2.5">
+                      <span className="text-[11px] font-bold text-[#aaa295]">✨ 每日新字上限</span>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => { const v = Math.max(0, dailyNewVocabLimit - 5); setDailyNewVocabLimit(v); localStorage.setItem('jp_daily_vocab_limit', String(v)); }}
+                          className="w-7 h-7 rounded-lg bg-white border border-[#ece7df] text-[#aaa295] hover:text-amber-600 hover:border-amber-300 font-black text-sm transition-colors flex items-center justify-center"
+                        >−</button>
+                        <span className="text-sm font-black text-[#4a4640] w-8 text-center tabular-nums">{dailyNewVocabLimit}</span>
+                        <button
+                          onClick={() => { const v = Math.min(100, dailyNewVocabLimit + 5); setDailyNewVocabLimit(v); localStorage.setItem('jp_daily_vocab_limit', String(v)); }}
+                          className="w-7 h-7 rounded-lg bg-white border border-[#ece7df] text-[#aaa295] hover:text-amber-600 hover:border-amber-300 font-black text-sm transition-colors flex items-center justify-center"
+                        >＋</button>
+                        <span className="text-[11px] text-[#aaa295]">字／天　剩 <span className="font-bold text-amber-600">{_todayRemain}</span></span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* ── 單字練習 ── */}
               <div className="flex items-center gap-3 mt-1">
@@ -4920,7 +5032,7 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                         key={name}
                         onClick={() => size > 0 && startVocabSession('srs', null, size)}
                         disabled={size === 0}
-                        className={`p-3 rounded-2xl text-center transition-all font-bold active:scale-[0.97] ${
+                        className={`p-3 pb-5 rounded-2xl text-center transition-all font-bold active:scale-[0.97] relative flex flex-col items-center justify-center ${
                           lit
                             ? 'bg-green-50 border-2 border-green-200 text-green-700'
                             : 'bg-white border-2 border-[#ece7df] text-[#4a4640] hover:bg-[#e8eef6] hover:border-[#cfdcea]'
@@ -4929,7 +5041,7 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                         <div className="text-lg leading-none">{emoji}</div>
                         <div className="text-xs font-black mt-1">{name}</div>
                         <div className="text-xs font-normal mt-0.5 opacity-60">{size} 題</div>
-                        {lit && <div className="text-green-500 text-xs mt-0.5">✅</div>}
+                        {lit && <div className="absolute bottom-1.5 text-green-500 text-xs">✅</div>}
                       </button>
                     ))}
                   </div>
@@ -4972,6 +5084,53 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                   <span className="text-xl">🔥</span>單字錯題特訓
                 </button>
               </div>
+              {/* 今日錯誤回顧按鈕 */}
+              {(() => {
+                const _wrongList = Object.values(todayWrongLog).sort((a, b) => b.count - a.count);
+                const _wrongCount = _wrongList.length;
+                return (
+                  <button
+                    onClick={() => setShowTodayWrongModal(true)}
+                    disabled={_wrongCount === 0}
+                    className="w-full py-3 mb-3 bg-white border border-[#ece7df] text-[#4a4640] rounded-2xl font-bold hover:bg-rose-50 hover:border-rose-200 hover:text-rose-600 transition-all text-sm flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <span className="text-base">📋</span>
+                    今日錯誤回顧
+                    {_wrongCount > 0 && <span className="bg-rose-100 text-rose-600 text-xs font-black px-2 py-0.5 rounded-full">{_wrongCount} 個單字</span>}
+                  </button>
+                );
+              })()}
+              {/* 今日錯誤 Modal */}
+              {showTodayWrongModal && (() => {
+                const _wrongList = Object.values(todayWrongLog).sort((a, b) => b.count - a.count);
+                return (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setShowTodayWrongModal(false)}>
+                    <div className="absolute inset-0 bg-black/40 backdrop-blur-sm"/>
+                    <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                      <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100">
+                        <div>
+                          <div className="font-bold text-slate-700 text-lg">📋 今日錯誤回顧</div>
+                          <div className="text-sm text-slate-400 mt-0.5">共 {_wrongList.length} 個單字答錯過</div>
+                        </div>
+                        <button onClick={() => setShowTodayWrongModal(false)} className="p-2 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors text-lg">✕</button>
+                      </div>
+                      <div className="overflow-y-auto flex-1 px-5 py-4 space-y-3">
+                        {_wrongList.map((item, i) => (
+                          <div key={i} className="flex items-center gap-4 bg-rose-50 border border-rose-100 rounded-2xl px-5 py-4">
+                            <div className="shrink-0 w-11 h-11 rounded-xl bg-rose-500 text-white flex items-center justify-center text-sm font-black">
+                              ×{item.count}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="font-bold text-slate-700 text-base truncate">{item.word}{item.reading && item.word !== item.reading ? <span className="ml-1.5 text-sm font-normal text-slate-400">({item.reading})</span> : null}</div>
+                              <div className="text-sm text-slate-500 truncate">{item.meaning}</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* 例句特訓區 */}
               <div className="grid grid-cols-2 gap-3 mb-3">
@@ -5072,6 +5231,7 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                       <div className="bg-white border border-[#ece7df] rounded-2xl p-4 text-center">
                         <div className="text-3xl font-black text-[#4a4640] leading-none mb-1.5">{verbDB.filter(v => v.status === 'not_started').length}</div>
                         <div className="text-xs font-bold text-[#aaa295]">📚 待學習</div>
+                        <div className="mt-0.5 text-[10px] opacity-0 select-none">·</div>
                       </div>
                       <div className="bg-white border border-[#ece7df] rounded-2xl p-4 text-center">
                         <div className="text-3xl font-black text-[#5b7ba3] leading-none mb-1.5">{verbDB.filter(v => v.status === 'learning').length}</div>
@@ -5080,21 +5240,24 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                           ? <div className="text-[10px] text-orange-400 mt-0.5">⚠️ 積壓偏多</div>
                           : todayGrammarQueue.length > dailyNewVerbLimit
                           ? <div className="text-[10px] text-yellow-500 mt-0.5">建議今日練習</div>
-                          : null}
+                          : <div className="mt-0.5 text-[10px] opacity-0 select-none">·</div>}
                       </div>
                       <div className="bg-white border border-[#ece7df] rounded-2xl p-4 text-center">
                         <div className="text-3xl font-black text-[#54916c] leading-none mb-1.5">{verbDB.filter(v => v.status === 'mastered').length}</div>
                         <div className="text-xs font-bold text-[#aaa295]">🏆 精通</div>
+                        <div className="mt-0.5 text-[10px] opacity-0 select-none">·</div>
                       </div>
                     </div>
                     <div className="grid grid-cols-3 gap-3">
                       <div className="bg-white border border-[#ece7df] rounded-2xl p-4 text-center">
                         <div className="text-3xl font-black text-[#4a4640] leading-none mb-1.5">{totalVerbAttempts}</div>
                         <div className="text-xs font-bold text-[#aaa295]">📈 累積練習</div>
+                        <div className="mt-0.5 text-[10px] opacity-0 select-none">·</div>
                       </div>
                       <div className="bg-white border border-[#ece7df] rounded-2xl p-4 text-center">
                         <div className="text-3xl font-black text-[#bd7256] leading-none mb-1.5">{totalVerbMistakes}</div>
                         <div className="text-xs font-bold text-[#aaa295]">❌ 累積錯題</div>
+                        <div className="mt-0.5 text-[10px] opacity-0 select-none">·</div>
                       </div>
                       <div className="bg-white border border-[#ece7df] rounded-2xl p-4 text-center">
                         <div className="text-3xl font-black text-[#4a4640] leading-none mb-1.5">{effectiveTodayGrammarStats.srsCount}</div>
@@ -5103,7 +5266,77 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                           ? <div className="text-[10px] text-orange-400 mt-0.5">⚠️ 積壓偏多</div>
                           : effectiveTodayGrammarStats.srsCount > 10
                           ? <div className="text-[10px] text-yellow-500 mt-0.5">建議今日複習</div>
-                          : null}
+                          : <div className="mt-0.5 text-[10px] opacity-0 select-none">·</div>}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* ── 動詞庫分佈 ── */}
+              {(() => {
+                const _now = Date.now();
+                const _vbSlotKey = `jp_daily_verb_slot_total_${todayDateStr()}`;
+                const _storedVbN = parseInt(localStorage.getItem(_vbSlotKey) || '0');
+                const _vbN    = _storedVbN > 0 ? _storedVbN : todayGrammarQueue.length;
+                const _vbDone = Math.max(0, _vbN - todayGrammarQueue.length);
+                const _vbDue  = todayGrammarQueue.length;
+                const _total  = _vbDone + _vbDue;
+                const _pct    = _total > 0 ? Math.round((_vbDone / _total) * 100) : 0;
+                const _vbFuture    = Object.values(grammarProgress).filter(p => (p.nextReview || 0) > _now).length;
+                const _vbNewLocked = verbDB.filter(v => v.learnStatus === 'new').length;
+                const _vbTomorrow  = Object.values(grammarProgress).filter(p => (p.nextReview || 0) > _now && (p.nextReview || 0) <= _now + 86400000).length;
+                const _vbAfter2    = Object.values(grammarProgress).filter(p => (p.nextReview || 0) > _now + 86400000 && (p.nextReview || 0) <= _now + 2 * 86400000).length;
+                const _vbTodayRemain = Math.max(0, dailyNewVerbLimit - (todaySrsNewPairs?.length || 0));
+                const cells = [
+                  { label: '今日已完成', val: _vbDone,      bg: 'bg-green-50',  border: 'border-green-100',  text: 'text-green-700',  sub: 'text-green-400' },
+                  { label: '未來排程中', val: _vbFuture,    bg: 'bg-slate-50',  border: 'border-slate-200',  text: 'text-slate-600',  sub: 'text-slate-400' },
+                  { label: '新詞待解鎖', val: _vbNewLocked, bg: 'bg-amber-50',  border: 'border-amber-100',  text: 'text-amber-700',  sub: 'text-amber-400' },
+                ];
+                return (
+                  <div className="bg-[#f0f4f9] border border-[#d9e3ef] rounded-2xl p-3 space-y-2.5">
+                    <div className="text-[10px] font-bold text-[#8fa5c0] uppercase tracking-wider">📊 動詞庫分佈</div>
+                    {/* 今日進度條 */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[10px] font-bold text-[#8fa5c0]">今日進度</span>
+                        <span className="text-[10px] font-black text-blue-600">{_vbDone} / {_total} <span className="text-[#8fa5c0] font-bold">({_pct}%)</span></span>
+                      </div>
+                      <div className="w-full h-2 bg-[#d9e3ef] rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all duration-500"
+                          style={{ width: `${_pct}%`, background: _pct === 100 ? '#4f74a0' : _pct >= 50 ? '#5b7ba3' : '#93b4d4' }}
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      {cells.map(({ label, val, bg, border, text, sub }) => (
+                        <div key={label} className={`${bg} border ${border} rounded-xl px-2 py-2 flex flex-col items-center gap-0.5`}>
+                          <span className={`text-[10px] font-bold ${sub} text-center leading-tight`}>{label}</span>
+                          <span className={`text-lg font-black leading-none ${text}`}>{val}</span>
+                        </div>
+                      ))}
+                    </div>
+                    {(_vbTomorrow > 0 || _vbAfter2 > 0) && (
+                      <div className="text-[10px] text-[#8fa5c0] text-center leading-relaxed">
+                        最近排程：明天 <span className="font-bold text-slate-500">{_vbTomorrow}</span> 組
+                        {_vbAfter2 > 0 && <>　後天 <span className="font-bold text-slate-500">{_vbAfter2}</span> 組</>}
+                      </div>
+                    )}
+                    {/* 每日新動詞上限快速調整 */}
+                    <div className="flex items-center justify-between border-t border-[#d9e3ef] pt-2.5">
+                      <span className="text-[11px] font-bold text-[#8fa5c0]">🔄 每日新動詞上限</span>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => { const v = Math.max(0, dailyNewVerbLimit - 5); setDailyNewVerbLimit(v); localStorage.setItem('jp_daily_verb_limit', String(v)); }}
+                          className="w-7 h-7 rounded-lg bg-white border border-[#d9e3ef] text-[#8fa5c0] hover:text-blue-600 hover:border-blue-300 font-black text-sm transition-colors flex items-center justify-center"
+                        >−</button>
+                        <span className="text-sm font-black text-[#4a4640] w-8 text-center tabular-nums">{dailyNewVerbLimit}</span>
+                        <button
+                          onClick={() => { const v = Math.min(100, dailyNewVerbLimit + 5); setDailyNewVerbLimit(v); localStorage.setItem('jp_daily_verb_limit', String(v)); }}
+                          className="w-7 h-7 rounded-lg bg-white border border-[#d9e3ef] text-[#8fa5c0] hover:text-blue-600 hover:border-blue-300 font-black text-sm transition-colors flex items-center justify-center"
+                        >＋</button>
+                        <span className="text-[11px] text-[#8fa5c0]">詞／天　剩 <span className="font-bold text-blue-500">{_vbTodayRemain}</span></span>
                       </div>
                     </div>
                   </div>
@@ -5138,7 +5371,7 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                         key={name}
                         onClick={() => size > 0 && startGrammarSRS(size)}
                         disabled={size === 0}
-                        className={`p-3 rounded-2xl text-center transition-all font-bold active:scale-[0.97] ${
+                        className={`p-3 pb-5 rounded-2xl text-center transition-all font-bold active:scale-[0.97] relative flex flex-col items-center justify-center ${
                           lit
                             ? 'bg-green-50 border-2 border-green-200 text-green-700'
                             : 'bg-white border-2 border-[#ece7df] text-[#4a4640] hover:bg-[#e8eef6] hover:border-[#cfdcea]'
@@ -5147,7 +5380,7 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                         <div className="text-lg leading-none">{emoji}</div>
                         <div className="text-xs font-black mt-1">{name}</div>
                         <div className="text-xs font-normal mt-0.5 opacity-60">{size} 題</div>
-                        {lit && <div className="text-green-500 text-xs mt-0.5">✅</div>}
+                        {lit && <div className="absolute bottom-1.5 text-green-500 text-xs">✅</div>}
                       </button>
                     ))}
                   </div>
@@ -6621,7 +6854,7 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                     <div className="overflow-y-auto flex-1 pr-1">
                       {(() => {
                         const gf = {
-                          name: (() => { const blanksInName = ((newGrammar.name||'').match(/[＿_]/g)||[]).length; return (<div className="space-y-3"><div><label className={`block text-sm font-bold ${gc.label} mb-1.5`}>文法名稱 (提示語)</label><div className="flex gap-2 items-center"><input id="grammar-name-input" type="text" value={newGrammar.name} onChange={e => { const raw = e.target.value.replaceAll('~','_').replaceAll('～','_').replaceAll('〜','_'); const count = (raw.match(/[＿_]/g)||[]).length; setNewGrammar(p => { const newIdx = count === 0 ? undefined : count === 1 ? 0 : (p.answerBlankIndex !== undefined && p.answerBlankIndex < count ? p.answerBlankIndex : undefined); return {...p, name: raw, answerBlankIndex: newIdx}; }); }} placeholder="例：〔名〕と〔名〕とどちらが_ですか" className={`flex-1 p-4 rounded-xl border ${gc.input} outline-none`}/><button type="button" title="插入名詞佔位符" onClick={() => { const el = document.getElementById('grammar-name-input'); if (!el) return; const s = el.selectionStart ?? newGrammar.name.length; const v = newGrammar.name; const nv = v.slice(0,s)+'〔名〕'+v.slice(el.selectionEnd??s); setNewGrammar(p=>({...p,name:nv})); setTimeout(()=>{el.focus();el.setSelectionRange(s+3,s+3);},0); }} className={`px-3 py-2 rounded-xl border font-bold text-sm transition-colors shrink-0 ${gc.advBtn}`}>〔名〕</button></div></div>{blanksInName >= 2 && (<div><label className={`block text-sm font-bold ${gc.label} mb-1.5`}>答案空格位置 <span className="text-red-500">*</span></label><div className="flex gap-2 flex-wrap">{Array.from({length: blanksInName}, (_,i) => (<button key={i} type="button" onClick={() => setNewGrammar(p => ({...p, answerBlankIndex: i}))} className={`px-4 py-2 rounded-xl border font-bold text-sm transition-colors ${newGrammar.answerBlankIndex === i ? 'bg-red-500 text-white border-red-500' : gc.advBtn}`}>第 {i+1} 格</button>))}</div>{newGrammar.answerBlankIndex === undefined && <p className="text-xs text-red-500 mt-1.5">* 必須選擇答案要填入哪一格</p>}</div>)}{blanksInName >= 1 && (<div><label className="block text-xs font-bold text-slate-400 mb-1">預覽效果</label><div className="p-3 rounded-xl border bg-white text-center text-lg font-bold tracking-wide">{(() => { const parts = (newGrammar.name||'').split(/(＿|_)/g); let bc=0; return parts.map((part,i) => { if (part==='＿'||part==='_') { const isAns = bc === newGrammar.answerBlankIndex; bc++; return isAns ? <span key={i} className="text-red-500 font-black">【動詞】</span> : <span key={i} className="text-slate-400">＿</span>; } return <span key={i}>{part}</span>; }); })()}{blanksInName>=2 && newGrammar.answerBlankIndex===undefined && <span className="text-slate-300 text-sm ml-2">← 請先選擇答案格</span>}</div></div>)}</div>); })(),
+                          name: (() => { const blanksInName = ((newGrammar.name||'').match(/[＿_]/g)||[]).length; return (<div className="space-y-3"><div><label className={`block text-sm font-bold ${gc.label} mb-1.5`}>文法名稱 (提示語)</label><div className="flex gap-2 items-center"><input id="grammar-name-input" type="text" value={newGrammar.name} onChange={e => { const raw = e.target.value.replaceAll('~','_').replaceAll('～','_').replaceAll('〜','_'); const count = (raw.match(/[＿_]/g)||[]).length; setNewGrammar(p => { const newIdx = count === 0 ? undefined : count === 1 ? 0 : (p.answerBlankIndex !== undefined && p.answerBlankIndex < count ? p.answerBlankIndex : undefined); return {...p, name: raw, answerBlankIndex: newIdx}; }); }} placeholder="例：〔名〕と〔名〕とどちらが_ですか" className={`flex-1 p-4 rounded-xl border ${gc.input} outline-none`}/><button type="button" title="插入名詞佔位符" onClick={() => { const el = document.getElementById('grammar-name-input'); if (!el) return; const s = el.selectionStart ?? newGrammar.name.length; const v = newGrammar.name; const nv = v.slice(0,s)+'〔名〕'+v.slice(el.selectionEnd??s); setNewGrammar(p=>({...p,name:nv})); setTimeout(()=>{el.focus();el.setSelectionRange(s+3,s+3);},0); }} className={`hidden px-3 py-2 rounded-xl border font-bold text-sm transition-colors shrink-0 ${gc.advBtn}`}>〔名〕</button></div></div>{false && blanksInName >= 2 && (<div><label className={`block text-sm font-bold ${gc.label} mb-1.5`}>答案空格位置 <span className="text-red-500">*</span></label><div className="flex gap-2 flex-wrap">{Array.from({length: blanksInName}, (_,i) => (<button key={i} type="button" onClick={() => setNewGrammar(p => ({...p, answerBlankIndex: i}))} className={`px-4 py-2 rounded-xl border font-bold text-sm transition-colors ${newGrammar.answerBlankIndex === i ? 'bg-red-500 text-white border-red-500' : gc.advBtn}`}>第 {i+1} 格</button>))}</div>{newGrammar.answerBlankIndex === undefined && <p className="text-xs text-red-500 mt-1.5">* 必須選擇答案要填入哪一格</p>}</div>)}{false && blanksInName >= 1 && (<div><label className="block text-xs font-bold text-slate-400 mb-1">預覽效果</label><div className="p-3 rounded-xl border bg-white text-center text-lg font-bold tracking-wide">{(() => { const parts = (newGrammar.name||'').split(/(＿|_)/g); let bc=0; return parts.map((part,i) => { if (part==='＿'||part==='_') { const isAns = bc === newGrammar.answerBlankIndex; bc++; return isAns ? <span key={i} className="text-red-500 font-black">【動詞】</span> : <span key={i} className="text-slate-400">＿</span>; } return <span key={i}>{part}</span>; }); })()}{blanksInName>=2 && newGrammar.answerBlankIndex===undefined && <span className="text-slate-300 text-sm ml-2">← 請先選擇答案格</span>}</div></div>)}</div>); })(),
                           translation: <div><label className={`block text-sm font-bold ${gc.label} mb-1.5`}>文法中文翻譯</label><input type="text" value={newGrammar.translation || ''} onChange={e => setNewGrammar(p => ({...p, translation: e.target.value}))} placeholder="例：請不要～" className={`w-full p-4 rounded-xl border ${gc.input} outline-none`}/></div>,
                           baseForm: <div><label className={`block text-sm font-bold ${gc.label} mb-1.5`}>接續方式</label><select value={newGrammar.baseForm} onChange={e => setNewGrammar(p => ({...p, baseForm: e.target.value}))} className={`w-full p-4 rounded-xl border ${gc.input} outline-none bg-white`}><optgroup label="動詞">{verbForms.filter(opt => !opt.id.startsWith('adj_')).map(opt => <option key={opt.id} value={opt.id}>{opt.label}</option>)}</optgroup><optgroup label="形容詞">{GRAMMAR_ADJ_FORMS.map(opt => <option key={opt.id} value={opt.id}>{opt.label}</option>)}</optgroup><optgroup label="名詞"><option value="noun">名詞</option></optgroup></select></div>,
                           tag: null,
@@ -6649,7 +6882,7 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                               </div>
                             );
                           })(),
-                          structureNote: <div><label className={`block text-sm font-bold ${gc.label} mb-1.5`}>結構說明 (選填)</label><input type="text" value={newGrammar.structureNote || ''} onChange={e => setNewGrammar(p => ({...p, structureNote: e.target.value.replaceAll('~', '_').replaceAll('～', '_').replaceAll('〜', '_')}))} placeholder="例：動詞て形 ＋ ください" className={`w-full p-4 rounded-xl border ${gc.input} outline-none`}/></div>,
+                          structureNote: <div><label className={`block text-sm font-bold ${gc.label} mb-1.5`}>結構說明 (選填)</label><textarea rows={2} value={newGrammar.structureNote || ''} onChange={e => setNewGrammar(p => ({...p, structureNote: e.target.value.replaceAll('~', '_').replaceAll('～', '_').replaceAll('〜', '_')}))} onInput={e => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }} placeholder="例：動詞て形 ＋ ください" className={`w-full p-4 rounded-xl border ${gc.input} outline-none resize-none overflow-hidden leading-relaxed`}/></div>,
                           exampleBlock: <div className="space-y-3">
                             <div><label className={`block text-sm font-bold ${gc.label} mb-1.5`}>例句 (選填)</label><input type="text" value={newGrammar.example || ''} onChange={e => setNewGrammar(p => ({...p, example: e.target.value}))} placeholder="例：ここでタバコを吸わないでください" className={`w-full p-4 rounded-xl border ${gc.input} outline-none`}/></div>
                             {newGrammar.example && <div><label className={`block text-sm font-bold ${gc.label} mb-1.5`}>例句中文翻譯 (選填)</label><input type="text" value={newGrammar.exampleTranslation || ''} onChange={e => setNewGrammar(p => ({...p, exampleTranslation: e.target.value}))} placeholder="例：請不要在這裡吸菸" className={`w-full p-4 rounded-xl border ${gc.input} outline-none`}/></div>}
@@ -8010,6 +8243,11 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                </div>
             </div>
 
+            {appState === 'vocab_playing' && currentVocab && requeuedIds.has(currentVocab.id) && (
+              <div className="mb-4 flex items-center justify-center gap-1.5 text-xs font-bold text-orange-500 bg-orange-50 border border-orange-200 rounded-xl py-2 px-4 w-fit mx-auto">
+                🔄 這題剛才答錯了，再試一次！
+              </div>
+            )}
             {appState === 'vocab_playing' && currentVocab && (
                <>
                  {(vocabTestMode === 'sentence_srs' || vocabTestMode === 'sentence_infinite') ? (
