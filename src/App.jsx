@@ -857,31 +857,25 @@ const generateDistractors = (word, target, grammarDef, allGrammars = []) => {
     const removeStr = (isAdjNa && grammarDef.adjNaRemoveStr != null && grammarDef.adjNaRemoveStr !== '') ? grammarDef.adjNaRemoveStr : (grammarDef.removeStr || '');
     const appendStr = (isAdjNa && grammarDef.adjNaAppendStr != null && grammarDef.adjNaAppendStr !== '') ? grammarDef.adjNaAppendStr : grammarDef.appendStr;
     const replaceRegex = new RegExp(removeStr + '$');
-    correctRuby = baseRubyStr.replace(replaceRegex, '') + appendStr;
+    correctRuby = baseRubyStr.replace(replaceRegex, ''); // choice mode: show verb form only, no suffix
   } else {
     correctRuby = word[target];
   }
-  optionsMap.set(stripRuby(correctRuby), correctRuby);
+  const correctPlain = stripRuby(correctRuby);
+  if (!correctPlain) return []; // 正確答案是空字串，資料不完整，跳過這題
+  optionsMap.set(correctPlain, correctRuby);
 
-  if (grammarDef && allGrammars.length > 0) {
-    // Type 2: use other grammar rules applied to the same verb as distractors
-    const adjFormMap = { adj_i: 'jisho', adj_na: 'jisho', adj_all: 'jisho', noun: 'jisho' };
-    const isAdjNa = word.type === 'adj_na';
-    const otherGrammars = allGrammars.filter(g => g.id !== grammarDef.id && g.appliesTo.includes(word.type));
-    const sameBase = otherGrammars.filter(g => g.baseForm === grammarDef.baseForm);
-    const otherBase = otherGrammars.filter(g => g.baseForm !== grammarDef.baseForm);
-    const candidates = [...sameBase, ...otherBase].sort(() => Math.random() - 0.5);
-    for (const g of candidates) {
+  if (grammarDef) {
+    // Distractors: other standard verb forms (no suffix), all choices uniform format
+    const adjFormMap2 = { adj_i: 'jisho', adj_na: 'jisho', adj_all: 'jisho', noun: 'jisho' };
+    const resolvedBase2 = adjFormMap2[grammarDef.baseForm] || grammarDef.baseForm;
+    const formKeys2 = ['jisho', 'masu', 'te', 'ta', 'nai', 'nakatta', 'potential', 'passive', 'volitional', 'causative'];
+    const candidates2 = formKeys2.filter(k => k !== resolvedBase2 && word[k]).sort(() => Math.random() - 0.5);
+    for (const k of candidates2) {
       if (optionsMap.size >= 4) break;
-      const rb = adjFormMap[g.baseForm] || g.baseForm;
-      const baseStr = word[rb] || '';
-      if (!baseStr) continue;
-      const dRemove = (isAdjNa && g.adjNaRemoveStr != null && g.adjNaRemoveStr !== '') ? g.adjNaRemoveStr : (g.removeStr || '');
-      const dAppend = (isAdjNa && g.adjNaAppendStr != null && g.adjNaAppendStr !== '') ? g.adjNaAppendStr : g.appendStr;
-      const rx = new RegExp(dRemove + '$');
-      const dRuby = baseStr.replace(rx, '') + dAppend;
+      const dRuby = word[k] || '';
       const dPlain = stripRuby(dRuby);
-      if (!optionsMap.has(dPlain)) optionsMap.set(dPlain, dRuby);
+      if (dPlain && !optionsMap.has(dPlain)) optionsMap.set(dPlain, dRuby);
     }
   } else if (!grammarDef) {
     // Type 1: use grammar-rule-based wrong forms (same target form, wrong conjugation)
@@ -907,19 +901,19 @@ const generateDistractors = (word, target, grammarDef, allGrammars = []) => {
 
   // fallback: random suffix generation if still not enough options
   if (optionsMap.size < 4) {
-    const jishoRuby = word.jisho;
-    const stemRuby = jishoRuby.slice(0, -1);
+    const jishoRuby = word.jisho || '';
+    const masuRuby = word.masu || '';
+    // 若 jisho 是空的，改用 masu 詞幹（去掉「ます」）作為後備基礎
+    const baseForFallback = jishoRuby || (masuRuby ? masuRuby.replace(/ます$/, '') : '');
+    if (!baseForFallback) return Array.from(optionsMap.entries()).map(([plain, ruby]) => ({ plain, ruby })).sort(() => Math.random() - 0.5).slice(0, 4);
+    const stemRuby = baseForFallback.slice(0, -1);
     let fallbackStem = stemRuby;
-    if (word.type === 'adj_na') fallbackStem = jishoRuby.slice(0, -1);
+    if (word.type === 'adj_na') fallbackStem = baseForFallback.slice(0, -1);
     const dummySuffixes = ['て', 'た', 'ない', 'なかった', 'る', 'ます', 'んだ', 'いて', 'いた', 'くて', 'かった', 'だ', 'じゃない', 'じゃなかった', 'って', 'った', 'いで', 'わ', 'あ', 'ら', 'く'];
     const shuffledSuffixes = [...dummySuffixes].sort(() => Math.random() - 0.5);
     for (const suf of shuffledSuffixes) {
       if (optionsMap.size >= 4) break;
-      let dummyWordRuby = fallbackStem + suf;
-      if (grammarDef) {
-        const replaceRegex = new RegExp((grammarDef.removeStr || '') + '$');
-        dummyWordRuby = dummyWordRuby.replace(replaceRegex, '') + grammarDef.appendStr;
-      }
+      const dummyWordRuby = fallbackStem + suf;
       const dummyWordPlain = stripRuby(dummyWordRuby);
       if (!optionsMap.has(dummyWordPlain) && dummyWordPlain !== stripRuby(correctRuby)) {
         optionsMap.set(dummyWordPlain, dummyWordRuby);
@@ -1342,6 +1336,8 @@ return parsed;
   const [onlyImportantGrammarTest, setOnlyImportantGrammarTest] = useState(false);
   const [onlyLearnedVerbTest, setOnlyLearnedVerbTest] = useState(false);
   const [onlyLearnedGrammarTest, setOnlyLearnedGrammarTest] = useState(false);
+  const [includeAdjInVerbTest, setIncludeAdjInVerbTest] = useState(true);
+  const [showAdjTypeDetail, setShowAdjTypeDetail] = useState(false);
   
   const [referenceAmount, setReferenceAmount] = useState(5);
   const [referenceTheme, setReferenceTheme] = useState('random');
@@ -1364,10 +1360,11 @@ return parsed;
   const todayQueue = vocabDB.filter(v =>
     !((v.example && v.example.trim().length > 0) || v.isSentence) &&
     v.status !== 'new' &&
+    !(v.addedAt && v.addedAt >= todayStart.getTime()) &&
     v.nextReview <= Date.now() &&
     !(v.lastReviewed && v.lastReviewed >= todayStart.getTime())
   );
-  const todaySentenceQueue = vocabDB.filter(v => ((v.example && v.example.trim().length > 0) || v.isSentence) && v.status !== 'new' && v.nextReview <= Date.now());
+  const todaySentenceQueue = vocabDB.filter(v => ((v.example && v.example.trim().length > 0) || v.isSentence) && v.status !== 'new' && !(v.addedAt && v.addedAt >= todayStart.getTime()) && v.nextReview <= Date.now());
   const reviewedTodayQueue = vocabDB.filter(v => v.lastReviewed && v.lastReviewed >= todayStart.getTime());
 
   // ==== 每日有效統計（混搭模式）====
@@ -1376,7 +1373,7 @@ return parsed;
     const dynamicNewSlots = Math.max(0, dailyReviewLimit - todayQueue.length);
     const remainingNewLimit = Math.max(0, dailyNewVocabLimit - getTodayNewVocabCount());
     const newVocabSlots = Math.min(dynamicNewSlots, remainingNewLimit);
-    const newVocabAvail = vocabDB.filter(v => !((v.example && v.example.trim().length > 0) || v.isSentence) && v.status === 'new').length;
+    const newVocabAvail = vocabDB.filter(v => !((v.example && v.example.trim().length > 0) || v.isSentence) && v.status === 'new' && !(v.addedAt && v.addedAt >= todayStart.getTime())).length;
     const newVocabCount = Math.min(newVocabSlots, newVocabAvail);
     return { reviewCount, newVocabCount, total: reviewCount + newVocabCount };
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1709,12 +1706,12 @@ return parsed;
   // ==== 每日文法有效統計 ====
   const effectiveTodayGrammarStats = useMemo(() => {
     const now = Date.now();
-    const srsCount = customGrammars.filter(g => g.status !== 'new' && (g.nextReview || 0) <= now).length;
+    const srsCount = customGrammars.filter(g => g.status !== 'new' && !(g.addedAt && g.addedAt >= todayStart.getTime()) && (g.nextReview || 0) <= now).length;
     const storedKey = `jp_daily_grammar_ids_${new Date().toISOString().slice(0, 10)}`;
     const storedRaw = (() => { try { const s = localStorage.getItem(storedKey); return s ? JSON.parse(s) : null; } catch { return null; } })();
     const newCount = storedRaw !== null
       ? storedRaw.length
-      : Math.min(dailyNewGrammarLimit, customGrammars.filter(g => g.status === 'new').length);
+      : Math.min(dailyNewGrammarLimit, customGrammars.filter(g => g.status === 'new' && !(g.addedAt && g.addedAt >= todayStart.getTime())).length);
     return { srsCount, newCount, total: srsCount + newCount };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [customGrammars, dailyNewGrammarLimit]);
@@ -1742,7 +1739,7 @@ return parsed;
     const key = `jp_daily_verb_srs_new_${dateStr}`;
     const allTargets = verbForms.map(f => f.id).filter(t => t !== sourceForm);
     const newPairs = [];
-    [...verbDB].sort((a,b) => (a.addedAt||0)-(b.addedAt||0)).forEach(word => {
+    [...verbDB].filter(w => !(w.addedAt && w.addedAt >= todayStart.getTime())).sort((a,b) => (a.addedAt||0)-(b.addedAt||0)).forEach(word => {
       allTargets.forEach(target => {
         const k = `${word.id}_${target}`;
         if (!grammarProgress[k] && word[target]) newPairs.push({ wordId: word.id, target });
@@ -1843,8 +1840,9 @@ return parsed;
     const now = Date.now();
     const queue = [];
     const allTargets = verbForms.map(f => f.id);
-    // 複習到期的舊題
+    // 複習到期的舊題（排除今天加入的動詞）
     verbDB.forEach(word => {
+      if (word.addedAt && word.addedAt >= todayStart.getTime()) return;
       allTargets.forEach(target => {
         if (target === sourceForm) return;
         const key = `${word.id}_${target}`;
@@ -2349,7 +2347,7 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
       const alreadyNew = getTodayNewVocabCount();
       const newSlots = Math.max(0, dailyNewVocabLimit - alreadyNew);
       const newPool = vocabDB
-        .filter(v => !((v.example && v.example.trim().length > 0) || v.isSentence) && v.status === 'new')
+        .filter(v => !((v.example && v.example.trim().length > 0) || v.isSentence) && v.status === 'new' && !(v.addedAt && v.addedAt >= todayStart.getTime()))
         .sort((a, b) => (a.addedAt || 0) - (b.addedAt || 0) || String(a.id).localeCompare(String(b.id)))
         .slice(0, newSlots);
       if (newPool.length > 0) {
@@ -2376,7 +2374,7 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
       if (queue.length === 0) { alert('目前沒有需要複習的例句喔！'); return; }
     }
     else if (mode === 'sentence_infinite') {
-      queue = vocabDB.filter(v => (v.example && v.example.trim().length > 0) || v.isSentence);
+      queue = vocabDB.filter(v => ((v.example && v.example.trim().length > 0) || v.isSentence) && !(v.addedAt && v.addedAt >= todayStart.getTime()));
       if (queue.length === 0) { alert('目前沒有包含例句的單字喔！'); return; }
     }
     else if (mode === 'theme' && themeId) {
@@ -2428,6 +2426,7 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
     kanjiDB.forEach(entry => {
       const isDue = !entry.nextReview || entry.nextReview <= now;
       if (mode === 'srs' && !isDue) return;
+      if (entry.dateAdded && entry.dateAdded >= todayStart.getTime()) return;
       if (entry.reading && entry.reading.trim()) {
         // 有手動填入讀音 → 直接用
         pool.push({
@@ -2670,6 +2669,8 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
     if (mode === 'rpg') setHp(3);
     verbRoundPoolRef.current = [];
     verbSessionTotalRef.current = TOTAL_QUESTIONS;
+    verbSeenInCycleRef.current = [];
+    setVerbRequeuedKeys(new Set());
     generateVerbQuestion(mode);
     setAppState('verb_playing');
   };
@@ -2681,11 +2682,11 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
             if (mode === 'grammar') {
       if (customGrammars.length === 0) { alert('文法公式庫為空！請先建立公式。'); goHome(); return; }
       const now = Date.now();
-      const srsGrammars = customGrammars.filter(g => g.status !== 'new' && (g.nextReview || 0) <= now);
+      const srsGrammars = customGrammars.filter(g => g.status !== 'new' && !(g.addedAt && g.addedAt >= todayStart.getTime()) && (g.nextReview || 0) <= now);
       let storedIds = getTodayGrammarIds();
       if (storedIds === null) {
         const newGrammars = customGrammars
-          .filter(g => g.status === 'new')
+          .filter(g => g.status === 'new' && !(g.addedAt && g.addedAt >= todayStart.getTime()))
           .sort((a, b) => (a.addedAt || 0) - (b.addedAt || 0) || String(a.id).localeCompare(String(b.id)))
           .slice(0, dailyNewGrammarLimit);
         storedIds = newGrammars.map(g => g.id);
@@ -2721,7 +2722,8 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
         if (customWordIds.length === 0) { alert('請先到設定勾選自訂單字！'); goHome(); return; }
         verbDB.filter(w => customWordIds.includes(w.id)).forEach(processWord);
       } else {
-        let filteredWords = verbDB.filter(w => activeWordTypes.includes(w.type));
+        const typesToInclude = includeAdjInVerbTest ? ['verb', 'adj_i', 'adj_na'] : ['verb'];
+        let filteredWords = verbDB.filter(w => typesToInclude.includes(w.type));
         if (onlyImportantVerbTest) {
           const impPool = filteredWords.filter(w => w.isImportant);
           if (impPool.length > 0) filteredWords = impPool;
@@ -2739,6 +2741,7 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
           let storedVerbIds = getTodayVerbIds();
           if (storedVerbIds === null) {
             const pickedNewVerbs = newVerbs
+              .filter(v => !(v.addedAt && v.addedAt >= todayStart.getTime()))
               .sort((a, b) => (a.addedAt || 0) - (b.addedAt || 0) || String(a.id).localeCompare(String(b.id)))
               .slice(0, dailyNewVerbLimit);
             storedVerbIds = pickedNewVerbs.map(v => v.id);
@@ -2758,9 +2761,18 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
     }
     if (verbRoundPoolRef.current.length === 0) {
       if (mode === 'grammar_srs') { setIsRoundComplete(true); return; }
-      verbRoundPoolRef.current = [...availablePool].sort(() => Math.random() - 0.5);
+      // 已見過的排到後面，避免馬上重複
+      const seenKeys = new Set(verbSeenInCycleRef.current);
+      const unseen = availablePool.filter(item => !seenKeys.has(`${item.word.id}_${item.target}`));
+      const seen = availablePool.filter(item => seenKeys.has(`${item.word.id}_${item.target}`));
+      verbRoundPoolRef.current = [
+        ...unseen.sort(() => Math.random() - 0.5),
+        ...seen.sort(() => Math.random() - 0.5)
+      ];
+      verbSeenInCycleRef.current = [];
     }
     const selectedItem = verbRoundPoolRef.current.shift();
+    verbSeenInCycleRef.current.push(`${selectedItem.word.id}_${selectedItem.target}`);
 
     setCurrentVerb(selectedItem.word);
     setCurrentTarget(selectedItem.target);
@@ -2779,6 +2791,7 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
 
     setCurrentCorrectRuby(finalCorrectRuby);
     setCurrentCorrectPlain(stripRuby(finalCorrectRuby));
+    setShowAdjTypeDetail(false);
     setUserInput('');
     setFeedback(null);
     setExplanation('');
@@ -2786,7 +2799,15 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
     setIsPaused(false);
 
     setUsedHint(false);
-    if (inputMode === 'choice') setChoiceOptions(generateDistractors(selectedItem.word, selectedItem.target, selectedItem.grammarDef, customGrammars));
+    if (inputMode === 'choice') {
+      const choices = generateDistractors(selectedItem.word, selectedItem.target, selectedItem.grammarDef, customGrammars);
+      if (choices.length === 0) {
+        // 正確答案無法計算（資料不完整），自動跳過這題
+        generateVerbQuestion(verbTestMode);
+        return;
+      }
+      setChoiceOptions(choices);
+    }
   };
 
   const processVerbAnswer = (answerToCheck = null) => {
@@ -2794,7 +2815,16 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
     const finalAnswer = answerToCheck !== null ? answerToCheck : userInput;
     if (!finalAnswer.trim() && answerToCheck === null) return;
 
-    const isCorrect = finalAnswer.trim() === currentCorrectPlain;
+    // Grammar choice mode: choices show verb form only; append suffix before comparing
+    let answerForCheck = finalAnswer.trim();
+    if (currentGrammarDef && inputMode === 'choice') {
+      const isAdjNaWord = currentVerb?.type === 'adj_na';
+      const _suffix = (isAdjNaWord && currentGrammarDef.adjNaAppendStr != null && currentGrammarDef.adjNaAppendStr !== '')
+        ? currentGrammarDef.adjNaAppendStr
+        : (currentGrammarDef.appendStr || '');
+      answerForCheck = answerForCheck + _suffix;
+    }
+    const isCorrect = answerForCheck === currentCorrectPlain;
     let exp = '';
     if (currentGrammarDef) {
        const baseName = verbForms.find(f => f.id === currentGrammarDef.baseForm)?.label || GRAMMAR_ADJ_FORMS.find(f => f.id === currentGrammarDef.baseForm)?.label || currentGrammarDef.baseForm;
@@ -2919,7 +2949,18 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
       if (verbRoundPoolRef.current.length === 0) setIsRoundComplete(true);
       else { setQuestionCount(prev => prev + 1); generateVerbQuestion(verbTestMode); }
     } else {
-      if (questionCount >= TOTAL_QUESTIONS) setIsRoundComplete(true); else { setQuestionCount(prev => prev + 1); generateVerbQuestion(verbTestMode); }
+      const itemKey = `${currentVerb?.id}_${currentTarget}`;
+      if (feedback === 'incorrect' && !verbRequeuedKeys.has(itemKey)) {
+        // 答錯且尚未重考過：推回池子尾端，延長總題數
+        verbRoundPoolRef.current = [...verbRoundPoolRef.current, { word: currentVerb, target: currentTarget, grammarDef: currentGrammarDef }];
+        setVerbRequeuedKeys(prev => new Set([...prev, itemKey]));
+        verbSessionTotalRef.current += 1;
+      } else if (verbRequeuedKeys.has(itemKey)) {
+        // 重考完畢（不論對錯）：從記錄中移除
+        setVerbRequeuedKeys(prev => { const s = new Set(prev); s.delete(itemKey); return s; });
+      }
+      if (questionCount >= verbSessionTotalRef.current) setIsRoundComplete(true);
+      else { setQuestionCount(prev => prev + 1); generateVerbQuestion(verbTestMode); }
     }
   };
 
@@ -3006,7 +3047,7 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
   const [verbBatchItems, setVerbBatchItems] = useState([]);
   const [isVerbBatchOpen, setIsVerbBatchOpen] = useState(true);
   useEffect(() => {
-    const emptyVerb = getInitialVerbInputs();
+    const emptyVerb = { ...getInitialVerbInputs(), type: 'unknown' };
     if (verbBatchItems.length === 0) { setVerbBatchItems([emptyVerb]); return; }
     const last = verbBatchItems[verbBatchItems.length - 1];
     if (last.jisho || last.meaning) {
@@ -3036,6 +3077,8 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
   const verbFocusPoolRef = useRef([]); // 循環池（useRef 避免 setTimeout 內 stale closure）
   const verbRoundPoolRef = useRef([]); // 本局不重複題目池
   const verbSessionTotalRef = useRef(TOTAL_QUESTIONS); // 本局總題數
+  const verbSeenInCycleRef = useRef([]); // 本輪已出現的題目 key，重填池時排到最後
+  const [verbRequeuedKeys, setVerbRequeuedKeys] = useState(new Set()); // 因答錯而重考的題目
 
   const [showObsidianHelp, setShowObsidianHelp] = useState(false);
   const [showObsidianSection, setShowObsidianSection] = useState(() => localStorage.getItem('verbApp_showObsidian') === 'true');
@@ -3529,8 +3572,8 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
        nextReview: Date.now()
     }));
 
-    // 2. 加上以前卡在資料庫裡的 new 單字 (相容舊資料)
-    let poolFromUser = vocabDB.filter(v => v.status === 'new');
+    // 2. 加上以前卡在資料庫裡的 new 單字 (相容舊資料)，排除今天加入的
+    let poolFromUser = vocabDB.filter(v => v.status === 'new' && !(v.addedAt && v.addedAt >= todayStart.getTime()));
     if (unlockTheme !== 'random') {
        poolFromUser = poolFromUser.filter(v => v.tag === unlockTheme);
     }
@@ -3538,7 +3581,7 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
     const pool = [...poolFromSys, ...poolFromUser];
 
     if (pool.length === 0) return alert('這個主題的單字已經全部解鎖完畢囉！請選擇其他主題，或去「動詞與單字庫管理」自行新增。');
-    
+
     // Shuffle pool
     const shuffled = [...pool].sort(() => 0.5 - Math.random());
     const selected = shuffled.slice(0, unlockAmount);
@@ -3558,7 +3601,7 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
        status: 'learning',
        nextReview: Date.now()
     }));
-    let poolFromUser = vocabDB.filter(v => v.status === 'new');
+    let poolFromUser = vocabDB.filter(v => v.status === 'new' && !(v.addedAt && v.addedAt >= todayStart.getTime()));
     if (unlockTheme !== 'random') {
        poolFromUser = poolFromUser.filter(v => v.tag === unlockTheme);
     }
@@ -3852,7 +3895,7 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
         const dupWords = duplicates.map(d => d.jisho || d.masu).join(', ');
         if (!window.confirm(`發現重複的動詞/形容詞：\n${dupWords}\n\n是否跳過重複項目，儲存其餘 ${filledItems.length - duplicates.length} 筆？`)) return;
     }
-    const toSave = filledItems.filter(v => !isVerbDuplicate(v));
+    const toSave = filledItems.filter(v => v.type !== 'unknown' && !isVerbDuplicate(v));
     if (toSave.length === 0) { alert('沒有可儲存的項目！'); return; }
     setVerbDB(prev => [...prev, ...toSave.map((v, i) => {
       const finalTag = v.tag || guessTag(v.meaning, vocabDB);
@@ -4410,6 +4453,7 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                         <label className="flex items-center gap-2 cursor-pointer p-2"><input type="checkbox" checked={onlyImportantGrammarTest} onChange={(e)=>setOnlyImportantGrammarTest(e.target.checked)} className="w-5 h-5 text-emerald-500 rounded border-slate-300"/><span>僅針對標記為「重要」的文法公式出題</span></label>
                         <label className="flex items-center gap-2 cursor-pointer p-2 border-t border-slate-100 mt-1"><input type="checkbox" checked={onlyLearnedVerbTest} onChange={(e)=>setOnlyLearnedVerbTest(e.target.checked)} className="w-5 h-5 text-emerald-600 rounded border-slate-300"/><span>只從「已學習」的動詞/形容詞出題</span></label>
                         <label className="flex items-center gap-2 cursor-pointer p-2"><input type="checkbox" checked={onlyLearnedGrammarTest} onChange={(e)=>setOnlyLearnedGrammarTest(e.target.checked)} className="w-5 h-5 text-emerald-600 rounded border-slate-300"/><span>只從「已學習」的文法公式出題</span></label>
+                        <label className="flex items-center gap-2 cursor-pointer p-2 border-t border-slate-100 mt-1"><input type="checkbox" checked={includeAdjInVerbTest} onChange={(e)=>setIncludeAdjInVerbTest(e.target.checked)} className="w-5 h-5 text-lime-500 rounded border-slate-300"/><span>出題時包含形容詞（い形・な形）</span></label>
                       </>
                     )}
                 </div>
@@ -4875,7 +4919,7 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
               })()}
             </div>
             {/* Two Column Layout */}
-          <div className="grid lg:grid-cols-2 gap-8 items-stretch">
+          <div className="grid lg:grid-cols-2 gap-x-8 gap-y-4 items-start">
 
             {/* ===== LEFT: 單字記憶庫 ===== */}
             <div className="flex flex-col gap-4">
@@ -5004,204 +5048,9 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                 );
               })()}
 
-              {/* ── 單字練習 ── */}
-              <div className="flex items-center gap-3 mt-1">
-                <div className="text-xs font-bold text-slate-400 tracking-widest whitespace-nowrap">單字練習</div>
-                <div className="flex-1 border-t border-slate-100"/>
-              </div>
-
-              {/* 分時段練習指示器 */}
-              {(() => {
-                const _slotKey = `jp_daily_slot_total_${todayDateStr()}`;
-                const _storedN = parseInt(localStorage.getItem(_slotKey) || '0');
-                const _N = _storedN > 0 ? _storedN : effectiveTodayStats.total;
-                if (_N <= 0) return null;
-                const _s1 = Math.ceil(_N / 3);
-                const _s2 = Math.ceil(_N / 3);
-                const _s3 = Math.max(0, _N - _s1 - _s2);
-                const _rev = reviewedTodayQueue.length;
-                const _slots = [
-                  { emoji: '🌅', name: '早上', size: _s1, lit: _rev >= _s1 },
-                  { emoji: '☀️', name: '下午', size: _s2, lit: _rev >= _s1 + _s2 },
-                  { emoji: '🌙', name: '晚上', size: _s3, lit: _rev >= _N },
-                ];
-                return (
-                  <div className="grid grid-cols-3 gap-2">
-                    {_slots.map(({ emoji, name, size, lit }) => (
-                      <button
-                        key={name}
-                        onClick={() => size > 0 && startVocabSession('srs', null, size)}
-                        disabled={size === 0}
-                        className={`p-3 pb-5 rounded-2xl text-center transition-all font-bold active:scale-[0.97] relative flex flex-col items-center justify-center ${
-                          lit
-                            ? 'bg-green-50 border-2 border-green-200 text-green-700'
-                            : 'bg-white border-2 border-[#ece7df] text-[#4a4640] hover:bg-[#e8eef6] hover:border-[#cfdcea]'
-                        } disabled:opacity-30 disabled:cursor-not-allowed`}
-                      >
-                        <div className="text-lg leading-none">{emoji}</div>
-                        <div className="text-xs font-black mt-1">{name}</div>
-                        <div className="text-xs font-normal mt-0.5 opacity-60">{size} 題</div>
-                        {lit && <div className="absolute bottom-1.5 text-green-500 text-xs">✅</div>}
-                      </button>
-                    ))}
-                  </div>
-                );
-              })()}
-
-              {/* Primary Action */}
-              {effectiveTodayStats.total > 0 ? (
-                <button
-                  onClick={() => startVocabSession('srs')}
-                  className="w-full py-5 rounded-2xl font-bold text-lg flex justify-center items-center gap-2 transition-all bg-[#5b7ba3] text-white hover:bg-[#4f74a0] shadow-sm hover:shadow-md active:scale-[0.98]"
-                >
-                  🌅 開始今日學習 ({effectiveTodayStats.reviewCount} 複習 + {effectiveTodayStats.newVocabCount} 新字)
-                </button>
-              ) : (
-                <div className="flex flex-col gap-2">
-                  <button disabled className="w-full py-5 rounded-2xl font-bold text-lg flex justify-center items-center gap-2 transition-all bg-slate-100 text-slate-400 cursor-not-allowed">
-                    🎉 今日任務全部完成！
-                  </button>
-                  {reviewedTodayQueue.length > 0 && (
-                    <button
-                      onClick={() => startVocabSession('today_extra')}
-                      className="w-full py-3 rounded-2xl font-bold text-base flex justify-center items-center gap-2 bg-amber-50 border-2 border-amber-200 text-amber-700 hover:bg-amber-100 transition-all"
-                    >
-                      <RotateCcw className="w-5 h-5"/>重新複習今日單字 ({reviewedTodayQueue.length} 題)
-                    </button>
-                  )}
-                </div>
-              )}
-
-              {/* Secondary Actions 2x2 */}
-              <div className="grid grid-cols-2 gap-3 mb-3">
-                <button onClick={() => setAppState('theme_select')}
-                  className="py-4 bg-white border border-[#ece7df] text-[#4a4640] rounded-2xl font-bold hover:bg-[#e8eef6] hover:border-[#cfdcea] transition-all text-sm flex flex-col items-center gap-1.5">
-                  <span className="text-xl">🎮</span>主題單字闖關
-                </button>
-                <button onClick={() => startVocabSession('mistakes')}
-                  disabled={Object.keys(vocabMistakes).length === 0}
-                  className="py-4 bg-white border border-[#ece7df] text-[#4a4640] rounded-2xl font-bold hover:bg-[#e8eef6] hover:border-[#cfdcea] transition-all text-sm flex flex-col items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed">
-                  <span className="text-xl">🔥</span>單字錯題特訓
-                </button>
-              </div>
-              {/* 今日錯誤回顧按鈕 */}
-              {(() => {
-                const _wrongList = Object.values(todayWrongLog).sort((a, b) => b.count - a.count);
-                const _wrongCount = _wrongList.length;
-                return (
-                  <button
-                    onClick={() => setShowTodayWrongModal(true)}
-                    disabled={_wrongCount === 0}
-                    className="w-full py-3 mb-3 bg-white border border-[#ece7df] text-[#4a4640] rounded-2xl font-bold hover:bg-rose-50 hover:border-rose-200 hover:text-rose-600 transition-all text-sm flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    <span className="text-base">📋</span>
-                    今日錯誤回顧
-                    {_wrongCount > 0 && <span className="bg-rose-100 text-rose-600 text-xs font-black px-2 py-0.5 rounded-full">{_wrongCount} 個單字</span>}
-                  </button>
-                );
-              })()}
-              {/* 今日錯誤 Modal */}
-              {showTodayWrongModal && (() => {
-                const _wrongList = Object.values(todayWrongLog).sort((a, b) => b.count - a.count);
-                return (
-                  <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setShowTodayWrongModal(false)}>
-                    <div className="absolute inset-0 bg-black/40 backdrop-blur-sm"/>
-                    <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
-                      <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100">
-                        <div>
-                          <div className="font-bold text-slate-700 text-lg">📋 今日錯誤回顧</div>
-                          <div className="text-sm text-slate-400 mt-0.5">共 {_wrongList.length} 個單字答錯過</div>
-                        </div>
-                        <button onClick={() => setShowTodayWrongModal(false)} className="p-2 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors text-lg">✕</button>
-                      </div>
-                      <div className="overflow-y-auto flex-1 px-5 py-4 space-y-3">
-                        {_wrongList.map((item, i) => (
-                          <div key={i} className="flex items-center gap-4 bg-rose-50 border border-rose-100 rounded-2xl px-5 py-4">
-                            <div className="shrink-0 w-11 h-11 rounded-xl bg-rose-500 text-white flex items-center justify-center text-sm font-black">
-                              ×{item.count}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="font-bold text-slate-700 text-base truncate">{item.word}{item.reading && item.word !== item.reading ? <span className="ml-1.5 text-sm font-normal text-slate-400">({item.reading})</span> : null}</div>
-                              <div className="text-sm text-slate-500 truncate">{item.meaning}</div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* 例句特訓區 */}
-              <div className="grid grid-cols-2 gap-3 mb-3">
-                <button onClick={() => startVocabSession('sentence_srs')}
-                  disabled={todaySentenceQueue.length === 0}
-                  className="py-4 bg-white border border-[#ece7df] text-[#4a4640] rounded-2xl font-bold hover:bg-[#e8eef6] hover:border-[#cfdcea] transition-all text-sm flex flex-col items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed">
-                  <span className="text-xl">🎯</span>例句專屬 SRS {todaySentenceQueue.length > 0 ? `(${todaySentenceQueue.length})` : '(完成)'}
-                </button>
-                <button onClick={() => startVocabSession('sentence_infinite')}
-                  disabled={vocabDB.filter(v => (v.example && v.example.trim().length > 0) || v.isSentence).length === 0}
-                  className="py-4 bg-white border border-[#ece7df] text-[#4a4640] rounded-2xl font-bold hover:bg-[#e8eef6] hover:border-[#cfdcea] transition-all text-sm flex flex-col items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed">
-                  <span className="text-xl">♾️</span>例句無極限特訓
-                </button>
-              </div>
-
-              <div className="flex-1"/>
-
-              {/* ── 漢字練習 ── */}
-              <div className="flex items-center gap-3 mt-1">
-                <div className="text-xs font-bold text-slate-400 tracking-widest whitespace-nowrap">漢字練習</div>
-                <div className="flex-1 border-t border-slate-100"/>
-              </div>
-
-              {(() => {
-                const nowKanji = Date.now();
-                const kanjiSrsCount = kanjiDB.filter(k => {
-                  if (k.nextReview && k.nextReview > nowKanji) return false;
-                  if (k.reading && k.reading.trim()) return true;
-                  return vocabDB.some(v => v.word && v.word.includes(k.kanji) && v.word !== v.reading && v.nextReview <= nowKanji);
-                }).length;
-                const allKanjiCount = vocabDB.filter(v => !((v.example && v.example.trim().length > 0) || v.isSentence) && v.word && v.word.trim() !== '' && v.word !== v.reading).length;
-                return (
-                  <>
-                    <button
-                      onClick={() => startKanjiSession('srs')}
-                      disabled={kanjiSrsCount === 0}
-                      className={`w-full py-5 rounded-2xl font-bold text-lg flex justify-center items-center gap-2 transition-all ${
-                        kanjiSrsCount > 0
-                          ? 'bg-indigo-500 text-white hover:bg-indigo-600 shadow-sm hover:shadow-md active:scale-[0.98]'
-                          : 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                      }`}
-                    >
-                      {kanjiSrsCount > 0 ? `🈶 今日漢字練習（${kanjiSrsCount} 個待複習）` : '✅ 今日漢字全部完成！'}
-                    </button>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <button
-                        onClick={() => startKanjiSession('infinite')}
-                        disabled={allKanjiCount === 0}
-                        className="p-5 bg-white border border-[#ece7df] text-[#4a4640] rounded-2xl font-bold hover:bg-[#e8eef6] hover:border-[#cfdcea] transition-all text-sm flex items-center gap-3 disabled:opacity-40 disabled:cursor-not-allowed">
-                        <div className="p-2 bg-indigo-100 text-indigo-700 rounded-xl flex-shrink-0 flex items-center justify-center">
-                          <span className="text-sm font-black leading-none">有</span>
-                        </div>
-                        漢字無限特訓
-                      </button>
-                      <button
-                        onClick={() => setAppState('vocab_manage')}
-                        className="p-5 bg-white border border-[#ece7df] text-[#4a4640] rounded-2xl font-bold hover:bg-[#e8eef6] hover:border-[#cfdcea] transition-all text-sm flex items-center gap-3">
-                        <div className="p-2 bg-slate-100 text-slate-600 rounded-xl flex-shrink-0">
-                          <Search className="w-4 h-4"/>
-                        </div>
-                        漢字索引
-                      </button>
-                    </div>
-                  </>
-                );
-              })()}
-
             </div>
 
-            {/* ===== RIGHT: 動詞文法訓練場 ===== */}
+            {/* ===== RIGHT top: 動詞文法訓練場 stats+dist ===== */}
             <div className="flex flex-col gap-4">
               <div className="flex items-center justify-between pb-2">
                 <div className="flex items-center gap-3">
@@ -5296,17 +5145,13 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                 return (
                   <div className="bg-[#f0f4f9] border border-[#d9e3ef] rounded-2xl p-3 space-y-2.5">
                     <div className="text-[10px] font-bold text-[#8fa5c0] uppercase tracking-wider">📊 動詞庫分佈</div>
-                    {/* 今日進度條 */}
                     <div>
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-[10px] font-bold text-[#8fa5c0]">今日進度</span>
                         <span className="text-[10px] font-black text-blue-600">{_vbDone} / {_total} <span className="text-[#8fa5c0] font-bold">({_pct}%)</span></span>
                       </div>
                       <div className="w-full h-2 bg-[#d9e3ef] rounded-full overflow-hidden">
-                        <div
-                          className="h-full rounded-full transition-all duration-500"
-                          style={{ width: `${_pct}%`, background: _pct === 100 ? '#4f74a0' : _pct >= 50 ? '#5b7ba3' : '#93b4d4' }}
-                        />
+                        <div className="h-full rounded-full transition-all duration-500" style={{ width: `${_pct}%`, background: _pct === 100 ? '#4f74a0' : _pct >= 50 ? '#5b7ba3' : '#93b4d4' }}/>
                       </div>
                     </div>
                     <div className="grid grid-cols-3 gap-2">
@@ -5323,32 +5168,143 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                         {_vbAfter2 > 0 && <>　後天 <span className="font-bold text-slate-500">{_vbAfter2}</span> 組</>}
                       </div>
                     )}
-                    {/* 每日新動詞上限快速調整 */}
                     <div className="flex items-center justify-between border-t border-[#d9e3ef] pt-2.5">
                       <span className="text-[11px] font-bold text-[#8fa5c0]">🔄 每日新動詞上限</span>
                       <div className="flex items-center gap-1.5">
-                        <button
-                          onClick={() => { const v = Math.max(0, dailyNewVerbLimit - 5); setDailyNewVerbLimit(v); localStorage.setItem('jp_daily_verb_limit', String(v)); }}
-                          className="w-7 h-7 rounded-lg bg-white border border-[#d9e3ef] text-[#8fa5c0] hover:text-blue-600 hover:border-blue-300 font-black text-sm transition-colors flex items-center justify-center"
-                        >−</button>
+                        <button onClick={() => { const v = Math.max(0, dailyNewVerbLimit - 5); setDailyNewVerbLimit(v); localStorage.setItem('jp_daily_verb_limit', String(v)); }} className="w-7 h-7 rounded-lg bg-white border border-[#d9e3ef] text-[#8fa5c0] hover:text-blue-600 hover:border-blue-300 font-black text-sm transition-colors flex items-center justify-center">−</button>
                         <span className="text-sm font-black text-[#4a4640] w-8 text-center tabular-nums">{dailyNewVerbLimit}</span>
-                        <button
-                          onClick={() => { const v = Math.min(100, dailyNewVerbLimit + 5); setDailyNewVerbLimit(v); localStorage.setItem('jp_daily_verb_limit', String(v)); }}
-                          className="w-7 h-7 rounded-lg bg-white border border-[#d9e3ef] text-[#8fa5c0] hover:text-blue-600 hover:border-blue-300 font-black text-sm transition-colors flex items-center justify-center"
-                        >＋</button>
+                        <button onClick={() => { const v = Math.min(100, dailyNewVerbLimit + 5); setDailyNewVerbLimit(v); localStorage.setItem('jp_daily_verb_limit', String(v)); }} className="w-7 h-7 rounded-lg bg-white border border-[#d9e3ef] text-[#8fa5c0] hover:text-blue-600 hover:border-blue-300 font-black text-sm transition-colors flex items-center justify-center">＋</button>
                         <span className="text-[11px] text-[#8fa5c0]">詞／天　剩 <span className="font-bold text-blue-500">{_vbTodayRemain}</span></span>
                       </div>
                     </div>
                   </div>
                 );
               })()}
+            </div>
 
-              {/* ── 動詞練習 ── */}
-              <div className="flex items-center gap-3 mt-1">
-                <div className="text-xs font-bold text-slate-400 tracking-widest whitespace-nowrap">動詞練習</div>
-                <div className="flex-1 border-t border-slate-100"/>
+            {/* ── 單字練習 分隔線（獨立 grid cell，與動詞練習對齊） ── */}
+            <div className="flex items-center gap-3">
+              <div className="text-xs font-bold text-slate-400 tracking-widest whitespace-nowrap">單字練習</div>
+              <div className="flex-1 border-t border-slate-100"/>
+            </div>
+
+            {/* ── 動詞練習 分隔線（獨立 grid cell，與單字練習對齊） ── */}
+            <div className="flex items-center gap-3">
+              <div className="text-xs font-bold text-slate-400 tracking-widest whitespace-nowrap">動詞練習</div>
+              <div className="flex-1 border-t border-slate-100"/>
+            </div>
+
+            {/* ── 單字練習 按鈕區 ── */}
+            <div className="flex flex-col gap-4">
+              {/* 分時段練習指示器 */}
+              {(() => {
+                const _slotKey = `jp_daily_slot_total_${todayDateStr()}`;
+                const _storedN = parseInt(localStorage.getItem(_slotKey) || '0');
+                const _N = _storedN > 0 ? _storedN : effectiveTodayStats.total;
+                if (_N <= 0) return null;
+                const _s1 = Math.ceil(_N / 3);
+                const _s2 = Math.ceil(_N / 3);
+                const _s3 = Math.max(0, _N - _s1 - _s2);
+                const _rev = reviewedTodayQueue.length;
+                const _slots = [
+                  { emoji: '🌅', name: '早上', size: _s1, lit: _rev >= _s1 },
+                  { emoji: '☀️', name: '下午', size: _s2, lit: _rev >= _s1 + _s2 },
+                  { emoji: '🌙', name: '晚上', size: _s3, lit: _rev >= _N },
+                ];
+                return (
+                  <div className="grid grid-cols-3 gap-2">
+                    {_slots.map(({ emoji, name, size, lit }) => (
+                      <button key={name} onClick={() => size > 0 && startVocabSession('srs', null, size)} disabled={size === 0}
+                        className={`p-3 pb-5 rounded-2xl text-center transition-all font-bold active:scale-[0.97] relative flex flex-col items-center justify-center ${lit ? 'bg-green-50 border-2 border-green-200 text-green-700' : 'bg-white border-2 border-[#ece7df] text-[#4a4640] hover:bg-[#e8eef6] hover:border-[#cfdcea]'} disabled:opacity-30 disabled:cursor-not-allowed`}>
+                        <div className="text-lg leading-none">{emoji}</div>
+                        <div className="text-xs font-black mt-1">{name}</div>
+                        <div className="text-xs font-normal mt-0.5 opacity-60">{size} 題</div>
+                        {lit && <div className="absolute bottom-1.5 text-green-500 text-xs">✅</div>}
+                      </button>
+                    ))}
+                  </div>
+                );
+              })()}
+              {/* Primary Action */}
+              {effectiveTodayStats.total > 0 ? (
+                <button onClick={() => startVocabSession('srs')} className="w-full py-5 rounded-2xl font-bold text-lg flex justify-center items-center gap-2 transition-all bg-[#5b7ba3] text-white hover:bg-[#4f74a0] shadow-sm hover:shadow-md active:scale-[0.98]">
+                  🌅 開始今日學習 ({effectiveTodayStats.reviewCount} 複習 + {effectiveTodayStats.newVocabCount} 新字)
+                </button>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  <button disabled className="w-full py-5 rounded-2xl font-bold text-lg flex justify-center items-center gap-2 transition-all bg-slate-100 text-slate-400 cursor-not-allowed">
+                    🎉 今日任務全部完成！
+                  </button>
+                  {reviewedTodayQueue.length > 0 && (
+                    <button onClick={() => startVocabSession('today_extra')} className="w-full py-3 rounded-2xl font-bold text-base flex justify-center items-center gap-2 bg-amber-50 border-2 border-amber-200 text-amber-700 hover:bg-amber-100 transition-all">
+                      <RotateCcw className="w-5 h-5"/>重新複習今日單字 ({reviewedTodayQueue.length} 題)
+                    </button>
+                  )}
+                </div>
+              )}
+              {/* Secondary Actions 2x2 */}
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <button onClick={() => setAppState('theme_select')} className="py-4 bg-white border border-[#ece7df] text-[#4a4640] rounded-2xl font-bold hover:bg-[#e8eef6] hover:border-[#cfdcea] transition-all text-sm flex flex-col items-center gap-1.5">
+                  <span className="text-xl">🎮</span>主題單字闖關
+                </button>
+                <button onClick={() => startVocabSession('mistakes')} disabled={Object.keys(vocabMistakes).length === 0} className="py-4 bg-white border border-[#ece7df] text-[#4a4640] rounded-2xl font-bold hover:bg-[#e8eef6] hover:border-[#cfdcea] transition-all text-sm flex flex-col items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed">
+                  <span className="text-xl">🔥</span>單字錯題特訓
+                </button>
               </div>
+              {/* 今日錯誤回顧按鈕 */}
+              {(() => {
+                const _wrongList = Object.values(todayWrongLog).sort((a, b) => b.count - a.count);
+                const _wrongCount = _wrongList.length;
+                return (
+                  <button onClick={() => setShowTodayWrongModal(true)} disabled={_wrongCount === 0} className="w-full py-3 mb-3 bg-white border border-[#ece7df] text-[#4a4640] rounded-2xl font-bold hover:bg-rose-50 hover:border-rose-200 hover:text-rose-600 transition-all text-sm flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed">
+                    <span className="text-base">📋</span>
+                    今日錯誤回顧
+                    {_wrongCount > 0 && <span className="bg-rose-100 text-rose-600 text-xs font-black px-2 py-0.5 rounded-full">{_wrongCount} 個單字</span>}
+                  </button>
+                );
+              })()}
+              {/* 今日錯誤 Modal */}
+              {showTodayWrongModal && (() => {
+                const _wrongList = Object.values(todayWrongLog).sort((a, b) => b.count - a.count);
+                return (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setShowTodayWrongModal(false)}>
+                    <div className="absolute inset-0 bg-black/40 backdrop-blur-sm"/>
+                    <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                      <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100">
+                        <div>
+                          <div className="font-bold text-slate-700 text-lg">📋 今日錯誤回顧</div>
+                          <div className="text-sm text-slate-400 mt-0.5">共 {_wrongList.length} 個單字答錯過</div>
+                        </div>
+                        <button onClick={() => setShowTodayWrongModal(false)} className="p-2 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors text-lg">✕</button>
+                      </div>
+                      <div className="overflow-y-auto flex-1 px-5 py-4 space-y-3">
+                        {_wrongList.map((item, i) => (
+                          <div key={i} className="flex items-center gap-4 bg-rose-50 border border-rose-100 rounded-2xl px-5 py-4">
+                            <div className="shrink-0 w-11 h-11 rounded-xl bg-rose-500 text-white flex items-center justify-center text-sm font-black">×{item.count}</div>
+                            <div className="flex-1 min-w-0">
+                              <div className="font-bold text-slate-700 text-base truncate">{item.word}{item.reading && item.word !== item.reading ? <span className="ml-1.5 text-sm font-normal text-slate-400">({item.reading})</span> : null}</div>
+                              <div className="text-sm text-slate-500 truncate">{item.meaning}</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+              {/* 例句特訓區 */}
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <button onClick={() => startVocabSession('sentence_srs')} disabled={todaySentenceQueue.length === 0} className="py-4 bg-white border border-[#ece7df] text-[#4a4640] rounded-2xl font-bold hover:bg-[#e8eef6] hover:border-[#cfdcea] transition-all text-sm flex flex-col items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed">
+                  <span className="text-xl">🎯</span>例句專屬 SRS {todaySentenceQueue.length > 0 ? `(${todaySentenceQueue.length})` : '(完成)'}
+                </button>
+                <button onClick={() => startVocabSession('sentence_infinite')} disabled={vocabDB.filter(v => (v.example && v.example.trim().length > 0) || v.isSentence).length === 0} className="py-4 bg-white border border-[#ece7df] text-[#4a4640] rounded-2xl font-bold hover:bg-[#e8eef6] hover:border-[#cfdcea] transition-all text-sm flex flex-col items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed">
+                  <span className="text-xl">♾️</span>例句無極限特訓
+                </button>
+              </div>
+            </div>
 
+            {/* ── 動詞練習 按鈕區 ── */}
+            <div className="flex flex-col gap-4">
               {/* 分時段練習指示器（動詞） */}
               {(() => {
                 const _vbSlotKey = `jp_daily_verb_slot_total_${todayDateStr()}`;
@@ -5367,16 +5323,8 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                 return (
                   <div className="grid grid-cols-3 gap-2">
                     {_vbSlots.map(({ emoji, name, size, lit }) => (
-                      <button
-                        key={name}
-                        onClick={() => size > 0 && startGrammarSRS(size)}
-                        disabled={size === 0}
-                        className={`p-3 pb-5 rounded-2xl text-center transition-all font-bold active:scale-[0.97] relative flex flex-col items-center justify-center ${
-                          lit
-                            ? 'bg-green-50 border-2 border-green-200 text-green-700'
-                            : 'bg-white border-2 border-[#ece7df] text-[#4a4640] hover:bg-[#e8eef6] hover:border-[#cfdcea]'
-                        } disabled:opacity-30 disabled:cursor-not-allowed`}
-                      >
+                      <button key={name} onClick={() => size > 0 && startGrammarSRS(size)} disabled={size === 0}
+                        className={`p-3 pb-5 rounded-2xl text-center transition-all font-bold active:scale-[0.97] relative flex flex-col items-center justify-center ${lit ? 'bg-green-50 border-2 border-green-200 text-green-700' : 'bg-white border-2 border-[#ece7df] text-[#4a4640] hover:bg-[#e8eef6] hover:border-[#cfdcea]'} disabled:opacity-30 disabled:cursor-not-allowed`}>
                         <div className="text-lg leading-none">{emoji}</div>
                         <div className="text-xs font-black mt-1">{name}</div>
                         <div className="text-xs font-normal mt-0.5 opacity-60">{size} 題</div>
@@ -5386,22 +5334,11 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                   </div>
                 );
               })()}
-
-              <button
-                onClick={startGrammarSRS}
-                disabled={todayGrammarQueue.length === 0}
-                className={`w-full py-5 rounded-2xl font-bold text-lg flex justify-center items-center gap-2 transition-all ${
-                  todayGrammarQueue.length > 0
-                    ? 'bg-[#5b7ba3] text-white hover:bg-[#4f74a0] shadow-sm hover:shadow-md active:scale-[0.98]'
-                    : 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                }`}
-              >
+              <button onClick={startGrammarSRS} disabled={todayGrammarQueue.length === 0}
+                className={`w-full py-5 rounded-2xl font-bold text-lg flex justify-center items-center gap-2 transition-all ${todayGrammarQueue.length > 0 ? 'bg-[#5b7ba3] text-white hover:bg-[#4f74a0] shadow-sm hover:shadow-md active:scale-[0.98]' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}>
                 {todayGrammarQueue.length > 0 ? `📝 今日動詞複習 - 剩餘 ${todayGrammarQueue.length} 題` : '🎉 今日動詞複習完成！'}
               </button>
-
-              <button onClick={() => setAppState('verb_learning_dashboard')}
-                className="w-full py-4 rounded-2xl font-bold text-sm flex justify-center items-center gap-2 transition-all bg-[#e8eef6] text-[#4f74a0] hover:bg-[#cfdcea] border border-[#cfdcea]"
-              >
+              <button onClick={() => setAppState('verb_learning_dashboard')} className="w-full py-4 rounded-2xl font-bold text-sm flex justify-center items-center gap-2 transition-all bg-[#e8eef6] text-[#4f74a0] hover:bg-[#cfdcea] border border-[#cfdcea]">
                 {(() => {
                    const weakest = getWeakestVerbForms(verbDB)[0];
                    const formLabel = DEFAULT_FORM_OPTIONS.find(o => o.id === weakest[0])?.label || weakest[0];
@@ -5409,35 +5346,83 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                    return `🎯 動詞弱點特訓( 錯題與弱項補強 ) 最弱：${formLabel}（${acc}%）`;
                 })()}
               </button>
-
               <div className="grid grid-cols-2 gap-3 mb-3">
-                <button onClick={() => startVerbRound('normal')}
-                  className="py-4 bg-white border border-[#ece7df] text-[#4a4640] rounded-2xl font-bold hover:bg-[#e8eef6] hover:border-[#cfdcea] transition-all text-sm flex flex-col items-center gap-1.5 active:scale-[0.97]">
+                <button onClick={() => startVerbRound('normal')} className="py-4 bg-white border border-[#ece7df] text-[#4a4640] rounded-2xl font-bold hover:bg-[#e8eef6] hover:border-[#cfdcea] transition-all text-sm flex flex-col items-center gap-1.5 active:scale-[0.97]">
                   <span className="text-xl">🔄</span>自訂綜合特訓
                 </button>
-                <button onClick={() => startVerbRound('rpg')}
-                  className="py-4 bg-white border border-[#ece7df] text-[#4a4640] rounded-2xl font-bold hover:bg-[#e8eef6] hover:border-[#cfdcea] transition-all text-sm flex flex-col items-center gap-1.5 active:scale-[0.97]">
+                <button onClick={() => startVerbRound('rpg')} className="py-4 bg-white border border-[#ece7df] text-[#4a4640] rounded-2xl font-bold hover:bg-[#e8eef6] hover:border-[#cfdcea] transition-all text-sm flex flex-col items-center gap-1.5 active:scale-[0.97]">
                   <span className="text-xl">⚔️</span>RPG 極限生存戰
                 </button>
-                <button onClick={() => setAppState('adj_classify_select')}
-                  className="py-4 bg-white border border-[#ece7df] text-[#4a4640] rounded-2xl font-bold hover:bg-[#e8eef6] hover:border-[#cfdcea] transition-all text-sm flex flex-col items-center gap-1.5 active:scale-[0.97]">
+                <button onClick={() => setAppState('adj_classify_select')} className="py-4 bg-white border border-[#ece7df] text-[#4a4640] rounded-2xl font-bold hover:bg-[#e8eef6] hover:border-[#cfdcea] transition-all text-sm flex flex-col items-center gap-1.5 active:scale-[0.97]">
                   <span className="text-xl">⚡</span>形容詞分類速測
                 </button>
-                <button onClick={() => setAppState('verb_focus_select')}
-                  className="py-4 bg-white border border-[#ece7df] text-[#4a4640] rounded-2xl font-bold hover:bg-[#e8eef6] hover:border-[#cfdcea] transition-all text-sm flex flex-col items-center gap-1.5 active:scale-[0.97]">
+                <button onClick={() => setAppState('verb_focus_select')} className="py-4 bg-white border border-[#ece7df] text-[#4a4640] rounded-2xl font-bold hover:bg-[#e8eef6] hover:border-[#cfdcea] transition-all text-sm flex flex-col items-center gap-1.5 active:scale-[0.97]">
                   <span className="text-xl">🎯</span>専項動詞特訓
                 </button>
               </div>
+            </div>
 
-              <div className="flex-1"/>
+            {/* ── 漢字練習 分隔線（獨立 grid cell，與文法練習對齊） ── */}
+            <div className="flex items-center gap-3">
+              <div className="text-xs font-bold text-slate-400 tracking-widest whitespace-nowrap">漢字練習</div>
+              <div className="flex-1 border-t border-slate-100"/>
+            </div>
 
-              {/* ── 文法練習 ── */}
-              <div className="flex items-center gap-3 mt-2">
-                <div className="text-xs font-bold text-slate-400 tracking-widest whitespace-nowrap">文法練習</div>
-                <div className="flex-1 border-t border-slate-100"/>
-              </div>
+            {/* ── 文法練習 分隔線（獨立 grid cell，與漢字練習對齊） ── */}
+            <div className="flex items-center gap-3">
+              <div className="text-xs font-bold text-slate-400 tracking-widest whitespace-nowrap">文法練習</div>
+              <div className="flex-1 border-t border-slate-100"/>
+            </div>
 
-              {/* 今日文法 SRS 大按鈕 */}
+            {/* ── 漢字練習 底部按鈕 ── */}
+            <div className="flex flex-col gap-4">
+              {(() => {
+                const nowKanji = Date.now();
+                const kanjiSrsCount = kanjiDB.filter(k => {
+                  if (k.nextReview && k.nextReview > nowKanji) return false;
+                  if (k.reading && k.reading.trim()) return true;
+                  return vocabDB.some(v => v.word && v.word.includes(k.kanji) && v.word !== v.reading && v.nextReview <= nowKanji);
+                }).length;
+                const allKanjiCount = vocabDB.filter(v => !((v.example && v.example.trim().length > 0) || v.isSentence) && v.word && v.word.trim() !== '' && v.word !== v.reading).length;
+                return (
+                  <>
+                    <button
+                      onClick={() => startKanjiSession('srs')}
+                      disabled={kanjiSrsCount === 0}
+                      className={`w-full py-5 rounded-2xl font-bold text-lg flex justify-center items-center gap-2 transition-all ${
+                        kanjiSrsCount > 0
+                          ? 'bg-indigo-500 text-white hover:bg-indigo-600 shadow-sm hover:shadow-md active:scale-[0.98]'
+                          : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                      }`}
+                    >
+                      {kanjiSrsCount > 0 ? `🈶 今日漢字練習（${kanjiSrsCount} 個待複習）` : '✅ 今日漢字全部完成！'}
+                    </button>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        onClick={() => startKanjiSession('infinite')}
+                        disabled={allKanjiCount === 0}
+                        className="p-5 bg-white border border-[#ece7df] text-[#4a4640] rounded-2xl font-bold hover:bg-[#e8eef6] hover:border-[#cfdcea] transition-all text-sm flex items-center gap-3 disabled:opacity-40 disabled:cursor-not-allowed">
+                        <div className="p-2 bg-indigo-100 text-indigo-700 rounded-xl flex-shrink-0 flex items-center justify-center">
+                          <span className="text-sm font-black leading-none">有</span>
+                        </div>
+                        漢字無限特訓
+                      </button>
+                      <button
+                        onClick={() => setAppState('vocab_manage')}
+                        className="p-5 bg-white border border-[#ece7df] text-[#4a4640] rounded-2xl font-bold hover:bg-[#e8eef6] hover:border-[#cfdcea] transition-all text-sm flex items-center gap-3">
+                        <div className="p-2 bg-slate-100 text-slate-600 rounded-xl flex-shrink-0">
+                          <Search className="w-4 h-4"/>
+                        </div>
+                        漢字索引
+                      </button>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+
+            {/* ── 文法練習 底部按鈕 ── */}
+            <div className="flex flex-col gap-4">
               <button
                 onClick={() => startVerbRound('grammar')}
                 disabled={effectiveTodayGrammarStats.total === 0}
@@ -5451,7 +5436,6 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                   ? `🧩 今日文法學習（複習 ${effectiveTodayGrammarStats.srsCount} + 新公式 ${effectiveTodayGrammarStats.newCount} 條）`
                   : '✅ 今日文法全部完成！'}
               </button>
-
               <button onClick={() => startVerbRound('grammar')}
                 className="p-5 bg-white border-2 border-slate-100 hover:border-emerald-300 hover:bg-emerald-50 rounded-2xl transition-all text-left group active:scale-[0.97]">
                 <div className="flex items-center gap-3">
@@ -5470,7 +5454,6 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                   </div>
                 </div>
               </button>
-
             </div>
 
           </div>
@@ -8046,7 +8029,10 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
                <button onClick={goHome} className="px-8 py-4 bg-slate-100 text-slate-700 rounded-xl font-bold flex gap-2 justify-center hover:bg-slate-200 transition-colors"><Home className="w-5 h-5"/> 回首頁</button>
                {appState === 'verb_playing' && <button onClick={()=>startVerbRound(verbTestMode)} className="px-8 py-4 bg-blue-600 text-white rounded-xl font-bold flex gap-2 justify-center hover:bg-blue-700 transition-colors"><Play className="w-5 h-5 fill-current"/> 再來一局</button>}
-               {appState === 'vocab_playing' && vocabTestMode !== 'srs' && !vocabTestMode.startsWith('theme') && <button onClick={()=>startVocabSession(vocabTestMode)} className="px-8 py-4 bg-amber-600 text-white rounded-xl font-bold flex gap-2 justify-center hover:bg-amber-700 transition-colors"><Play className="w-5 h-5 fill-current"/> 再來一局</button>}
+               {appState === 'vocab_playing' && vocabTestMode !== 'srs' && vocabTestMode !== 'mistakes' && vocabTestMode !== 'sentence_srs' && !vocabTestMode.startsWith('theme') && <button onClick={()=>startVocabSession(vocabTestMode)} className="px-8 py-4 bg-amber-600 text-white rounded-xl font-bold flex gap-2 justify-center hover:bg-amber-700 transition-colors"><Play className="w-5 h-5 fill-current"/> 再來一局</button>}
+               {appState === 'vocab_playing' && vocabTestMode === 'mistakes' && Object.keys(vocabMistakes).length > 0 && <button onClick={()=>startVocabSession('mistakes')} className="px-8 py-4 bg-amber-600 text-white rounded-xl font-bold flex gap-2 justify-center hover:bg-amber-700 transition-colors"><Play className="w-5 h-5 fill-current"/> 再來一局</button>}
+               {appState === 'vocab_playing' && vocabTestMode === 'sentence_srs' && <button onClick={()=>startVocabSession('sentence_infinite')} className="px-8 py-4 bg-amber-600 text-white rounded-xl font-bold flex gap-2 justify-center hover:bg-amber-700 transition-colors"><Play className="w-5 h-5 fill-current"/> 例句無限練習</button>}
+               {appState === 'vocab_playing' && vocabTestMode === 'srs' && reviewedTodayQueue.length > 0 && <button onClick={()=>startVocabSession('today_extra')} className="px-8 py-4 bg-amber-600 text-white rounded-xl font-bold flex gap-2 justify-center hover:bg-amber-700 transition-colors"><RotateCcw className="w-5 h-5"/> 重練今日單字</button>}
                {appState === 'vocab_playing' && vocabTestMode === 'theme' && <button onClick={()=>setAppState('theme_select')} className="px-8 py-4 bg-blue-600 text-white rounded-xl font-bold flex gap-2 justify-center hover:bg-blue-700 transition-colors"><MapIcon className="w-5 h-5"/> 選擇其他主題</button>}
             </div>
          </div>
@@ -8248,6 +8234,11 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                 🔄 這題剛才答錯了，再試一次！
               </div>
             )}
+            {appState === 'verb_playing' && currentVerb && verbRequeuedKeys.has(`${currentVerb.id}_${currentTarget}`) && (
+              <div className="mb-4 flex items-center justify-center gap-1.5 text-xs font-bold text-orange-500 bg-orange-50 border border-orange-200 rounded-xl py-2 px-4 w-fit mx-auto">
+                🔄 這題剛才答錯了，再試一次！
+              </div>
+            )}
             {appState === 'vocab_playing' && currentVocab && (
                <>
                  {(vocabTestMode === 'sentence_srs' || vocabTestMode === 'sentence_infinite') ? (
@@ -8288,12 +8279,28 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
 
             {appState === 'verb_playing' && currentVerb && (
                <>
-                 {inputMode === 'choice' && currentGrammarDef && currentGrammarDef.translation ? (
-                   <div className="text-sm text-slate-500 mb-6">請選出表達『<span className="font-semibold text-slate-700">{currentGrammarDef.translation}</span>』的正確形式</div>
+                 {inputMode === 'choice' && currentGrammarDef && currentGrammarDef.appendStr ? (
+                   <div className="text-sm text-slate-500 mb-3 text-center">請選出可接在 <span className="inline-block bg-[#e8eef6] text-[#4a7db3] font-black px-2 py-0.5 rounded-lg">「{currentGrammarDef.appendStr}」</span> 前面的正確形式</div>
                  ) : (
                    <><div className="text-sm text-slate-500 mb-2">請將以下單字轉換為</div><div className="text-2xl font-bold mb-6 border-b-2 inline-block px-2 pb-1 text-blue-700 border-blue-500">{renderGrammarTargetName(getTargetName(currentTarget), currentGrammarDef ? currentGrammarDef.answerBlankIndex : undefined)}</div></>
                  )}
-                 <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8"><div className="text-5xl font-black text-slate-800 tracking-wide">{renderRuby(currentVerb[sourceForm])}</div><div className="text-slate-400 hidden sm:block"><ArrowRight className="w-8 h-8" /></div><div className="text-lg text-slate-500 font-medium bg-slate-50 px-4 py-2 rounded-xl">{currentVerb.meaning}</div></div>
+                 <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-2"><div className="text-5xl font-black text-slate-800 tracking-wide">{renderRuby(currentVerb[sourceForm])}</div><div className="text-slate-400 hidden sm:block"><ArrowRight className="w-8 h-8" /></div><div className="text-lg text-slate-500 font-medium bg-slate-50 px-4 py-2 rounded-xl">{currentVerb.meaning}</div></div>
+                 {(currentVerb.type === 'adj_i' || currentVerb.type === 'adj_na') && (
+                   <div className="flex justify-center mb-4">
+                     <button onClick={() => setShowAdjTypeDetail(p => !p)} className={`text-xs font-bold px-3 py-1 rounded-full border transition-all ${currentVerb.type === 'adj_i' ? 'bg-lime-50 text-lime-700 border-lime-300 hover:bg-lime-100' : 'bg-yellow-50 text-yellow-700 border-yellow-300 hover:bg-yellow-100'}`}>
+                       {showAdjTypeDetail ? (currentVerb.type === 'adj_i' ? 'い形容詞' : 'な形容詞') : '形容詞'}
+                     </button>
+                   </div>
+                 )}
+                 {inputMode === 'choice' && currentGrammarDef && currentGrammarDef.appendStr && (
+                   <div className="flex flex-col items-center gap-1 mb-6">
+                     <div className="flex items-baseline gap-1 bg-[#e8eef6] border border-[#cfdcea] rounded-2xl px-6 py-3">
+                       <span className="text-xl font-black text-slate-400 tracking-widest">＿＿＿</span>
+                       <span className="text-xl font-black text-[#4a7db3]">{currentGrammarDef.appendStr}</span>
+                     </div>
+                     <div className="text-xs text-slate-400 mt-1">↑ 選出正確的動詞形式，填入空格</div>
+                   </div>
+                 )}
                </>
             )}
 
@@ -8310,10 +8317,10 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                       const baseName = verbForms.find(f => f.id === currentGrammarDef.baseForm)?.label || GRAMMAR_ADJ_FORMS.find(f => f.id === currentGrammarDef.baseForm)?.label || currentGrammarDef.baseForm;
                       const _r = currentGrammarDef.removeStr; const _a = currentGrammarDef.appendStr;
                       return (
-                        <div className="text-amber-800 space-y-1">
-                          <div>此公式接【{baseName}】</div>
-                          {(_r || _a) && <div>{_r ? `去掉「${_r}」` : ''}{_r && _a ? '，' : ''}{_a ? `加上「${_a}」` : ''}</div>}
-                          {currentGrammarDef.processExample && <div className="text-slate-600 mt-1">例：{currentGrammarDef.processExample}</div>}
+                        <div className="text-amber-800 space-y-1.5">
+                          <div>【<span className="font-black">{_a}</span>】前面必須使用動詞<span className="font-black">{baseName}</span></div>
+                          {(_r || _a) && <div className="text-xs opacity-80">{_r ? `去掉「${_r}」` : ''}{_r && _a ? '，' : ''}{_a ? `加上「${_a}」` : ''}</div>}
+                          {currentGrammarDef.processExample && <div className="text-slate-600 text-xs mt-1 border-t border-amber-200 pt-1.5">✦ {currentGrammarDef.processExample}</div>}
                         </div>
                       );
                     })() : (
