@@ -1847,7 +1847,7 @@ return parsed;
         if (target === sourceForm) return;
         const key = `${word.id}_${target}`;
         const progress = grammarProgress[key];
-        if (progress && progress.nextReview <= now) {
+        if (progress && progress.nextReview <= now && word[target]) {
           queue.push({ word, target, key, isNew: false, ...progress });
         }
       });
@@ -2946,6 +2946,14 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
     if (verbTestMode === 'rpg') {
       if (hp <= 0) setIsRoundComplete(true); else { setQuestionCount(prev => prev + 1); generateVerbQuestion(verbTestMode); }
     } else if (verbTestMode === 'grammar_srs') {
+      const itemKey = `${currentVerb?.id}_${currentTarget}`;
+      if (feedback === 'incorrect' && !verbRequeuedKeys.has(itemKey)) {
+        verbRoundPoolRef.current = [...verbRoundPoolRef.current, { word: currentVerb, target: currentTarget, grammarDef: currentGrammarDef }];
+        setVerbRequeuedKeys(prev => new Set([...prev, itemKey]));
+        verbSessionTotalRef.current += 1;
+      } else if (verbRequeuedKeys.has(itemKey)) {
+        setVerbRequeuedKeys(prev => { const s = new Set(prev); s.delete(itemKey); return s; });
+      }
       if (verbRoundPoolRef.current.length === 0) setIsRoundComplete(true);
       else { setQuestionCount(prev => prev + 1); generateVerbQuestion(verbTestMode); }
     } else {
@@ -2981,6 +2989,7 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
     setRoundHistory([]);
     setIsRoundComplete(false);
     setIsPaused(false);
+    setVerbRequeuedKeys(new Set());
     // 預填本局隊列，generateVerbQuestion 會從此 ref 依序取題
     verbRoundPoolRef.current = queue.map(item => ({ word: item.word, target: item.target, grammarDef: null }));
     verbSessionTotalRef.current = queue.length;
@@ -5207,41 +5216,64 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                 const _s3 = Math.max(0, _N - _s1 - _s2);
                 const _rev = reviewedTodayQueue.length;
                 const _slots = [
-                  { emoji: '🌅', name: '早上', size: _s1, lit: _rev >= _s1 },
-                  { emoji: '☀️', name: '下午', size: _s2, lit: _rev >= _s1 + _s2 },
-                  { emoji: '🌙', name: '晚上', size: _s3, lit: _rev >= _N },
+                  { emoji: '🌅', name: '早上', size: _s1, cumEnd: _s1, lit: _rev >= _s1 },
+                  { emoji: '☀️', name: '下午', size: _s2, cumEnd: _s1 + _s2, lit: _rev >= _s1 + _s2 },
+                  { emoji: '🌙', name: '晚上', size: _s3, cumEnd: _N, lit: _rev >= _N },
                 ];
                 return (
                   <div className="grid grid-cols-3 gap-2">
-                    {_slots.map(({ emoji, name, size, lit }) => (
-                      <button key={name} onClick={() => size > 0 && startVocabSession('srs', null, size)} disabled={size === 0}
+                    {_slots.map(({ emoji, name, size, cumEnd, lit }) => {
+                      const remaining = Math.min(size, Math.max(0, cumEnd - _rev));
+                      return (
+                      <button key={name} onClick={() => remaining > 0 && startVocabSession('srs', null, remaining)} disabled={remaining === 0}
                         className={`p-3 pb-5 rounded-2xl text-center transition-all font-bold active:scale-[0.97] relative flex flex-col items-center justify-center ${lit ? 'bg-green-50 border-2 border-green-200 text-green-700' : 'bg-white border-2 border-[#ece7df] text-[#4a4640] hover:bg-[#e8eef6] hover:border-[#cfdcea]'} disabled:opacity-30 disabled:cursor-not-allowed`}>
                         <div className="text-lg leading-none">{emoji}</div>
                         <div className="text-xs font-black mt-1">{name}</div>
-                        <div className="text-xs font-normal mt-0.5 opacity-60">{size} 題</div>
+                        <div className="text-xs font-normal mt-0.5 opacity-60">{remaining} 題</div>
                         {lit && <div className="absolute bottom-1.5 text-green-500 text-xs">✅</div>}
                       </button>
-                    ))}
+                      );
+                    })}
                   </div>
                 );
               })()}
               {/* Primary Action */}
-              {effectiveTodayStats.total > 0 ? (
-                <button onClick={() => startVocabSession('srs')} className="w-full py-5 rounded-2xl font-bold text-lg flex justify-center items-center gap-2 transition-all bg-[#5b7ba3] text-white hover:bg-[#4f74a0] shadow-sm hover:shadow-md active:scale-[0.98]">
-                  🌅 開始今日學習 ({effectiveTodayStats.reviewCount} 複習 + {effectiveTodayStats.newVocabCount} 新字)
-                </button>
-              ) : (
-                <div className="flex flex-col gap-2">
-                  <button disabled className="w-full py-5 rounded-2xl font-bold text-lg flex justify-center items-center gap-2 transition-all bg-slate-100 text-slate-400 cursor-not-allowed">
-                    🎉 今日任務全部完成！
-                  </button>
-                  {reviewedTodayQueue.length > 0 && (
-                    <button onClick={() => startVocabSession('today_extra')} className="w-full py-3 rounded-2xl font-bold text-base flex justify-center items-center gap-2 bg-amber-50 border-2 border-amber-200 text-amber-700 hover:bg-amber-100 transition-all">
-                      <RotateCcw className="w-5 h-5"/>重新複習今日單字 ({reviewedTodayQueue.length} 題)
+              {(() => {
+                const _slotKey = `jp_daily_slot_total_${todayDateStr()}`;
+                const _storedN = parseInt(localStorage.getItem(_slotKey) || '0');
+                const _rev = reviewedTodayQueue.length;
+                let reviewCount, onStart;
+                if (_storedN > 0) {
+                  // 已有今日基準，用時段剩餘量
+                  const _remaining = Math.max(0, _storedN - _rev);
+                  reviewCount = Math.min(_remaining, todayQueue.length);
+                  onStart = () => startVocabSession('srs', null, reviewCount);
+                } else {
+                  // 今天第一次，用完整的 effectiveTodayStats
+                  reviewCount = effectiveTodayStats.reviewCount;
+                  onStart = () => startVocabSession('srs');
+                }
+                const newCount = effectiveTodayStats.newVocabCount;
+                if (reviewCount > 0 || newCount > 0) {
+                  return (
+                    <button onClick={onStart} className="w-full py-5 rounded-2xl font-bold text-lg flex justify-center items-center gap-2 transition-all bg-[#5b7ba3] text-white hover:bg-[#4f74a0] shadow-sm hover:shadow-md active:scale-[0.98]">
+                      🌅 開始今日學習 ({reviewCount} 複習 + {newCount} 新字)
                     </button>
-                  )}
-                </div>
-              )}
+                  );
+                }
+                return (
+                  <div className="flex flex-col gap-2">
+                    <button disabled className="w-full py-5 rounded-2xl font-bold text-lg flex justify-center items-center gap-2 transition-all bg-slate-100 text-slate-400 cursor-not-allowed">
+                      🎉 今日任務全部完成！
+                    </button>
+                    {_rev > 0 && (
+                      <button onClick={() => startVocabSession('today_extra')} className="w-full py-3 rounded-2xl font-bold text-base flex justify-center items-center gap-2 bg-amber-50 border-2 border-amber-200 text-amber-700 hover:bg-amber-100 transition-all">
+                        <RotateCcw className="w-5 h-5"/>重新複習今日單字 ({_rev} 題)
+                      </button>
+                    )}
+                  </div>
+                );
+              })()}
               {/* Secondary Actions 2x2 */}
               <div className="grid grid-cols-2 gap-3 mb-3">
                 <button onClick={() => setAppState('theme_select')} className="py-4 bg-white border border-[#ece7df] text-[#4a4640] rounded-2xl font-bold hover:bg-[#e8eef6] hover:border-[#cfdcea] transition-all text-sm flex flex-col items-center gap-1.5">
@@ -5309,28 +5341,38 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
               {(() => {
                 const _vbSlotKey = `jp_daily_verb_slot_total_${todayDateStr()}`;
                 const _storedVbN = parseInt(localStorage.getItem(_vbSlotKey) || '0');
-                const _vbN = _storedVbN > 0 ? _storedVbN : todayGrammarQueue.length;
+                // 鎖定值比目前佇列小（過時），補正並更新
+                const _vbN = (() => {
+                  if (todayGrammarQueue.length > _storedVbN) {
+                    localStorage.setItem(_vbSlotKey, String(todayGrammarQueue.length));
+                    return todayGrammarQueue.length;
+                  }
+                  return _storedVbN > 0 ? _storedVbN : todayGrammarQueue.length;
+                })();
                 if (_vbN <= 0) return null;
                 const _vs1 = Math.ceil(_vbN / 3);
                 const _vs2 = Math.ceil(_vbN / 3);
                 const _vs3 = Math.max(0, _vbN - _vs1 - _vs2);
-                const _vbRev = _vbN - todayGrammarQueue.length;
+                const _vbRev = Math.max(0, _vbN - todayGrammarQueue.length);
                 const _vbSlots = [
-                  { emoji: '🌅', name: '早上', size: _vs1, lit: _vbRev >= _vs1 },
-                  { emoji: '☀️', name: '下午', size: _vs2, lit: _vbRev >= _vs1 + _vs2 },
-                  { emoji: '🌙', name: '晚上', size: _vs3, lit: _vbRev >= _vbN },
+                  { emoji: '🌅', name: '早上', size: _vs1, cumEnd: _vs1, lit: _vbRev >= _vs1 },
+                  { emoji: '☀️', name: '下午', size: _vs2, cumEnd: _vs1 + _vs2, lit: _vbRev >= _vs1 + _vs2 },
+                  { emoji: '🌙', name: '晚上', size: _vs3, cumEnd: _vbN, lit: _vbRev >= _vbN },
                 ];
                 return (
                   <div className="grid grid-cols-3 gap-2">
-                    {_vbSlots.map(({ emoji, name, size, lit }) => (
-                      <button key={name} onClick={() => size > 0 && startGrammarSRS(size)} disabled={size === 0}
+                    {_vbSlots.map(({ emoji, name, size, cumEnd, lit }) => {
+                      const remaining = Math.min(size, Math.max(0, cumEnd - _vbRev));
+                      return (
+                      <button key={name} onClick={() => remaining > 0 && startGrammarSRS(remaining)} disabled={remaining === 0}
                         className={`p-3 pb-5 rounded-2xl text-center transition-all font-bold active:scale-[0.97] relative flex flex-col items-center justify-center ${lit ? 'bg-green-50 border-2 border-green-200 text-green-700' : 'bg-white border-2 border-[#ece7df] text-[#4a4640] hover:bg-[#e8eef6] hover:border-[#cfdcea]'} disabled:opacity-30 disabled:cursor-not-allowed`}>
                         <div className="text-lg leading-none">{emoji}</div>
                         <div className="text-xs font-black mt-1">{name}</div>
-                        <div className="text-xs font-normal mt-0.5 opacity-60">{size} 題</div>
+                        <div className="text-xs font-normal mt-0.5 opacity-60">{remaining} 題</div>
                         {lit && <div className="absolute bottom-1.5 text-green-500 text-xs">✅</div>}
                       </button>
-                    ))}
+                      );
+                    })}
                   </div>
                 );
               })()}
@@ -8028,7 +8070,8 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
             )}
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
                <button onClick={goHome} className="px-8 py-4 bg-slate-100 text-slate-700 rounded-xl font-bold flex gap-2 justify-center hover:bg-slate-200 transition-colors"><Home className="w-5 h-5"/> 回首頁</button>
-               {appState === 'verb_playing' && <button onClick={()=>startVerbRound(verbTestMode)} className="px-8 py-4 bg-blue-600 text-white rounded-xl font-bold flex gap-2 justify-center hover:bg-blue-700 transition-colors"><Play className="w-5 h-5 fill-current"/> 再來一局</button>}
+               {appState === 'verb_playing' && verbTestMode !== 'grammar_srs' && <button onClick={()=>startVerbRound(verbTestMode)} className="px-8 py-4 bg-blue-600 text-white rounded-xl font-bold flex gap-2 justify-center hover:bg-blue-700 transition-colors"><Play className="w-5 h-5 fill-current"/> 再來一局</button>}
+               {appState === 'verb_playing' && verbTestMode === 'grammar_srs' && todayGrammarQueue.length > 0 && <button onClick={()=>startGrammarSRS()} className="px-8 py-4 bg-blue-600 text-white rounded-xl font-bold flex gap-2 justify-center hover:bg-blue-700 transition-colors"><Play className="w-5 h-5 fill-current"/> 繼續下一輪</button>}
                {appState === 'vocab_playing' && vocabTestMode !== 'srs' && vocabTestMode !== 'mistakes' && vocabTestMode !== 'sentence_srs' && !vocabTestMode.startsWith('theme') && <button onClick={()=>startVocabSession(vocabTestMode)} className="px-8 py-4 bg-amber-600 text-white rounded-xl font-bold flex gap-2 justify-center hover:bg-amber-700 transition-colors"><Play className="w-5 h-5 fill-current"/> 再來一局</button>}
                {appState === 'vocab_playing' && vocabTestMode === 'mistakes' && Object.keys(vocabMistakes).length > 0 && <button onClick={()=>startVocabSession('mistakes')} className="px-8 py-4 bg-amber-600 text-white rounded-xl font-bold flex gap-2 justify-center hover:bg-amber-700 transition-colors"><Play className="w-5 h-5 fill-current"/> 再來一局</button>}
                {appState === 'vocab_playing' && vocabTestMode === 'sentence_srs' && <button onClick={()=>startVocabSession('sentence_infinite')} className="px-8 py-4 bg-amber-600 text-white rounded-xl font-bold flex gap-2 justify-center hover:bg-amber-700 transition-colors"><Play className="w-5 h-5 fill-current"/> 例句無限練習</button>}
@@ -8280,11 +8323,17 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
             {appState === 'verb_playing' && currentVerb && (
                <>
                  {inputMode === 'choice' && currentGrammarDef && currentGrammarDef.appendStr ? (
-                   <div className="text-sm text-slate-500 mb-3 text-center">請選出可接在 <span className="inline-block bg-[#e8eef6] text-[#4a7db3] font-black px-2 py-0.5 rounded-lg">「{currentGrammarDef.appendStr}」</span> 前面的正確形式</div>
+                   <div className="text-center mb-1">
+                     <div className="text-sm text-slate-500 mb-1">請選出可接在 <span className="inline-block bg-[#e8eef6] text-[#4a7db3] font-black px-2 py-0.5 rounded-lg">「{currentGrammarDef.appendStr}」</span> 前面的正確形式</div>
+                     {currentGrammarDef.translation && <div className="flex items-center justify-center gap-1.5 mt-1 mb-2"><span className="text-[11px] text-slate-400 font-semibold">文法意思</span><span className="text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 px-3 py-0.5 rounded-full">{currentGrammarDef.translation}</span></div>}
+                   </div>
                  ) : (
                    <><div className="text-sm text-slate-500 mb-2">請將以下單字轉換為</div><div className="text-2xl font-bold mb-6 border-b-2 inline-block px-2 pb-1 text-blue-700 border-blue-500">{renderGrammarTargetName(getTargetName(currentTarget), currentGrammarDef ? currentGrammarDef.answerBlankIndex : undefined)}</div></>
                  )}
-                 <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-2"><div className="text-5xl font-black text-slate-800 tracking-wide">{renderRuby(currentVerb[sourceForm])}</div><div className="text-slate-400 hidden sm:block"><ArrowRight className="w-8 h-8" /></div><div className="text-lg text-slate-500 font-medium bg-slate-50 px-4 py-2 rounded-xl">{currentVerb.meaning}</div></div>
+                 <div className="flex flex-col items-center justify-center gap-1 mb-2">
+                   <div className="text-5xl font-black text-slate-800 tracking-wide">{renderRuby(currentVerb[sourceForm])}</div>
+                   {currentVerb.meaning && <div className="text-sm font-bold text-[#4a7db3] bg-[#e8eef6] px-4 py-1 rounded-full mt-1">{currentVerb.meaning}</div>}
+                 </div>
                  {(currentVerb.type === 'adj_i' || currentVerb.type === 'adj_na') && (
                    <div className="flex justify-center mb-4">
                      <button onClick={() => setShowAdjTypeDetail(p => !p)} className={`text-xs font-bold px-3 py-1 rounded-full border transition-all ${currentVerb.type === 'adj_i' ? 'bg-lime-50 text-lime-700 border-lime-300 hover:bg-lime-100' : 'bg-yellow-50 text-yellow-700 border-yellow-300 hover:bg-yellow-100'}`}>
@@ -8348,7 +8397,10 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                             isPlainMatch = opt === currentVocab.reading;
                         }
                     } else {
-                        isPlainMatch = opt.plain === currentCorrectPlain;
+                        const _sfx = (currentGrammarDef && inputMode === 'choice')
+                          ? ((currentVerb?.type === 'adj_na' && currentGrammarDef.adjNaAppendStr != null && currentGrammarDef.adjNaAppendStr !== '') ? currentGrammarDef.adjNaAppendStr : (currentGrammarDef.appendStr || ''))
+                          : '';
+                        isPlainMatch = (opt.plain + _sfx) === currentCorrectPlain;
                     }
                     
                     if (feedback === null) btnClass += "border-slate-200 hover:border-blue-500 hover:bg-blue-50 text-slate-700";
