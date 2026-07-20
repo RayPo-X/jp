@@ -2137,6 +2137,9 @@ return parsed;
   const [clockNow, setClockNow] = useState(new Date());
   const [addStreak, setAddStreak] = useState(() => parseInt(localStorage.getItem('jp_add_streak') || '0'));
   const [lastStreakDate, setLastStreakDate] = useState(() => localStorage.getItem('jp_last_streak_date') || '');
+  const [studyCalendar, setStudyCalendar] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('jp_study_calendar_v1') || '{}'); } catch { return {}; }
+  });
 
   // 啟動時檢查連續天數是否已中斷（lastStreakDate 不是今天也不是昨天）
   useEffect(() => {
@@ -2149,6 +2152,17 @@ return parsed;
       localStorage.setItem('jp_add_streak', '0');
     }
   }, []);
+
+  useEffect(() => {
+    if (reviewedTodayQueue.length > 0) {
+      const dateStr = todayDateStr();
+      setStudyCalendar(prev => {
+        const updated = { ...prev, [dateStr]: reviewedTodayQueue.length };
+        localStorage.setItem('jp_study_calendar_v1', JSON.stringify(updated));
+        return updated;
+      });
+    }
+  }, [reviewedTodayQueue.length]);
 
   useEffect(() => {
     if (showTodayWrongModal) {
@@ -4909,7 +4923,7 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
               </div>
             </div>
             
-            <div className="max-w-3xl mx-auto mb-10 space-y-4">
+            <div className="max-w-3xl mx-auto mb-4 space-y-4">
               <GlobalSearch 
                   globalSearchTerm={globalSearchTerm} 
                   setGlobalSearchTerm={setGlobalSearchTerm} 
@@ -4921,6 +4935,97 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                   handleGlobalSearchClick={handleGlobalSearchClick} 
                   renderTags={renderTags} 
               />
+
+              {/* ── 連勝 + 今日進度 ── */}
+              {(() => {
+                const todayStartMs = todayStart.getTime();
+                const nowTs = Date.now();
+
+                const vocabDone = reviewedTodayQueue.length;
+                const vocabRemaining = todayQueue.length;
+                const vocabTotal = vocabDone + vocabRemaining;
+                const vocabPct = vocabTotal > 0 ? Math.round(vocabDone / vocabTotal * 100) : 0;
+
+                const verbDone = Object.values(grammarProgress).filter(p => p.lastCorrect && p.lastCorrect >= todayStartMs).length;
+                const verbRemaining = todayGrammarQueue.length;
+                const verbTotal = verbDone + verbRemaining;
+                const verbPct = verbTotal > 0 ? Math.round(verbDone / verbTotal * 100) : (verbDone > 0 ? 100 : 0);
+
+                const kanjiTotal = kanjiDB.filter(k => (!k.dateAdded || k.dateAdded < todayStartMs) && k.reading && k.reading.trim()).length;
+                const kanjiRemaining = kanjiDB.filter(k => {
+                  if (k.dateAdded && k.dateAdded >= todayStartMs) return false;
+                  if (k.nextReview && k.nextReview > nowTs) return false;
+                  return !!(k.reading && k.reading.trim());
+                }).length;
+                const kanjiDone = Math.max(0, kanjiTotal - kanjiRemaining);
+                const kanjiPct = kanjiTotal > 0 ? Math.round(kanjiDone / kanjiTotal * 100) : 0;
+
+                const totalDone = vocabDone + verbDone + kanjiDone;
+                const totalAll = Math.max(vocabTotal + verbTotal + kanjiTotal, 1);
+                const overallPct = Math.round(totalDone / totalAll * 100);
+                const isPracticed = vocabDone > 0 || verbDone > 0 || kanjiDone > 0;
+
+                const jstD = new Date(clockNow.getTime() + 9 * 3600000);
+                const jstH = jstD.getUTCHours();
+                const jstM = jstD.getUTCMinutes();
+                const minsToReset = jstH < 4 ? (4 - jstH) * 60 - jstM : (28 - jstH) * 60 - jstM;
+                const hrsLeft = Math.floor(minsToReset / 60);
+                const minsLeft = minsToReset % 60;
+                const isUrgent = minsToReset < 180 && !isPracticed;
+
+                return (
+                  <div className="rounded-2xl border px-4 py-3 shadow-sm flex items-center" style={{background:'linear-gradient(135deg,#fff7ed 0%,#fff 65%)',borderColor:'#fed7aa'}}>
+                    {/* 火焰 + 連勝數 */}
+                    <div className="flex items-center gap-2 flex-shrink-0 pr-3.5">
+                      <span className="text-xl" style={{filter:'drop-shadow(0 1px 4px rgba(249,115,22,.35))'}}>🔥</span>
+                      <div>
+                        <div className="text-xl font-black text-orange-500 leading-none">{addStreak}</div>
+                        <div className="text-[10px] font-bold text-orange-400 mt-0.5">連續學習天</div>
+                      </div>
+                    </div>
+                    <div className="w-px h-8 bg-orange-100 flex-shrink-0 mr-3.5"/>
+                    {/* 三個進度條並排 */}
+                    <div className="flex-1 flex items-center gap-2 min-w-0">
+                      {[
+                        {icon:'📖',label:'單字',done:vocabDone,total:vocabTotal,pct:vocabPct,from:'#60a5fa',to:'#93c5fd'},
+                        {icon:'🔄',label:'動詞',done:verbDone,total:verbTotal,pct:verbPct,from:'#a78bfa',to:'#c4b5fd'},
+                        {icon:'🈶',label:'漢字',done:kanjiDone,total:kanjiTotal,pct:kanjiPct,from:'#818cf8',to:'#a5b4fc'},
+                      ].map(({icon,label,done,total,pct,from,to},i) => (
+                        <React.Fragment key={label}>
+                          {i > 0 && <div className="w-px h-6 bg-orange-100 flex-shrink-0"/>}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-[11px] font-bold text-stone-500 whitespace-nowrap">{icon} {label}</span>
+                              <span className={`text-[10px] font-bold tabular-nums ml-1 ${pct>=100?'text-green-600':'text-stone-400'}`}>
+                                {pct>=100?'✓':total>0?`${done}/${total}`:'—'}
+                              </span>
+                            </div>
+                            <div className="h-[5px] bg-slate-100 rounded-full overflow-hidden">
+                              <div className="h-full rounded-full transition-all duration-500" style={{width:`${pct}%`,background:`linear-gradient(90deg,${from},${to})`}}/>
+                            </div>
+                          </div>
+                        </React.Fragment>
+                      ))}
+                    </div>
+                    {/* 狀態 chip */}
+                    <div className="flex-shrink-0 pl-3.5">
+                      {isPracticed ? (
+                        <div className="flex items-center bg-green-50 border border-green-200 rounded-full px-2.5 py-1.5 text-[11px] font-bold text-green-700 whitespace-nowrap">
+                          ✓ 今天打卡 · {totalDone} 題
+                        </div>
+                      ) : isUrgent ? (
+                        <div className="flex items-center bg-red-50 border border-red-200 rounded-full px-2.5 py-1.5 text-[11px] font-bold text-red-600 whitespace-nowrap">
+                          ⚠ 剩 {hrsLeft}h {String(minsLeft).padStart(2,'0')}m · 快到期！
+                        </div>
+                      ) : (
+                        <div className="flex items-center bg-slate-50 border border-slate-200 rounded-full px-2.5 py-1.5 text-[11px] font-bold text-slate-500 whitespace-nowrap">
+                          ⏱ 剩 {hrsLeft}h {String(minsLeft).padStart(2,'0')}m
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Dashboard Lite */}
               <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm">
@@ -4982,58 +5087,119 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                    );
                  })()}
               </div>
-              {/* 每日新增任務卡（四類整合） */}
-              {(() => {
-                const counts = {
-                  vocab:    getTodayVocabAddCount(),
-                  verb:     getTodayVerbAddCount(),
-                  sentence: getTodaySentenceAddCount(),
-                  kanji:    getTodayKanjiAddCount(),
-                };
-                const metCount = Object.keys(DAILY_ADD_GOALS).filter(k => counts[k] >= DAILY_ADD_GOALS[k]).length;
-                const allMet = metCount === 4;
-                const cats = [
-                  { key:'vocab',    icon:'📚', label:'單字',   action:() => setAppState('vocab_manage') },
-                  { key:'verb',     icon:'🔤', label:'動詞',   action:() => setAppState('verb_manage') },
-                  { key:'sentence', icon:'📝', label:'例句',   action:() => setAppState('vocab_manage') },
-                  { key:'kanji',    icon:'🈶', label:'漢字',   action:() => { setAppState('vocab_manage'); setVocabManageTab('kanji'); } },
-                ];
-                return (
-                  <div className={`mt-4 rounded-2xl border px-4 py-3 transition-colors ${allMet ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-200'}`}>
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-xs font-bold text-slate-700">📝 今日新增任務</span>
-                      <span className={`text-xs font-black px-2 py-0.5 rounded-lg ${addStreak >= 3 ? 'bg-amber-100 text-amber-600 border border-amber-200' : 'bg-slate-100 text-slate-400'}`}>
-                        🔥 {addStreak} 天連續
-                      </span>
+            </div>
+            <div className="max-w-5xl mx-auto mb-10">
+              {/* ── 月曆 + 任務 雙欄 ── */}
+              <div style={{display:'grid',gridTemplateColumns:'1.2fr 1fr',gap:'10px'}}>
+
+                {/* 學習月曆 */}
+                {(() => {
+                  const todayStr = todayDateStr();
+                  const todayD = new Date();
+                  const startD = new Date(todayD);
+                  startD.setDate(todayD.getDate() - 34);
+                  startD.setDate(startD.getDate() - startD.getDay());
+                  const cells = [];
+                  for (let i = 0; i < 35; i++) {
+                    const d = new Date(startD);
+                    d.setDate(startD.getDate() + i);
+                    const ds = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+                    const cnt = studyCalendar[ds] || 0;
+                    const future = d > todayD;
+                    cells.push({ds, cnt, isToday: ds===todayStr, future});
+                  }
+                  const studied = cells.filter(c => c.cnt > 0).length;
+                  const monthLabel = `${todayD.getMonth()+1} 月學習記錄`;
+                  const intensity = cnt => cnt===0?'#f1ede5':cnt<10?'#fde68a':cnt<30?'#fb923c':'#ea580c';
+                  return (
+                    <div className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-base font-bold text-slate-600">📅 {monthLabel}</span>
+                        <span className="text-xs font-black text-orange-500 bg-orange-50 border border-orange-100 px-2.5 py-1 rounded-full">🔥 {addStreak} 天連續</span>
+                      </div>
+                      <div className="grid grid-cols-7 mb-1" style={{gap:'6px'}}>
+                        {['日','一','二','三','四','五','六'].map(d => (
+                          <div key={d} className="text-center text-[10px] font-bold text-slate-300">{d}</div>
+                        ))}
+                      </div>
+                      <div className="grid grid-cols-7" style={{gap:'6px'}}>
+                        {cells.map((cell,i) => (
+                          <div
+                            key={i}
+                            title={cell.cnt>0?`${cell.ds} ${cell.cnt} 題`:cell.ds}
+                            className={`rounded-[4px]${cell.isToday?' ring-2 ring-orange-500 ring-offset-1':''}`}
+                            style={{height:'22px',background:cell.future?'#f8f6f3':intensity(cell.cnt)}}
+                          />
+                        ))}
+                      </div>
+                      <div className="flex items-center justify-between mt-2.5">
+                        <span className="text-[10px] text-slate-400 font-medium">近 5 週已練習 {studied} 天</span>
+                        <div className="flex items-center gap-1">
+                          <span className="text-[9px] text-slate-300 font-bold">少</span>
+                          {['#f1ede5','#fde68a','#fb923c','#ea580c'].map((c,i) => (
+                            <div key={i} style={{width:9,height:9,borderRadius:2,background:c}}/>
+                          ))}
+                          <span className="text-[9px] text-slate-300 font-bold">多</span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="grid grid-cols-4 gap-2 mb-2">
-                      {cats.map(c => {
-                        const cnt = counts[c.key];
-                        const goal = DAILY_ADD_GOALS[c.key];
-                        const met = cnt >= goal;
-                        return (
-                          <button key={c.key} onClick={c.action}
-                            className={`rounded-xl p-2 text-center transition-all hover:scale-[1.03] active:scale-95 border ${met ? 'bg-emerald-100 border-emerald-300' : 'bg-white border-slate-200 hover:border-slate-300'}`}>
-                            <div className="text-base mb-1">{c.icon}</div>
-                            <div className="text-[10px] font-bold text-slate-600 mb-1.5">{c.label}</div>
-                            <div className="flex justify-center gap-0.5 flex-wrap mb-1">
-                              {Array.from({length: goal}, (_, i) => (
-                                <div key={i} className={`w-2.5 h-2.5 rounded-full border ${i < cnt ? (met ? 'bg-emerald-500 border-emerald-500' : 'bg-blue-400 border-blue-400') : 'bg-white border-slate-300'}`}/>
-                              ))}
-                            </div>
-                            <div className={`text-[9px] font-bold ${met ? 'text-emerald-600' : 'text-slate-400'}`}>{cnt}/{goal}</div>
-                          </button>
-                        );
-                      })}
+                  );
+                })()}
+
+                {/* 每日新增任務卡 */}
+                {(() => {
+                  const counts = {
+                    vocab:    getTodayVocabAddCount(),
+                    verb:     getTodayVerbAddCount(),
+                    sentence: getTodaySentenceAddCount(),
+                    kanji:    getTodayKanjiAddCount(),
+                  };
+                  const metCount = Object.keys(DAILY_ADD_GOALS).filter(k => counts[k] >= DAILY_ADD_GOALS[k]).length;
+                  const allMet = metCount === 4;
+                  const cats = [
+                    { key:'vocab',    icon:'📚', label:'單字', from:'#34d399', to:'#6ee7b7', action:() => setAppState('vocab_manage') },
+                    { key:'verb',     icon:'🔤', label:'動詞', from:'#60a5fa', to:'#93c5fd', action:() => setAppState('verb_manage') },
+                    { key:'sentence', icon:'📝', label:'例句', from:'#d946ef', to:'#e879f9', action:() => setAppState('vocab_manage') },
+                    { key:'kanji',    icon:'🈶', label:'漢字', from:'#fb923c', to:'#fbbf24', action:() => { setAppState('vocab_manage'); setVocabManageTab('kanji'); } },
+                  ];
+                  return (
+                    <div className={`rounded-3xl border p-5 shadow-sm flex flex-col ${allMet ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-slate-200'}`}>
+                      <div className="flex items-center justify-between mb-4">
+                        <span className="text-base font-bold text-slate-700">📝 今日新增任務</span>
+                        <span className={`text-xs font-black px-2 py-0.5 rounded-lg ${addStreak >= 3 ? 'bg-amber-100 text-amber-600 border border-amber-200' : 'bg-slate-100 text-slate-400'}`}>
+                          🔥 {addStreak} 天連續
+                        </span>
+                      </div>
+                      <div className="flex flex-col gap-3 flex-1 justify-center">
+                        {cats.map(c => {
+                          const cnt = counts[c.key];
+                          const goal = DAILY_ADD_GOALS[c.key];
+                          const met = cnt >= goal;
+                          const pct = goal > 0 ? Math.min(cnt / goal * 100, 100) : 0;
+                          return (
+                            <button key={c.key} onClick={c.action} className="flex items-center gap-2.5 w-full text-left active:scale-[0.98] transition-transform">
+                              <span className="text-base flex-shrink-0">{c.icon}</span>
+                              <span className="text-xs font-bold text-slate-600 w-8 flex-shrink-0">{c.label}</span>
+                              <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                                <div className="h-full rounded-full transition-all duration-500" style={{width:`${pct}%`,background:`linear-gradient(90deg,${c.from},${c.to})`}}/>
+                              </div>
+                              <span className={`text-xs font-bold w-8 text-right tabular-nums flex-shrink-0 ${met?'text-green-600':'text-slate-400'}`}>
+                                {met?'✓':`${cnt}/${goal}`}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <div className={`text-[10px] font-medium text-center mt-4 pt-3 border-t border-slate-100 ${allMet?'text-emerald-600':'text-slate-400'}`}>
+                        {allMet
+                          ? (addStreak > 1 ? `✅ 今日全部達標！🔥 已連續 ${addStreak} 天` : '✅ 今日全部達標！')
+                          : `今日進度：${metCount} / 4 類達標`}
+                      </div>
                     </div>
-                    <div className={`text-[10px] font-medium text-center ${allMet ? 'text-emerald-600' : 'text-slate-400'}`}>
-                      {allMet
-                        ? (addStreak > 1 ? `✅ 今日全部達標！🔥 已連續 ${addStreak} 天` : '✅ 今日全部達標！')
-                        : `今日進度：${metCount} / 4 類達標`}
-                    </div>
-                  </div>
-                );
-              })()}
+                  );
+                })()}
+
+              </div>
             </div>
             {/* Two Column Layout */}
           <div className="grid lg:grid-cols-2 gap-x-8 gap-y-4 items-start">
