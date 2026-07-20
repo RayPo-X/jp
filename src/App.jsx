@@ -1765,7 +1765,9 @@ return parsed;
   const [githubToken, setGithubToken] = useState(() => localStorage.getItem('verbApp_githubToken') || '');
   const [gistId, setGistId] = useState(() => localStorage.getItem('verbApp_gistId') || '');
   const [isSyncing, setIsSyncing] = useState(false);
-  
+  const [syncStatus, setSyncStatus] = useState('idle'); // 'idle' | 'syncing' | 'success' | 'error'
+  const autoSyncTimerRef = useRef(null);
+
   useEffect(() => { localStorage.setItem('verbApp_githubToken', githubToken); }, [githubToken]);
 
   useEffect(() => { localStorage.setItem('verbApp_sourceForm', sourceForm); }, [sourceForm]);
@@ -1845,6 +1847,80 @@ return parsed;
     }
   }, [vocabDB]);
   useEffect(() => { localStorage.setItem('verbApp_gistId', gistId); }, [gistId]);
+
+  // 合併輔助函式
+  const _mergeById = (local, remote) => {
+    const map = new Map(remote.map(x => [String(x.id ?? x.kanji), x]));
+    local.forEach(x => {
+      const key = String(x.id ?? x.kanji);
+      const ex = map.get(key);
+      if (!ex || (x.repetitions || 0) >= (ex.repetitions || 0)) map.set(key, x);
+    });
+    return Array.from(map.values());
+  };
+  const _mergeProgress = (local, remote) => {
+    const merged = { ...remote };
+    Object.entries(local).forEach(([k, v]) => {
+      if (!merged[k] || (v.repetitions || 0) >= (merged[k].repetitions || 0)) merged[k] = v;
+    });
+    return merged;
+  };
+
+  // 啟動時自動從 Gist 合併（只跑一次）
+  useEffect(() => {
+    if (!githubToken.trim() || !gistId.trim()) return;
+    setSyncStatus('syncing');
+    fetch(`https://api.github.com/gists/${gistId.trim()}`, {
+      headers: { 'Authorization': `token ${githubToken.trim()}`, 'Accept': 'application/vnd.github.v3+json' }
+    })
+      .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+      .then(json => {
+        const file = json.files['jp-dojo-sync.json'];
+        if (!file) { setSyncStatus('idle'); return; }
+        const cloud = JSON.parse(file.content);
+        if (cloud.vocabDB) setVocabDB(p => _mergeById(p, cloud.vocabDB));
+        if (cloud.verbDB) setVerbDB(p => _mergeById(p, cloud.verbDB));
+        if (cloud.kanjiDB) setKanjiDB(p => _mergeById(p, cloud.kanjiDB));
+        if (cloud.customGrammars) setCustomGrammars(p => _mergeById(p, cloud.customGrammars));
+        if (cloud.grammarProgress) setGrammarProgress(p => _mergeProgress(p, cloud.grammarProgress));
+        if (cloud.verbForms && Array.isArray(cloud.verbForms)) setVerbForms(cloud.verbForms);
+        if (cloud.verbTableColumnOrder && Array.isArray(cloud.verbTableColumnOrder)) setVerbTableColumnOrder(cloud.verbTableColumnOrder);
+        setSyncStatus('success');
+        setTimeout(() => setSyncStatus(s => s === 'success' ? 'idle' : s), 3000);
+      })
+      .catch(e => { console.error('[AutoSync startup]', e); setSyncStatus('idle'); });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 資料變動時自動上傳（防抖 12 秒）
+  useEffect(() => {
+    if (!githubToken.trim() || !gistId.trim()) return;
+    const snap = { vocabDB, verbDB, kanjiDB, customGrammars, grammarProgress, verbForms, verbTableColumnOrder };
+    const token = githubToken.trim();
+    const id = gistId.trim();
+    if (autoSyncTimerRef.current) clearTimeout(autoSyncTimerRef.current);
+    autoSyncTimerRef.current = setTimeout(async () => {
+      try {
+        setSyncStatus('syncing');
+        const content = JSON.stringify({ ...snap, exportDate: new Date().toISOString() }, null, 2);
+        const url = id ? `https://api.github.com/gists/${id}` : 'https://api.github.com/gists';
+        const res = await fetch(url, {
+          method: id ? 'PATCH' : 'POST',
+          headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
+          body: JSON.stringify({ description: 'JP Dojo Sync Data', public: false, files: { 'jp-dojo-sync.json': { content } } })
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json = await res.json();
+        if (!id && json.id) setGistId(json.id);
+        setSyncStatus('success');
+        setTimeout(() => setSyncStatus(s => s === 'success' ? 'idle' : s), 3000);
+      } catch (e) {
+        console.error('[AutoSync upload]', e);
+        setSyncStatus('error');
+        setTimeout(() => setSyncStatus(s => s === 'error' ? 'idle' : s), 5000);
+      }
+    }, 12000);
+    return () => { if (autoSyncTimerRef.current) clearTimeout(autoSyncTimerRef.current); };
+  }, [vocabDB, verbDB, kanjiDB, customGrammars, grammarProgress, verbForms, verbTableColumnOrder, githubToken, gistId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 計算今日文法待複習佇列（有每日新題上限，行為與單字SRS一致）
   const todayGrammarQueue = React.useMemo(() => {
@@ -4142,7 +4218,7 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
     if (!cleanToken) return alert('請先輸入 GitHub Token');
     setIsSyncing(true);
     try {
-      const data = { vocabDB, verbDB, verbForms, verbTableColumnOrder, customGrammars, grammarProgress, exportDate: new Date().toISOString() };
+      const data = { vocabDB, verbDB, verbForms, verbTableColumnOrder, customGrammars, grammarProgress, kanjiDB, exportDate: new Date().toISOString() };
       const content = JSON.stringify(data, null, 2);
       
       let url = 'https://api.github.com/gists';
@@ -4200,12 +4276,15 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
       
       const data = JSON.parse(file.content);
       let restored = false;
-      if (data.vocabDB && Array.isArray(data.vocabDB)) { setVocabDB(data.vocabDB); restored = true; }
-      if (data.verbDB && Array.isArray(data.verbDB)) { setVerbDB(data.verbDB); restored = true; }
-      if (data.customGrammars && Array.isArray(data.customGrammars)) { setCustomGrammars(data.customGrammars); restored = true; }
-      if (data.grammarProgress && typeof data.grammarProgress === 'object') { setGrammarProgress(data.grammarProgress); restored = true; }
-      
-      if (restored) alert('從 GitHub 載入進度成功！');
+      if (data.vocabDB && Array.isArray(data.vocabDB)) { setVocabDB(p => _mergeById(p, data.vocabDB)); restored = true; }
+      if (data.verbDB && Array.isArray(data.verbDB)) { setVerbDB(p => _mergeById(p, data.verbDB)); restored = true; }
+      if (data.kanjiDB && Array.isArray(data.kanjiDB)) { setKanjiDB(p => _mergeById(p, data.kanjiDB)); restored = true; }
+      if (data.customGrammars && Array.isArray(data.customGrammars)) { setCustomGrammars(p => _mergeById(p, data.customGrammars)); restored = true; }
+      if (data.grammarProgress && typeof data.grammarProgress === 'object') { setGrammarProgress(p => _mergeProgress(p, data.grammarProgress)); restored = true; }
+      if (data.verbForms && Array.isArray(data.verbForms)) setVerbForms(data.verbForms);
+      if (data.verbTableColumnOrder && Array.isArray(data.verbTableColumnOrder)) setVerbTableColumnOrder(data.verbTableColumnOrder);
+
+      if (restored) alert('從 GitHub 載入進度成功！（已與本地資料合併）');
       else alert('雲端檔案格式不正確。');
     } catch (err) {
       console.error(err);
@@ -4760,7 +4839,12 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
               <button onClick={() => { fileInputRef.current?.click(); setShowDrawer(false); }} className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-50 transition-colors text-left w-full">
                 <span className="text-base">📂</span><span className="text-sm font-medium text-slate-700 flex-1">還原學習資料</span><span className="text-slate-300 text-xs">›</span>
               </button>
-              <div className="text-[11px] font-bold text-slate-400 tracking-widest px-3 py-2 mt-1">☁️ GitHub 雲端同步</div>
+              <div className="text-[11px] font-bold text-slate-400 tracking-widest px-3 py-2 mt-1 flex items-center gap-2">
+                <span>☁️ GitHub 雲端同步</span>
+                {syncStatus === 'syncing' && <span className="text-[10px] text-blue-500 font-bold animate-pulse">同步中…</span>}
+                {syncStatus === 'success' && <span className="text-[10px] text-green-600 font-bold">✓ 已同步</span>}
+                {syncStatus === 'error' && <span className="text-[10px] text-red-500 font-bold">✗ 同步失敗</span>}
+              </div>
               <div className="px-2 space-y-2 pb-2">
                 <div>
                   <label className="text-xs font-bold text-slate-400 px-1 mb-1 block">Token (需 gist 權限)</label>
@@ -4770,11 +4854,12 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                   <label className="text-xs font-bold text-slate-400 px-1 mb-1 block">Gist ID</label>
                   <input type="text" value={gistId} onChange={e => setGistId(e.target.value)} placeholder="留空以建立新檔..." className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 text-sm outline-none focus:border-blue-400 text-slate-700" />
                 </div>
+                <p className="text-[10px] text-slate-400 px-1">資料變動後約 12 秒自動同步，打開 App 時也會自動合併最新資料。</p>
                 <button onClick={syncToGitHub} disabled={isSyncing} className="w-full py-2.5 px-4 rounded-xl bg-slate-800 text-white font-bold text-sm hover:bg-slate-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
-                  {isSyncing ? <RefreshCcw className="w-3 h-3 animate-spin"/> : null}{isSyncing ? '同步中…' : '⬆️ 上傳 (覆蓋雲端)'}
+                  {isSyncing ? <RefreshCcw className="w-3 h-3 animate-spin"/> : null}{isSyncing ? '同步中…' : '⬆️ 立即上傳'}
                 </button>
                 <button onClick={syncFromGitHub} disabled={isSyncing} className="w-full py-2.5 px-4 rounded-xl bg-white border border-slate-200 text-slate-700 font-bold text-sm hover:bg-slate-50 transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
-                  {isSyncing ? <RefreshCcw className="w-3 h-3 animate-spin"/> : null}{isSyncing ? '同步中…' : '⬇️ 下載 (覆蓋本地)'}
+                  {isSyncing ? <RefreshCcw className="w-3 h-3 animate-spin"/> : null}{isSyncing ? '同步中…' : '⬇️ 立即從雲端合併'}
                 </button>
               </div>
               <button onClick={() => { setShowSettingsModal(true); setShowDrawer(false); }} className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-50 transition-colors text-left w-full">
