@@ -1765,6 +1765,7 @@ return parsed;
   const [githubToken, setGithubToken] = useState(() => localStorage.getItem('verbApp_githubToken') || '');
   const [gistId, setGistId] = useState(() => localStorage.getItem('verbApp_gistId') || '');
   const [isSyncing, setIsSyncing] = useState(false);
+  const [clearConfirm, setClearConfirm] = useState(false);
   const [syncStatus, setSyncStatus] = useState('idle'); // 'idle' | 'syncing' | 'success' | 'error'
   const autoSyncTimerRef = useRef(null);
 
@@ -4308,6 +4309,17 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
     }
   };
 
+  const clearAllLearningData = () => {
+    [
+      'verbApp_vocabDB', 'verbApp_verbDB', 'verbApp_kanjiDB',
+      'verbApp_customGrammars', 'verbApp_grammarProgress', 'verbApp_verbForms',
+      'verbApp_tagKeywordsMap', 'jp_add_streak', 'jp_last_streak_date',
+      'jp_study_calendar_v1', 'auto_reset_vocab_today_v2',
+      'verbApp_vocabDB_backup', 'migrated_to_june_12_v3', 'verbApp_recentSearches',
+    ].forEach(k => localStorage.removeItem(k));
+    window.location.reload();
+  };
+
   const dashboardStats = React.useMemo(() => {
      const now = Date.now();
      const grammarDue = customGrammars.filter(g => g.status !== 'new' && (g.nextReview || 0) <= now).length;
@@ -4875,6 +4887,25 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                 <button onClick={syncFromGitHub} disabled={isSyncing} className="w-full py-2.5 px-4 rounded-xl bg-white border border-slate-200 text-slate-700 font-bold text-sm hover:bg-slate-50 transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
                   {isSyncing ? <RefreshCcw className="w-3 h-3 animate-spin"/> : null}{isSyncing ? '同步中…' : '⬇️ 立即從雲端合併'}
                 </button>
+              </div>
+              {/* 危險區：清空所有學習資料 */}
+              <div className="px-1 pt-1 pb-1">
+                <div className="rounded-xl border border-red-100 bg-red-50 p-3">
+                  <div className="text-[11px] font-bold text-red-400 uppercase tracking-wide mb-2">⚠ 危險區</div>
+                  {!clearConfirm ? (
+                    <button onClick={() => setClearConfirm(true)} className="w-full py-2 px-3 rounded-lg bg-white border border-red-200 text-red-500 font-bold text-sm hover:bg-red-50 transition-colors">
+                      🗑 清空所有學習資料
+                    </button>
+                  ) : (
+                    <div className="space-y-2">
+                      <p className="text-[11px] text-red-500 font-medium leading-relaxed">確定要清空全部單字、動詞、漢字、文法記錄？<br/>此操作無法還原。</p>
+                      <div className="flex gap-2">
+                        <button onClick={() => setClearConfirm(false)} className="flex-1 py-1.5 px-3 rounded-lg border border-slate-200 text-slate-500 font-bold text-xs hover:bg-slate-50 transition-colors">取消</button>
+                        <button onClick={clearAllLearningData} className="flex-1 py-1.5 px-3 rounded-lg bg-red-500 text-white font-bold text-xs hover:bg-red-600 transition-colors">確定清空</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
               <button onClick={() => { setShowSettingsModal(true); setShowDrawer(false); }} className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-50 transition-colors text-left w-full">
                 <span className="text-base">⚙️</span><span className="text-sm font-medium text-slate-700 flex-1">測驗與學習設定</span><span className="text-slate-300 text-xs">›</span>
