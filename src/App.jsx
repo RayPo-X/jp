@@ -5014,9 +5014,9 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                         <div className="text-[10px] font-bold text-orange-400 mt-0.5">連續學習天</div>
                       </div>
                     </div>
-                    <div className="w-px h-8 bg-orange-100 flex-shrink-0 mr-3.5"/>
+                    <div className="hidden sm:block w-px h-8 bg-orange-100 flex-shrink-0 mr-3.5"/>
                     {/* 三個進度條並排 */}
-                    <div className="flex-1 flex items-center gap-2 min-w-0">
+                    <div className="hidden sm:flex flex-1 items-center gap-2 min-w-0">
                       {[
                         {icon:'📖',label:'單字',done:vocabDone,total:vocabTotal,pct:vocabPct,from:'#60a5fa',to:'#93c5fd'},
                         {icon:'🔄',label:'動詞',done:verbDone,total:verbTotal,pct:verbPct,from:'#a78bfa',to:'#c4b5fd'},
@@ -5236,7 +5236,7 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
           <div className="grid lg:grid-cols-2 gap-x-8 gap-y-4 items-start">
 
             {/* ===== LEFT: 單字記憶庫 ===== */}
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-4 order-1 lg:order-none">
               <div className="flex items-center justify-between pb-2">
                 <div className="flex items-center gap-3">
                   <div className="p-2.5 bg-amber-500 text-white rounded-2xl shadow-sm"><Library className="w-5 h-5"/></div>
@@ -5365,7 +5365,7 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
             </div>
 
             {/* ===== RIGHT top: 動詞文法訓練場 stats+dist ===== */}
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-4 order-6 lg:order-none">
               <div className="flex items-center justify-between pb-2">
                 <div className="flex items-center gap-3">
                   <div className="p-2.5 bg-blue-600 text-white rounded-2xl shadow-sm"><RotateCcw className="w-5 h-5"/></div>
@@ -5497,19 +5497,19 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
             </div>
 
             {/* ── 單字練習 分隔線（獨立 grid cell，與動詞練習對齊） ── */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 order-2 lg:order-none">
               <div className="text-xs font-bold text-slate-400 tracking-widest whitespace-nowrap">單字練習</div>
               <div className="flex-1 border-t border-slate-100"/>
             </div>
 
             {/* ── 動詞練習 分隔線（獨立 grid cell，與單字練習對齊） ── */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 order-7 lg:order-none">
               <div className="text-xs font-bold text-slate-400 tracking-widest whitespace-nowrap">動詞練習</div>
               <div className="flex-1 border-t border-slate-100"/>
             </div>
 
             {/* ── 單字練習 按鈕區 ── */}
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-4 order-3 lg:order-none">
               {/* 分時段練習指示器 */}
               {(() => {
                 const _slotKey = `jp_daily_slot_total_${todayDateStr()}`;
@@ -5641,7 +5641,7 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
             </div>
 
             {/* ── 動詞練習 按鈕區 ── */}
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-4 order-8 lg:order-none">
               {/* 分時段練習指示器（動詞） */}
               {(() => {
                 const _vbSlotKey = `jp_daily_verb_slot_total_${todayDateStr()}`;
@@ -5721,19 +5721,19 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
             </div>
 
             {/* ── 漢字練習 分隔線（獨立 grid cell，與文法練習對齊） ── */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 order-4 lg:order-none">
               <div className="text-xs font-bold text-slate-400 tracking-widest whitespace-nowrap">漢字練習</div>
               <div className="flex-1 border-t border-slate-100"/>
             </div>
 
             {/* ── 文法練習 分隔線（獨立 grid cell，與漢字練習對齊） ── */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 order-9 lg:order-none">
               <div className="text-xs font-bold text-slate-400 tracking-widest whitespace-nowrap">文法練習</div>
               <div className="flex-1 border-t border-slate-100"/>
             </div>
 
             {/* ── 漢字練習 底部按鈕 ── */}
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-4 order-5 lg:order-none">
               {(() => {
                 const nowKanji = Date.now();
                 const kanjiSrsCount = kanjiDB.filter(k => {
@@ -5781,7 +5781,7 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
             </div>
 
             {/* ── 文法練習 底部按鈕 ── */}
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-4 order-10 lg:order-none">
               <button
                 onClick={() => { setSessionTitle('今日文法學習'); startVerbRound('grammar'); }}
                 disabled={effectiveTodayGrammarStats.total === 0}
