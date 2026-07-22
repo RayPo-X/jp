@@ -1909,6 +1909,25 @@ return parsed;
         if (cloud.grammarProgress) setGrammarProgress(p => _mergeProgress(p, cloud.grammarProgress));
         if (cloud.verbForms && Array.isArray(cloud.verbForms)) setVerbForms(cloud.verbForms);
         if (cloud.verbTableColumnOrder && Array.isArray(cloud.verbTableColumnOrder)) setVerbTableColumnOrder(cloud.verbTableColumnOrder);
+        if (cloud.studyCalendar && typeof cloud.studyCalendar === 'object') {
+          setStudyCalendar(prev => {
+            const merged = { ...cloud.studyCalendar };
+            Object.entries(prev || {}).forEach(([date, count]) => {
+              merged[date] = Math.max(merged[date] || 0, count);
+            });
+            localStorage.setItem('jp_study_calendar_v1', JSON.stringify(merged));
+            return merged;
+          });
+        }
+        if (cloud.lastStreakDate && cloud.addStreak !== undefined) {
+          const localDate = localStorage.getItem('jp_last_streak_date') || '';
+          if (cloud.lastStreakDate > localDate) {
+            setAddStreak(cloud.addStreak);
+            setLastStreakDate(cloud.lastStreakDate);
+            localStorage.setItem('jp_add_streak', String(cloud.addStreak));
+            localStorage.setItem('jp_last_streak_date', cloud.lastStreakDate);
+          }
+        }
         setSyncStatus('success');
         setTimeout(() => setSyncStatus(s => s === 'success' ? 'idle' : s), 3000);
       })
@@ -1918,7 +1937,7 @@ return parsed;
   // 資料變動時自動上傳（防抖 12 秒）
   useEffect(() => {
     if (!githubToken.trim() || !gistId.trim()) return;
-    const snap = { vocabDB, verbDB, kanjiDB, customGrammars, grammarProgress, verbForms, verbTableColumnOrder };
+    const snap = { vocabDB, verbDB, kanjiDB, customGrammars, grammarProgress, verbForms, verbTableColumnOrder, studyCalendar, addStreak, lastStreakDate };
     const token = githubToken.trim();
     const id = gistId.trim();
     if (autoSyncTimerRef.current) clearTimeout(autoSyncTimerRef.current);
@@ -1944,7 +1963,7 @@ return parsed;
       }
     }, 12000);
     return () => { if (autoSyncTimerRef.current) clearTimeout(autoSyncTimerRef.current); };
-  }, [vocabDB, verbDB, kanjiDB, customGrammars, grammarProgress, verbForms, verbTableColumnOrder, githubToken, gistId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [vocabDB, verbDB, kanjiDB, customGrammars, grammarProgress, verbForms, verbTableColumnOrder, studyCalendar, addStreak, lastStreakDate, githubToken, gistId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 計算今日文法待複習佇列（有每日新題上限，行為與單字SRS一致）
   const todayGrammarQueue = React.useMemo(() => {
