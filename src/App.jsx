@@ -8867,7 +8867,7 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                     return (<button key={idx} disabled={feedback !== null} onClick={() => { setUserInput(appState === 'vocab_playing' ? opt : opt.plain); appState === 'vocab_playing' ? processVocabAnswer(opt) : processVerbAnswer(opt.plain); }} className={btnClass}>{appState === 'vocab_playing' ? opt : renderRuby(opt.ruby)}</button>);
                  })}
                </div>
-            ) : !(progressiveTyping && inputMode === 'choice' && appState === 'vocab_playing' && !kanjiReadingMode && (currentVocab?.repetitions || 0) >= 5) ? (
+            ) : !(progressiveTyping && inputMode === 'choice' && appState === 'vocab_playing' && !kanjiReadingMode && (currentVocab?.repetitions || 0) >= 5) && !showThinkPause ? (
                <form onSubmit={e => { e.preventDefault(); appState === 'vocab_playing' ? processVocabAnswer() : processVerbAnswer(); }} className="max-w-md mx-auto relative">
                  <input type="text" value={userInput} onChange={e => setUserInput(e.target.value)} disabled={feedback !== null} placeholder="輸入解答..." autoFocus className={`w-full px-5 py-4 text-2xl text-center rounded-2xl border-2 outline-none ${feedback === 'correct' ? 'border-green-500 bg-green-50 text-green-800 font-bold' : feedback ? 'border-red-500 bg-red-50 text-red-800 font-bold' : 'border-slate-200 focus:border-blue-500'}`} />
                  {feedback === 'correct' && <div className="absolute right-4 top-1/2 -translate-y-1/2 text-green-500 animate-in zoom-in"><CheckCircle2 className="w-8 h-8"/></div>}
