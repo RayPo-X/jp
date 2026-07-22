@@ -2959,8 +2959,22 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
         generateVerbQuestion(verbTestMode);
         return;
       }
-      setChoiceOptions(choices);
+      const _vItemKey = `${selectedItem.word.id}_${selectedItem.target}`;
+      const _vReps = grammarProgress[_vItemKey]?.repetitions || 0;
+      if (progressive2Choice && _vReps >= 3 && choices.length > 1) {
+        const _correct = choices.find(c => stripRuby(c.ruby) === stripRuby(finalCorrectRuby));
+        if (_correct) {
+          const _dist = choices.filter(c => c !== _correct);
+          const _pick = _dist[Math.floor(Math.random() * _dist.length)];
+          setChoiceOptions([_correct, _pick].sort(() => Math.random() - 0.5));
+        } else {
+          setChoiceOptions(choices);
+        }
+      } else {
+        setChoiceOptions(choices);
+      }
     }
+    setShowThinkPause(!!(thinkFirstMode && inputMode === 'choice'));
   };
 
   const processVerbAnswer = (answerToCheck = null) => {
@@ -3098,6 +3112,7 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
   };
 
   const advanceVerbRound = () => {
+    setShowThinkPause(false);
     if (verbTestMode === 'rpg') {
       if (hp <= 0) setIsRoundComplete(true); else { setQuestionCount(prev => prev + 1); generateVerbQuestion(verbTestMode); }
     } else if (verbTestMode === 'grammar_srs' || verbTestMode === 'meaning_to_jisho') {
@@ -8813,7 +8828,7 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
               // 方案 C：精通後（reps≥5）自動切換打字模式
               const effectiveInputMode = (progressiveTyping && inputMode === 'choice' && appState === 'vocab_playing' && !kanjiReadingMode && (currentVocab?.repetitions || 0) >= 5) ? 'keyboard' : inputMode;
               return effectiveInputMode;
-            })() === 'choice' && showThinkPause && appState === 'vocab_playing' && (
+            })() === 'choice' && showThinkPause && (appState === 'vocab_playing' || appState === 'verb_playing') && (
               <div className="max-w-2xl mx-auto">
                 <div className="border-2 border-dashed border-indigo-200 rounded-2xl bg-indigo-50 p-6 text-center mb-3">
                   <div className="text-3xl mb-3">🤔</div>
@@ -8828,11 +8843,14 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                 </button>
               </div>
             )}
-            {(progressiveTyping && inputMode === 'choice' && appState === 'vocab_playing' && !kanjiReadingMode && (currentVocab?.repetitions || 0) >= 5) ? (
+            {(progressiveTyping && inputMode === 'choice' && (
+              (appState === 'vocab_playing' && !kanjiReadingMode && (currentVocab?.repetitions || 0) >= 5) ||
+              (appState === 'verb_playing' && (grammarProgress[`${currentVerb?.id}_${currentTarget}`]?.repetitions || 0) >= 5)
+            )) ? (
                /* 方案 C：精通後打字模式 */
-               <form onSubmit={e => { e.preventDefault(); processVocabAnswer(); }} className="max-w-md mx-auto relative">
+               <form onSubmit={e => { e.preventDefault(); appState === 'vocab_playing' ? processVocabAnswer() : processVerbAnswer(); }} className="max-w-md mx-auto relative">
                  <div className="text-xs font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-full w-fit mx-auto mb-3">✨ 精通模式 — 打字作答</div>
-                 <input type="text" value={userInput} onChange={e => setUserInput(e.target.value)} disabled={feedback !== null} placeholder="輸入平假名…" autoFocus className={`w-full px-5 py-4 text-2xl text-center rounded-2xl border-2 outline-none ${feedback === 'correct' ? 'border-green-500 bg-green-50 text-green-800 font-bold' : feedback ? 'border-red-500 bg-red-50 text-red-800 font-bold' : 'border-slate-200 focus:border-blue-500'}`} />
+                 <input type="text" value={userInput} onChange={e => setUserInput(e.target.value)} disabled={feedback !== null} placeholder={appState === 'vocab_playing' ? '輸入平假名…' : '輸入活用形…'} autoFocus className={`w-full px-5 py-4 text-2xl text-center rounded-2xl border-2 outline-none ${feedback === 'correct' ? 'border-green-500 bg-green-50 text-green-800 font-bold' : feedback ? 'border-red-500 bg-red-50 text-red-800 font-bold' : 'border-slate-200 focus:border-blue-500'}`} />
                  {feedback === 'correct' && <div className="absolute right-4 top-1/2 -translate-y-1/2 text-green-500 animate-in zoom-in"><CheckCircle2 className="w-8 h-8"/></div>}
                  {feedback && feedback !== 'correct' && <div className="absolute right-4 top-1/2 -translate-y-1/2 text-red-500 animate-in zoom-in"><XCircle className="w-8 h-8"/></div>}
                </form>
@@ -8867,7 +8885,7 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                     return (<button key={idx} disabled={feedback !== null} onClick={() => { setUserInput(appState === 'vocab_playing' ? opt : opt.plain); appState === 'vocab_playing' ? processVocabAnswer(opt) : processVerbAnswer(opt.plain); }} className={btnClass}>{appState === 'vocab_playing' ? opt : renderRuby(opt.ruby)}</button>);
                  })}
                </div>
-            ) : !(progressiveTyping && inputMode === 'choice' && appState === 'vocab_playing' && !kanjiReadingMode && (currentVocab?.repetitions || 0) >= 5) && !showThinkPause ? (
+            ) : !(progressiveTyping && inputMode === 'choice' && ((appState === 'vocab_playing' && !kanjiReadingMode && (currentVocab?.repetitions || 0) >= 5) || (appState === 'verb_playing' && (grammarProgress[`${currentVerb?.id}_${currentTarget}`]?.repetitions || 0) >= 5))) && !showThinkPause ? (
                <form onSubmit={e => { e.preventDefault(); appState === 'vocab_playing' ? processVocabAnswer() : processVerbAnswer(); }} className="max-w-md mx-auto relative">
                  <input type="text" value={userInput} onChange={e => setUserInput(e.target.value)} disabled={feedback !== null} placeholder="輸入解答..." autoFocus className={`w-full px-5 py-4 text-2xl text-center rounded-2xl border-2 outline-none ${feedback === 'correct' ? 'border-green-500 bg-green-50 text-green-800 font-bold' : feedback ? 'border-red-500 bg-red-50 text-red-800 font-bold' : 'border-slate-200 focus:border-blue-500'}`} />
                  {feedback === 'correct' && <div className="absolute right-4 top-1/2 -translate-y-1/2 text-green-500 animate-in zoom-in"><CheckCircle2 className="w-8 h-8"/></div>}
@@ -8928,6 +8946,15 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                 </div>
               </div>
             )}
+            {appState === 'verb_playing' && feedback === 'correct' && currentVerb?.note && (
+              <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl p-3 mt-4 animate-in fade-in">
+                <span className="text-lg shrink-0">📌</span>
+                <div>
+                  <div className="text-[10px] font-black text-amber-700 uppercase tracking-wide mb-1">你的記憶方法</div>
+                  <div className="text-sm font-semibold text-amber-900 leading-relaxed">{currentVerb.note}</div>
+                </div>
+              </div>
+            )}
 
             {/* 原有錯誤/超時解析 */}
             {feedback && feedback !== 'correct' && (
@@ -8956,7 +8983,42 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                        </span>
                    </div>
                    )}
-                   {/* 方案 B：記憶筆記 */}
+                   {/* 方案 B：記憶筆記（動詞） */}
+                   {appState === 'verb_playing' && currentVerb && (
+                     currentVerb.note ? (
+                       <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl p-3 mt-1">
+                         <span className="text-lg shrink-0">📌</span>
+                         <div>
+                           <div className="text-[10px] font-black text-amber-700 uppercase tracking-wide mb-1">你的記憶方法</div>
+                           <div className="text-sm font-semibold text-amber-900 leading-relaxed">{currentVerb.note}</div>
+                         </div>
+                       </div>
+                     ) : (
+                       <div className="mt-1 border border-dashed border-amber-300 rounded-xl p-2.5 bg-amber-50/60">
+                         <div className="text-[10px] font-bold text-amber-600 mb-1.5">💡 加入記憶方法（下次答錯時會顯示）</div>
+                         <input
+                           type="text"
+                           value={inlineNoteText}
+                           onChange={e => setInlineNoteText(e.target.value)}
+                           onKeyDown={e => {
+                             if (e.key === 'Enter' && inlineNoteText.trim()) {
+                               setVerbDB(prev => prev.map(v => v.id === currentVerb.id ? { ...v, note: inlineNoteText.trim() } : v));
+                               setInlineNoteText('');
+                             }
+                           }}
+                           onBlur={() => {
+                             if (inlineNoteText.trim()) {
+                               setVerbDB(prev => prev.map(v => v.id === currentVerb.id ? { ...v, note: inlineNoteText.trim() } : v));
+                               setInlineNoteText('');
+                             }
+                           }}
+                           placeholder="例：ない形的記憶方法…（Enter 儲存）"
+                           className="w-full px-3 py-2 text-xs border border-amber-200 rounded-lg bg-white outline-none focus:border-amber-400 text-slate-700"
+                         />
+                       </div>
+                     )
+                   )}
+                   {/* 方案 B：記憶筆記（單字） */}
                    {appState === 'vocab_playing' && currentVocab && (
                      currentVocab.note ? (
                        <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl p-3 mt-1">
