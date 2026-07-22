@@ -168,6 +168,8 @@ const syncKanjiDB = (vocabDB, currentKanjiDB) => {
   let updated = false;
   const newKanjiDB = [...currentKanjiDB];
   const existingKanjis = new Set(newKanjiDB.map(k => k.kanji));
+  const baseTime = Date.now();
+  let addedCount = 0;
 
   vocabDB.forEach(vocab => {
     const kanjis = extractKanjiFromWord(vocab.word);
@@ -175,13 +177,13 @@ const syncKanjiDB = (vocabDB, currentKanjiDB) => {
       if (!existingKanjis.has(k)) {
         existingKanjis.add(k);
         newKanjiDB.push({
-            id: `k_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            id: `k_${baseTime}_${Math.random().toString(36).substr(2, 9)}`,
             kanji: k,
             reading: '',
             meaning: '',
             tags: [],
           jlptLevel: 'Unknown',
-          dateAdded: Date.now()
+          dateAdded: baseTime + addedCount++
         });
         updated = true;
       }
@@ -1251,7 +1253,7 @@ export default function App() {
            if (updatedV.learnStatus === 'learned' && updatedV.status === 'new') updatedV.status = 'learning';
            if (updatedV.repetitions >= 5 && updatedV.status !== 'mastered' && updatedV.status !== 'learning') updatedV.status = 'learning';
            if (!updatedV.status) updatedV.status = 'new';
-           if (updatedV.status === 'mastered' && (updatedV.interval || 0) < 60) updatedV.status = 'learning';
+           if (updatedV.status === 'mastered' && (updatedV.repetitions || 0) < 5) updatedV.status = 'learning';
            delete updatedV.learnStatus;
            return updatedV;
          });
@@ -1340,6 +1342,9 @@ return parsed;
   const [showOnlyImportantVerb, setShowOnlyImportantVerb] = useState(false);
   const [verbManageTypeTab, setVerbManageTypeTab] = useState('all');
   const [showVerbAddSection, setShowVerbAddSection] = useState(false);
+  const [showVerbFixModal, setShowVerbFixModal] = useState(false);
+  const [verbFixCandidates, setVerbFixCandidates] = useState([]);
+  const [verbFixSelected, setVerbFixSelected] = useState(new Set());
   const [showVerbQuickPaste, setShowVerbQuickPaste] = useState(() => localStorage.getItem('verbApp_showVerbQuickPaste') !== 'false');
   const [onlyImportantVocabTest, setOnlyImportantVocabTest] = useState(false);
   const [onlyImportantVerbTest, setOnlyImportantVerbTest] = useState(false);
@@ -1414,7 +1419,25 @@ return parsed;
   const [kanjiDB, setKanjiDB] = useState(() => {
     try {
       const saved = localStorage.getItem('verbApp_kanjiDB');
-      if (saved) return JSON.parse(saved).map(k => ({ ...k, tags: k.tags || [], starred: k.starred || false }));
+      if (saved) {
+        const parsed = JSON.parse(saved).map(k => ({ ...k, tags: k.tags || [], starred: k.starred || false }));
+        // 修正相同 dateAdded：同一時間戳的字根據陣列位置加上 offset，讓排序可以正常運作
+        const tsCount = {};
+        parsed.forEach(k => { const t = k.dateAdded || 0; tsCount[t] = (tsCount[t] || 0) + 1; });
+        const dupTs = new Set(Object.keys(tsCount).filter(t => tsCount[t] > 1).map(Number));
+        if (dupTs.size > 0) {
+          const tsIndex = {};
+          parsed.forEach(k => {
+            const t = k.dateAdded || 0;
+            if (dupTs.has(t)) {
+              tsIndex[t] = (tsIndex[t] || 0);
+              k.dateAdded = t + tsIndex[t];
+              tsIndex[t]++;
+            }
+          });
+        }
+        return parsed;
+      }
     } catch {}
     return [];
   });
@@ -2124,9 +2147,14 @@ return parsed;
   const [currentCorrectRuby, setCurrentCorrectRuby] = useState('');
 
   // ==== 共用測驗設定與進度 ====
-  const [timeLimit, setTimeLimit] = useState(15); 
-  const [inputMode, setInputMode] = useState('choice'); 
-  const [autoAdvance, setAutoAdvance] = useState(false); 
+  const [timeLimit, setTimeLimit] = useState(15);
+  const [inputMode, setInputMode] = useState('choice');
+  const [autoAdvance, setAutoAdvance] = useState(false);
+  const [thinkFirstMode, setThinkFirstMode] = useState(() => localStorage.getItem('jp_think_first_mode') === 'true');
+  const [showThinkPause, setShowThinkPause] = useState(false);
+  const [progressive2Choice, setProgressive2Choice] = useState(() => localStorage.getItem('jp_progressive_2choice') === 'true');
+  const [progressiveTyping, setProgressiveTyping] = useState(() => localStorage.getItem('jp_progressive_typing') === 'true');
+  const [inlineNoteText, setInlineNoteText] = useState('');
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showManualModal, setShowManualModal] = useState(false);
   const [auditCopied, setAuditCopied] = useState(false);
@@ -2594,22 +2622,33 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
     }
 
     const resolvedInputMode = effectiveInputMode || inputMode;
+    const isSentenceMode = currentMode === 'sentence_srs' || currentMode === 'sentence_infinite';
     if (resolvedInputMode === 'choice') {
-        if (currentMode === 'sentence_srs' || currentMode === 'sentence_infinite') {
-            setChoiceOptions(generateSentenceDistractors(nextVocab, vocabDB, direction));
+        let opts;
+        if (isSentenceMode) {
+            opts = generateSentenceDistractors(nextVocab, vocabDB, direction);
         } else if (nextVocab._fromKanjiDB) {
-            // 漢字直接讀音模式：從其他有讀音的漢字取 distractor，不足補 vocabDB
-            const opts = new Set([nextVocab.reading]);
+            const optsSet = new Set([nextVocab.reading]);
             const othersWithReading = kanjiDB.filter(k => k.reading && k.reading.trim() && k.reading.trim() !== nextVocab.reading);
-            [...othersWithReading].sort(() => Math.random() - 0.5).forEach(k => { if (opts.size < 4) opts.add(k.reading.trim()); });
-            if (opts.size < 4) {
-              [...vocabDB].sort(() => Math.random() - 0.5).forEach(v => { if (opts.size < 4 && v.reading && v.reading !== nextVocab.reading) opts.add(v.reading); });
+            [...othersWithReading].sort(() => Math.random() - 0.5).forEach(k => { if (optsSet.size < 4) optsSet.add(k.reading.trim()); });
+            if (optsSet.size < 4) {
+              [...vocabDB].sort(() => Math.random() - 0.5).forEach(v => { if (optsSet.size < 4 && v.reading && v.reading !== nextVocab.reading) optsSet.add(v.reading); });
             }
-            setChoiceOptions(Array.from(opts).sort(() => Math.random() - 0.5));
+            opts = Array.from(optsSet).sort(() => Math.random() - 0.5);
         } else {
-            setChoiceOptions(generateVocabDistractors(nextVocab, vocabDB));
+            opts = generateVocabDistractors(nextVocab, vocabDB);
+            // 方案 C：reps≥3 且啟用漸進2選1 → 只保留正確答案 + 1 個干擾項
+            if (progressive2Choice && (nextVocab.repetitions || 0) >= 3) {
+                const correct = nextVocab.reading;
+                const distractor = opts.filter(o => o !== correct)[Math.floor(Math.random() * (opts.length - 1))];
+                opts = [correct, distractor].sort(() => Math.random() - 0.5);
+            }
         }
+        setChoiceOptions(opts);
     }
+    // 方案 A：選擇題且開啟先想想看 → 顯示思考暫停
+    setShowThinkPause(!!(thinkFirstMode && (resolvedInputMode === 'choice') && !nextVocab._fromKanjiDB && !isSentenceMode));
+    setInlineNoteText('');
   };
 
   const startVerbLearningEngine = () => {
@@ -2728,6 +2767,8 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
   };
 
   const advanceVocabQueue = () => {
+    setShowThinkPause(false);
+    setInlineNoteText('');
     const requeue = feedback === 'incorrect' && (vocabTestMode === 'srs' || vocabTestMode === 'sentence_srs') && !kanjiReadingMode;
     if (requeue && activeVocabQueue[0]) setRequeuedIds(prev => new Set([...prev, activeVocabQueue[0].id]));
     const nextQueue = requeue
@@ -3107,6 +3148,7 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
     // 預填本局隊列，generateVerbQuestion 會從此 ref 依序取題
     verbRoundPoolRef.current = queue.map(item => ({ word: item.word, target: item.target, grammarDef: null }));
     verbSessionTotalRef.current = queue.length;
+    verbSessionOriginalTotalRef.current = queue.length;
     generateVerbQuestion('grammar_srs');
     setAppState('verb_playing');
   };
@@ -3199,7 +3241,8 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
   const [verbFocusTotal, setVerbFocusTotal] = useState(0);
   const verbFocusPoolRef = useRef([]); // 循環池（useRef 避免 setTimeout 內 stale closure）
   const verbRoundPoolRef = useRef([]); // 本局不重複題目池
-  const verbSessionTotalRef = useRef(TOTAL_QUESTIONS); // 本局總題數
+  const verbSessionTotalRef = useRef(TOTAL_QUESTIONS); // 本局總題數（含重考後動態增加）
+  const verbSessionOriginalTotalRef = useRef(TOTAL_QUESTIONS); // 開場原始題數（顯示用，不變）
   const verbSeenInCycleRef = useRef([]); // 本輪已出現的題目 key，重填池時排到最後
   const [verbRequeuedKeys, setVerbRequeuedKeys] = useState(new Set()); // 因答錯而重考的題目
 
@@ -3858,6 +3901,8 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                   next.group = '3';
               } else if (/[むぬぶすくぐつう]$/.test(j)) {
                   next.group = '1';
+              } else if (j.endsWith('る')) {
+                  next.group = '2';
               }
           }
           if ((key === 'masu' || key === 'jisho' || key === 'group' || key === 'type') && next.type === 'verb') {
@@ -3917,6 +3962,39 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
       if (naList.includes(jisho)) return { type: 'adj_na', group: 'na' };
       if (jisho.endsWith('い')) return { type: 'adj_i', group: 'i' };
       return { type: 'unknown', group: '1' };
+    };
+
+    const scanAndFixIchidanVerbs = () => {
+      const candidates = verbDB.filter(v => {
+        if (v.type !== 'verb') return false;
+        const j = stripRuby(v.jisho || '');
+        if (!j.endsWith('る')) return false;
+        if (j.endsWith('する') || j === 'くる' || j === '来る') return false;
+        return String(v.group) === '1';
+      });
+      if (candidates.length === 0) {
+        alert('✅ 沒有發現疑似錯誤的一段動詞，所有活用看起來正確！');
+        return;
+      }
+      setVerbFixCandidates(candidates);
+      setVerbFixSelected(new Set(candidates.map(v => v.id)));
+      setShowVerbFixModal(true);
+    };
+
+    const applyIchidanFix = (idsToFix) => {
+      setVerbDB(prev => {
+        const updated = prev.map(v => {
+          if (!idsToFix.includes(v.id)) return v;
+          const j = v.jisho || '';
+          const newForms = autoConjugate(j, '2');
+          if (!newForms || Object.keys(newForms).length === 0) return v;
+          return { ...v, group: 2, ...newForms };
+        });
+        localStorage.setItem('verbApp_verbDB', JSON.stringify(updated));
+        return updated;
+      });
+      setShowVerbFixModal(false);
+      setVerbFixCandidates([]);
     };
 
     const handleVerbSmartImport = () => {
@@ -4580,6 +4658,23 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                     <label className="flex items-center gap-2 cursor-pointer p-2"><input type="checkbox" checked={autoAdvance} onChange={(e)=>setAutoAdvance(e.target.checked)} className="w-5 h-5 text-blue-600 rounded"/><span>答對時自動進入下一題 (無縫體驗)</span></label>
                 </div>
                 <div>
+                    <h3 className="text-sm font-bold text-slate-700 mb-2 uppercase tracking-wider">🧠 記憶強化（單字）</h3>
+                    <div className="space-y-1">
+                      <label className="flex items-start gap-2 cursor-pointer p-2 rounded-lg hover:bg-slate-50">
+                        <input type="checkbox" checked={thinkFirstMode} onChange={e => { setThinkFirstMode(e.target.checked); localStorage.setItem('jp_think_first_mode', String(e.target.checked)); }} className="w-5 h-5 text-indigo-600 rounded mt-0.5"/>
+                        <span><span className="font-semibold">先想想看模式</span><br/><span className="text-xs text-slate-400">出題後先隱藏選項，強制主動回憶後再顯示</span></span>
+                      </label>
+                      <label className="flex items-start gap-2 cursor-pointer p-2 rounded-lg hover:bg-slate-50">
+                        <input type="checkbox" checked={progressive2Choice} onChange={e => { setProgressive2Choice(e.target.checked); localStorage.setItem('jp_progressive_2choice', String(e.target.checked)); }} className="w-5 h-5 text-indigo-600 rounded mt-0.5"/>
+                        <span><span className="font-semibold">漸進 2 選 1</span><br/><span className="text-xs text-slate-400">單字答對 3 次後自動縮減為 2 個選項</span></span>
+                      </label>
+                      <label className="flex items-start gap-2 cursor-pointer p-2 rounded-lg hover:bg-slate-50">
+                        <input type="checkbox" checked={progressiveTyping} onChange={e => { setProgressiveTyping(e.target.checked); localStorage.setItem('jp_progressive_typing', String(e.target.checked)); }} className="w-5 h-5 text-indigo-600 rounded mt-0.5"/>
+                        <span><span className="font-semibold">精通後打字模式</span><br/><span className="text-xs text-slate-400">答對 5 次（精通）後自動切換為打字作答</span></span>
+                      </label>
+                    </div>
+                </div>
+                <div>
                     <h3 className="text-sm font-bold text-slate-700 mb-2 uppercase tracking-wider">⭐ 專屬特訓</h3>
                     {(appState === 'vocab_playing' || appState === 'home') && (
                       <label className="flex items-center gap-2 cursor-pointer p-2"><input type="checkbox" checked={onlyImportantVocabTest} onChange={(e)=>setOnlyImportantVocabTest(e.target.checked)} className="w-5 h-5 text-amber-500 rounded border-slate-300"/><span>僅針對標記為「重要」的單字出題</span></label>
@@ -5093,10 +5188,9 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                    const nowMs = clockNow.getTime();
                    const jstNow = new Date(nowMs + 9 * 3600000);
                    const jstTimeStr = jstNow.toISOString().slice(11, 19);
-                   // 下一個 JST 00:00 = UTC 的下一個 15:00（即 JST 隔日 00:00）
-                   const nowJSTms = nowMs + 9 * 3600000;
-                   const nextJSTMidnightUTC = Math.ceil(nowJSTms / 86400000) * 86400000 - 9 * 3600000;
-                   const diff = nextJSTMidnightUTC - nowMs;
+                   // 下一個 JST 04:00（實際換日時間）= +5h offset 與 todayDateStr 邏輯一致
+                   const next04UTC = Math.ceil((nowMs + 5 * 3600000) / 86400000) * 86400000 - 5 * 3600000;
+                   const diff = next04UTC - nowMs;
                    const hh = String(Math.floor(diff / 3600000)).padStart(2, '0');
                    const mm = String(Math.floor((diff % 3600000) / 60000)).padStart(2, '0');
                    const ss = String(Math.floor((diff % 60000) / 1000)).padStart(2, '0');
@@ -5112,7 +5206,7 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                        <div className="flex flex-col items-end sm:items-center sm:flex-row gap-1 sm:gap-2">
                          <span className="text-slate-400 text-xs">🔄 重整まで</span>
                          <span className={`font-mono font-bold text-sm tracking-wider ${isUrgent ? 'text-orange-500' : 'text-slate-700'}`}>{hh}:{mm}:{ss}</span>
-                         <span className="text-slate-300 text-xs hidden sm:inline">（毎日 00:00 JST）</span>
+                         <span className="text-slate-300 text-xs hidden sm:inline">（毎日 04:00 JST）</span>
                        </div>
                      </div>
                    );
@@ -5127,9 +5221,11 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                 {(() => {
                   const todayStr = todayDateStr();
                   const todayD = new Date();
-                  const startD = new Date(todayD);
-                  startD.setDate(todayD.getDate() - 34);
-                  startD.setDate(startD.getDate() - startD.getDay());
+                  todayD.setHours(0,0,0,0);
+                  const todayWeekStart = new Date(todayD);
+                  todayWeekStart.setDate(todayD.getDate() - todayD.getDay());
+                  const startD = new Date(todayWeekStart);
+                  startD.setDate(todayWeekStart.getDate() - 14);
                   const cells = [];
                   for (let i = 0; i < 35; i++) {
                     const d = new Date(startD);
@@ -5137,7 +5233,7 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                     const ds = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
                     const cnt = studyCalendar[ds] || 0;
                     const future = d > todayD;
-                    cells.push({ds, cnt, isToday: ds===todayStr, future});
+                    cells.push({ds, cnt, isToday: ds===todayStr, future, day: d.getDate()});
                   }
                   const studied = cells.filter(c => c.cnt > 0).length;
                   const monthLabel = `${todayD.getMonth()+1} 月學習記錄`;
@@ -5158,9 +5254,11 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                           <div
                             key={i}
                             title={cell.cnt>0?`${cell.ds} ${cell.cnt} 題`:cell.ds}
-                            className={`rounded-[4px]${cell.isToday?' ring-2 ring-orange-500 ring-offset-1':''}`}
-                            style={{height:'22px',background:cell.future?'#f8f6f3':intensity(cell.cnt)}}
-                          />
+                            className={`rounded-[6px] flex items-center justify-center${cell.isToday?' ring-2 ring-orange-500 ring-offset-1':''}`}
+                            style={{height:'32px',background:cell.future?'#f8f6f3':intensity(cell.cnt)}}
+                          >
+                            <span style={{fontSize:'10px',fontWeight:cell.isToday?900:700,color:cell.isToday?'#ea580c':'#1c1917',opacity:cell.future?0.3:cell.cnt>0?0.9:0.55,lineHeight:1}}>{cell.day}</span>
+                          </div>
                         ))}
                       </div>
                       <div className="flex items-center justify-between mt-2.5">
@@ -7291,6 +7389,9 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                 </div>
                 <div className="flex items-center gap-3 flex-wrap">
                   <span className="text-sm font-bold text-slate-500">動詞: {verbDB.filter(v=>v.type==='verb').length} | 形容詞: {verbDB.filter(v=>v.type==='adj_i'||v.type==='adj_na').length}</span>
+                  <button onClick={scanAndFixIchidanVerbs} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 font-bold text-sm hover:bg-rose-100 transition-colors">
+                    🔍 掃描錯誤活用
+                  </button>
                   <label className="flex items-center gap-2 cursor-pointer select-none bg-amber-50 text-amber-700 px-3 py-1.5 rounded-xl font-bold border border-amber-200 hover:bg-amber-100 transition-colors">
                     <input type="checkbox" checked={showOnlyImportantVerb} onChange={(e)=>setShowOnlyImportantVerb(e.target.checked)} className="hidden"/>
                     <Star className={`w-4 h-4 ${showOnlyImportantVerb ? 'fill-amber-500 text-amber-500' : 'text-amber-500/50'}`}/>
@@ -8492,7 +8593,7 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
 
       {/* ==== 進行中 (Playing UI) ==== */}
       {!isRoundComplete && (appState === 'vocab_playing' || appState === 'verb_playing') && (
-         <div className="max-w-2xl mx-auto bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-100 text-center relative overflow-hidden">
+         <div className="max-w-4xl mx-auto bg-white p-6 sm:p-10 rounded-3xl shadow-sm border border-slate-100 text-center relative overflow-hidden">
             
             {isPaused && !showQuizNote && (
                 <div className="absolute inset-0 z-50 flex items-center justify-center bg-white/80 backdrop-blur-sm">
@@ -8562,7 +8663,7 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                   {appState === 'verb_playing' && verbTestMode === 'rpg' ? (
                      <div className="flex items-center gap-3 bg-red-50 px-4 py-1.5 rounded-full border border-red-100"><Heart className={`w-5 h-5 text-red-500 ${hp > 0 ? 'fill-current animate-pulse' : ''}`} /><span className="font-black text-red-600">HP: {hp}</span><div className="ml-2 pl-3 border-l-2 border-red-200 flex gap-3 text-sm font-bold"><span className="text-slate-700">總答對: {score}</span><span className="text-amber-600">連擊: {combo}</span></div></div>
                   ) : (
-                     <div className="bg-slate-100 px-4 py-1.5 rounded-full text-sm font-bold text-slate-600 w-fit">{appState === 'vocab_playing' && vocabTestMode === 'srs' ? `SRS 待處理: ${activeVocabQueue.length}` : `題目: ${questionCount} / ${verbTestMode === 'grammar_srs' ? verbSessionTotalRef.current : TOTAL_QUESTIONS}`}</div>
+                     <div className="bg-slate-100 px-4 py-1.5 rounded-full text-sm font-bold text-slate-600 w-fit">{appState === 'vocab_playing' && vocabTestMode === 'srs' ? `SRS 待處理: ${activeVocabQueue.length}` : `題目: ${questionCount} / ${verbTestMode === 'grammar_srs' ? verbSessionOriginalTotalRef.current : TOTAL_QUESTIONS}`}</div>
                   )}
                </div>
                <div className="flex items-start gap-2 mt-1">
@@ -8708,10 +8809,37 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
               </div>
             )}
 
-            {inputMode === 'choice' ? (
-               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-lg mx-auto">
+            {(() => {
+              // 方案 C：精通後（reps≥5）自動切換打字模式
+              const effectiveInputMode = (progressiveTyping && inputMode === 'choice' && appState === 'vocab_playing' && !kanjiReadingMode && (currentVocab?.repetitions || 0) >= 5) ? 'keyboard' : inputMode;
+              return effectiveInputMode;
+            })() === 'choice' && showThinkPause && appState === 'vocab_playing' && (
+              <div className="max-w-2xl mx-auto">
+                <div className="border-2 border-dashed border-indigo-200 rounded-2xl bg-indigo-50 p-6 text-center mb-3">
+                  <div className="text-3xl mb-3">🤔</div>
+                  <div className="text-base font-bold text-indigo-700 mb-1">先在腦中想想看…</div>
+                  <div className="text-xs text-indigo-400">想到了嗎？準備好再按下方按鈕</div>
+                </div>
+                <button onClick={() => setShowThinkPause(false)} className="w-full py-4 rounded-2xl bg-indigo-500 text-white font-black text-base hover:bg-indigo-600 transition-colors mb-2">
+                  我想好了 → 顯示選項
+                </button>
+                <button onClick={() => setShowThinkPause(false)} className="w-full py-2.5 rounded-xl bg-slate-100 text-slate-500 font-bold text-sm hover:bg-slate-200 transition-colors">
+                  我不知道，直接顯示
+                </button>
+              </div>
+            )}
+            {(progressiveTyping && inputMode === 'choice' && appState === 'vocab_playing' && !kanjiReadingMode && (currentVocab?.repetitions || 0) >= 5) ? (
+               /* 方案 C：精通後打字模式 */
+               <form onSubmit={e => { e.preventDefault(); processVocabAnswer(); }} className="max-w-md mx-auto relative">
+                 <div className="text-xs font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-full w-fit mx-auto mb-3">✨ 精通模式 — 打字作答</div>
+                 <input type="text" value={userInput} onChange={e => setUserInput(e.target.value)} disabled={feedback !== null} placeholder="輸入平假名…" autoFocus className={`w-full px-5 py-4 text-2xl text-center rounded-2xl border-2 outline-none ${feedback === 'correct' ? 'border-green-500 bg-green-50 text-green-800 font-bold' : feedback ? 'border-red-500 bg-red-50 text-red-800 font-bold' : 'border-slate-200 focus:border-blue-500'}`} />
+                 {feedback === 'correct' && <div className="absolute right-4 top-1/2 -translate-y-1/2 text-green-500 animate-in zoom-in"><CheckCircle2 className="w-8 h-8"/></div>}
+                 {feedback && feedback !== 'correct' && <div className="absolute right-4 top-1/2 -translate-y-1/2 text-red-500 animate-in zoom-in"><XCircle className="w-8 h-8"/></div>}
+               </form>
+            ) : inputMode === 'choice' && !showThinkPause ? (
+               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl mx-auto">
                  {choiceOptions.map((opt, idx) => {
-                    let btnClass = "py-4 px-6 rounded-2xl border-2 text-xl font-bold transition-all ";
+                    let btnClass = "py-5 px-8 rounded-2xl border-2 text-xl font-bold transition-all ";
                     let isPlainMatch = false;
                     
                     if (appState === 'vocab_playing') {
@@ -8739,13 +8867,13 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                     return (<button key={idx} disabled={feedback !== null} onClick={() => { setUserInput(appState === 'vocab_playing' ? opt : opt.plain); appState === 'vocab_playing' ? processVocabAnswer(opt) : processVerbAnswer(opt.plain); }} className={btnClass}>{appState === 'vocab_playing' ? opt : renderRuby(opt.ruby)}</button>);
                  })}
                </div>
-            ) : (
+            ) : !(progressiveTyping && inputMode === 'choice' && appState === 'vocab_playing' && !kanjiReadingMode && (currentVocab?.repetitions || 0) >= 5) ? (
                <form onSubmit={e => { e.preventDefault(); appState === 'vocab_playing' ? processVocabAnswer() : processVerbAnswer(); }} className="max-w-md mx-auto relative">
                  <input type="text" value={userInput} onChange={e => setUserInput(e.target.value)} disabled={feedback !== null} placeholder="輸入解答..." autoFocus className={`w-full px-5 py-4 text-2xl text-center rounded-2xl border-2 outline-none ${feedback === 'correct' ? 'border-green-500 bg-green-50 text-green-800 font-bold' : feedback ? 'border-red-500 bg-red-50 text-red-800 font-bold' : 'border-slate-200 focus:border-blue-500'}`} />
                  {feedback === 'correct' && <div className="absolute right-4 top-1/2 -translate-y-1/2 text-green-500 animate-in zoom-in"><CheckCircle2 className="w-8 h-8"/></div>}
                  {feedback && feedback !== 'correct' && <div className="absolute right-4 top-1/2 -translate-y-1/2 text-red-500 animate-in zoom-in"><XCircle className="w-8 h-8"/></div>}
                </form>
-            )}
+            ) : null}
 
             {inputMode === 'keyboard' && feedback === null && (
                <button onClick={() => appState === 'vocab_playing' ? processVocabAnswer() : processVerbAnswer()} className="mt-6 max-w-md mx-auto w-full py-4 bg-slate-800 text-white rounded-xl font-bold text-lg hover:bg-slate-700">送出答案 (Enter)</button>
@@ -8790,6 +8918,17 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                </div>
             )}
 
+            {/* 答對時顯示記憶筆記 */}
+            {appState === 'vocab_playing' && !kanjiReadingMode && feedback === 'correct' && currentVocab?.note && (
+              <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl p-3 mt-4 animate-in fade-in">
+                <span className="text-lg shrink-0">📌</span>
+                <div>
+                  <div className="text-[10px] font-black text-amber-700 uppercase tracking-wide mb-1">你的記憶方法</div>
+                  <div className="text-sm font-semibold text-amber-900 leading-relaxed">{currentVocab.note}</div>
+                </div>
+              </div>
+            )}
+
             {/* 原有錯誤/超時解析 */}
             {feedback && feedback !== 'correct' && (
                <div className="mt-6 p-5 bg-red-50 border border-red-100 rounded-2xl text-left animate-in slide-in-from-bottom-4">
@@ -8805,16 +8944,53 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
                                : renderRuby(currentCorrectRuby)}
                        </span>
                    </div>
+                   {(appState !== 'vocab_playing' || (vocabTestMode === 'sentence_srs' || vocabTestMode === 'sentence_infinite') || (currentVocab.word && currentVocab.word !== currentVocab.reading)) && (
                    <div className="flex gap-2 bg-white/60 p-3 rounded-xl">
                        <span className="font-semibold text-red-700 whitespace-nowrap">重點提示：</span>
                        <span className="font-medium leading-relaxed">
-                           {appState === 'vocab_playing' 
+                           {appState === 'vocab_playing'
                                ? ((vocabTestMode === 'sentence_srs' || vocabTestMode === 'sentence_infinite')
                                    ? `核心單字：${currentVocab.word || currentVocab.reading} (${currentVocab.meaning})`
-                                   : (currentVocab.word ? `日文漢字寫作「${currentVocab.word}」` : `此單字為純假名組合`))
+                                   : `日文漢字寫作「${currentVocab.word}」`)
                                : explanation}
                        </span>
                    </div>
+                   )}
+                   {/* 方案 B：記憶筆記 */}
+                   {appState === 'vocab_playing' && currentVocab && (
+                     currentVocab.note ? (
+                       <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl p-3 mt-1">
+                         <span className="text-lg shrink-0">📌</span>
+                         <div>
+                           <div className="text-[10px] font-black text-amber-700 uppercase tracking-wide mb-1">你的記憶方法</div>
+                           <div className="text-sm font-semibold text-amber-900 leading-relaxed">{currentVocab.note}</div>
+                         </div>
+                       </div>
+                     ) : (
+                       <div className="mt-1 border border-dashed border-amber-300 rounded-xl p-2.5 bg-amber-50/60">
+                         <div className="text-[10px] font-bold text-amber-600 mb-1.5">💡 加入記憶方法（下次答錯時會顯示）</div>
+                         <input
+                           type="text"
+                           value={inlineNoteText}
+                           onChange={e => setInlineNoteText(e.target.value)}
+                           onKeyDown={e => {
+                             if (e.key === 'Enter' && inlineNoteText.trim()) {
+                               setVocabDB(prev => prev.map(v => v.id === currentVocab.id ? { ...v, note: inlineNoteText.trim() } : v));
+                               setInlineNoteText('');
+                             }
+                           }}
+                           onBlur={() => {
+                             if (inlineNoteText.trim()) {
+                               setVocabDB(prev => prev.map(v => v.id === currentVocab.id ? { ...v, note: inlineNoteText.trim() } : v));
+                               setInlineNoteText('');
+                             }
+                           }}
+                           placeholder="例：はんこ → 半個圓章…（Enter 儲存）"
+                           className="w-full px-3 py-2 text-xs border border-amber-200 rounded-lg bg-white outline-none focus:border-amber-400 text-slate-700"
+                         />
+                       </div>
+                     )
+                   )}
                  </div>
                </div>
             )}
@@ -8967,6 +9143,68 @@ ${_kanjiDB.map(k => `${k.kanji}（${k.reading || '無讀音'}）${k.meaning ? '-
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] bg-green-600 text-white px-5 py-3 rounded-2xl shadow-lg font-bold text-sm animate-in slide-in-from-bottom-4">
           📋 稽核報告已複製！請開新的 Claude 對話貼上分析
         </div>
+      )}
+
+      {/* 一段動詞修復 Modal */}
+      {showVerbFixModal && verbFixCandidates.length > 0 && (
+          <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" onMouseDown={e => { if (e.target === e.currentTarget) setShowVerbFixModal(false); }}>
+            <div className="relative bg-white rounded-2xl w-full max-w-lg flex flex-col max-h-[85vh]" style={{boxShadow:'0 32px 80px -8px rgba(0,0,0,0.28)'}}>
+              {/* 標題 */}
+              <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-100">
+                <div>
+                  <div className="font-black text-rose-600 text-base">🔍 疑似錯誤的一段動詞</div>
+                  <div className="text-xs text-slate-400 mt-0.5">以下 る 結尾的動詞被標記為五段（第一類），可能需要修正為一段（第二類）</div>
+                </div>
+                <button onClick={() => setShowVerbFixModal(false)} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">✕</button>
+              </div>
+              {/* 全選 */}
+              <div className="px-5 py-2 border-b border-slate-100 flex items-center gap-2">
+                <input type="checkbox" id="fix-all"
+                  checked={verbFixSelected.size === verbFixCandidates.length}
+                  onChange={() => {
+                    if (verbFixSelected.size === verbFixCandidates.length) setVerbFixSelected(new Set());
+                    else setVerbFixSelected(new Set(verbFixCandidates.map(v => v.id)));
+                  }}
+                  className="w-4 h-4 accent-rose-500 cursor-pointer"/>
+                <label htmlFor="fix-all" className="text-xs font-bold text-slate-600 cursor-pointer">全選（{verbFixCandidates.length} 個）</label>
+              </div>
+              {/* 清單 */}
+              <div className="overflow-y-auto flex-1 px-5 py-3 space-y-2">
+                {verbFixCandidates.map(v => {
+                  const isChecked = verbFixSelected.has(v.id);
+                  return (
+                    <label key={v.id} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${isChecked ? 'border-rose-200 bg-rose-50' : 'border-slate-100 bg-white'}`}>
+                      <input type="checkbox" checked={isChecked} onChange={() => {
+                        const next = new Set(verbFixSelected);
+                        if (next.has(v.id)) next.delete(v.id); else next.add(v.id);
+                        setVerbFixSelected(next);
+                      }} className="w-4 h-4 accent-rose-500 shrink-0"/>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-bold text-sm text-slate-800">{v.jisho}</span>
+                          {v.meaning && <span className="text-xs text-slate-500">{v.meaning}</span>}
+                        </div>
+                        <div className="text-xs text-slate-400 mt-0.5">
+                          現在：五段（て形 → {v.te || '?'}）→ 修正後：一段（て形 → {(v.jisho || '').replace(/る$/, '')}て）
+                        </div>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+              {/* 底部按鈕 */}
+              <div className="flex gap-3 px-5 py-3.5 border-t border-slate-100">
+                <button onClick={() => setShowVerbFixModal(false)} className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold text-sm hover:bg-slate-50 transition-colors">取消</button>
+                <button
+                  onClick={() => applyIchidanFix([...verbFixSelected])}
+                  disabled={verbFixSelected.size === 0}
+                  className="flex-1 py-2.5 rounded-xl bg-rose-500 text-white font-bold text-sm hover:bg-rose-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  ✅ 修正選取的 {verbFixSelected.size} 個
+                </button>
+              </div>
+            </div>
+          </div>
       )}
     </div>
   );
