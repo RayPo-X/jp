@@ -1963,7 +1963,7 @@ return parsed;
       }
     }, 12000);
     return () => { if (autoSyncTimerRef.current) clearTimeout(autoSyncTimerRef.current); };
-  }, [vocabDB, verbDB, kanjiDB, customGrammars, grammarProgress, verbForms, verbTableColumnOrder, studyCalendar, addStreak, lastStreakDate, githubToken, gistId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [vocabDB, verbDB, kanjiDB, customGrammars, grammarProgress, verbForms, verbTableColumnOrder, githubToken, gistId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 計算今日文法待複習佇列（有每日新題上限，行為與單字SRS一致）
   const todayGrammarQueue = React.useMemo(() => {
